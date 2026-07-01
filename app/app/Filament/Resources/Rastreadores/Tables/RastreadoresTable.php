@@ -57,13 +57,18 @@ class RastreadoresTable
                 DeleteAction::make()
                     ->label('Excluir')
                     ->visible(fn (): bool => auth()->user()?->hasPermission(Permission::CADASTRO_EXCLUSAO) ?? false)
-                    ->requiresConfirmation(),
+                    ->modalSubmitActionLabel('Excluir')
+                    ->requiresConfirmation()
+                    ->modalDescription('Deseja excluir este rastreador?'),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
                         ->visible(fn (): bool => auth()->user()?->hasPermission(Permission::CADASTRO_EXCLUSAO) ?? false)
-                        ->label('Excluir selecionados'),
+                        ->label('Excluir selecionados')
+                        ->modalSubmitActionLabel('Excluir')
+                        ->requiresConfirmation()
+                        ->modalDescription('Deseja excluir os rastreadores selecionados?'),
                 ]),
             ])
             ->defaultSort('updated_at', 'desc');

@@ -2,8 +2,8 @@
 
 namespace App\Filament\Pages;
 
+use App\Models\Chip;
 use App\Models\Permission;
-use App\Models\Rastreador;
 use App\Models\StatusRastreador;
 use App\Models\Tecnico;
 use Filament\Actions\Action;
@@ -16,21 +16,21 @@ use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use UnitEnum;
 
-class EstoqueRastreadores extends Page
+class EstoqueChips extends Page
 {
-    protected static ?string $slug = 'estoque-rastreadores';
+    protected static ?string $slug = 'estoque-chips';
 
     protected static string|UnitEnum|null $navigationGroup = 'Estoque';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 2;
 
     protected static string|\BackedEnum|null $navigationIcon = Heroicon::OutlinedCpuChip;
 
-    protected static ?string $navigationLabel = 'Rastreadores';
+    protected static ?string $navigationLabel = 'Chips';
 
-    protected static ?string $title = 'Estoque de Rastreadores';
+    protected static ?string $title = 'Estoque de Chips';
 
-    protected string $view = 'filament.pages.estoque-rastreadores';
+    protected string $view = 'filament.pages.estoque-chips';
 
     public static function canAccess(): bool
     {
@@ -41,7 +41,7 @@ class EstoqueRastreadores extends Page
     {
         return [
             '#' => 'Estoque',
-            self::getUrl() => 'Rastreadores',
+            self::getUrl() => 'Chips',
         ];
     }
 
@@ -63,21 +63,21 @@ class EstoqueRastreadores extends Page
             ->modalSubmitActionLabel('Excluir')
             ->color('danger')
             ->requiresConfirmation()
-            ->modalDescription('Deseja excluir este rastreador?')
+            ->modalDescription('Deseja excluir este chip?')
             ->action(fn (array $arguments): mixed => $this->excluir((int) $arguments['id']));
     }
 
     public ?int $editingId = null;
 
-    public string $modelo = '';
+    public string $fornecedor = '';
 
-    public ?int $ativacao = null;
+    public string $operadora = '';
 
-    public string $imei = '';
-
-    public ?int $status_rastreador_id = null;
+    public string $iccid = '';
 
     public ?int $tecnico_id = null;
+
+    public ?int $status_rastreador_id = null;
 
     public string $search = '';
 
@@ -91,9 +91,8 @@ class EstoqueRastreadores extends Page
 
     public function mount(): void
     {
-        $this->ativacao = (int) now()->year;
         $this->status_rastreador_id = StatusRastreador::query()
-            ->where('label', 'Ativo')
+            ->where('label', 'Disponivel')
             ->value('id');
     }
 
@@ -106,38 +105,35 @@ class EstoqueRastreadores extends Page
         }
 
         $isEditing = $this->editingId !== null;
-        $modeloAtual = $this->modelo;
+        $fornecedorAtual = $this->fornecedor;
+        $operadoraAtual = $this->operadora;
 
         $data = $this->validate([
-            'modelo' => ['required', 'string', 'max:50'],
-            'ativacao' => ['nullable', 'integer'],
-            'imei' => [
+            'fornecedor' => ['nullable', 'string', 'max:50'],
+            'operadora' => ['nullable', 'string', 'max:50'],
+            'iccid' => [
                 'required',
                 'string',
                 'max:50',
-                Rule::unique('rastreadores', 'imei')->ignore($this->editingId),
+                Rule::unique('chips', 'iccid')->ignore($this->editingId),
             ],
-            'status_rastreador_id' => ['nullable', 'exists:status_rastreadores,id'],
             'tecnico_id' => ['nullable', 'exists:tecnicos,id'],
+            'status_rastreador_id' => ['nullable', 'exists:status_rastreadores,id'],
         ], [], [
-            'modelo' => 'modelo',
-            'ativacao' => 'ativacao',
-            'imei' => 'IMEI',
-            'status_rastreador_id' => 'status estoque',
+            'fornecedor' => 'fornecedor',
+            'operadora' => 'operadora',
+            'iccid' => 'numero chip',
             'tecnico_id' => 'tecnico',
+            'status_rastreador_id' => 'status estoque',
         ]);
 
-        Rastreador::query()->updateOrCreate(
+        Chip::query()->updateOrCreate(
             ['id' => $this->editingId],
-            [
-                ...$data,
-                'is_estoque' => true,
-                'criado_em' => now(),
-            ],
+            $data,
         );
 
         Notification::make()
-            ->title($this->editingId ? 'Rastreador atualizado.' : 'Rastreador incluido.')
+            ->title($this->editingId ? 'Chip atualizado.' : 'Chip incluido.')
             ->success()
             ->send();
 
@@ -145,7 +141,8 @@ class EstoqueRastreadores extends Page
         $this->pagina = 1;
 
         if (! $isEditing) {
-            $this->modelo = $modeloAtual;
+            $this->fornecedor = $fornecedorAtual;
+            $this->operadora = $operadoraAtual;
         }
     }
 
@@ -157,14 +154,14 @@ class EstoqueRastreadores extends Page
             return;
         }
 
-        $rastreador = Rastreador::query()->findOrFail($id);
+        $chip = Chip::query()->findOrFail($id);
 
-        $this->editingId = $rastreador->id;
-        $this->modelo = (string) $rastreador->modelo;
-        $this->ativacao = $rastreador->ativacao;
-        $this->imei = (string) $rastreador->imei;
-        $this->status_rastreador_id = $rastreador->status_rastreador_id;
-        $this->tecnico_id = $rastreador->tecnico_id;
+        $this->editingId = $chip->id;
+        $this->fornecedor = (string) $chip->fornecedor;
+        $this->operadora = (string) $chip->operadora;
+        $this->iccid = (string) $chip->iccid;
+        $this->tecnico_id = $chip->tecnico_id;
+        $this->status_rastreador_id = $chip->status_rastreador_id;
     }
 
     public function excluir(int $id): void
@@ -175,14 +172,14 @@ class EstoqueRastreadores extends Page
             return;
         }
 
-        Rastreador::query()->whereKey($id)->delete();
+        Chip::query()->whereKey($id)->delete();
 
         if ($this->editingId === $id) {
             $this->limparFormulario();
         }
 
         Notification::make()
-            ->title('Rastreador excluido.')
+            ->title('Chip excluido.')
             ->success()
             ->send();
 
@@ -191,10 +188,9 @@ class EstoqueRastreadores extends Page
 
     public function limparFormulario(): void
     {
-        $this->reset(['editingId', 'modelo', 'ativacao', 'imei', 'tecnico_id']);
-        $this->ativacao = (int) now()->year;
+        $this->reset(['editingId', 'fornecedor', 'operadora', 'iccid', 'tecnico_id']);
         $this->status_rastreador_id = StatusRastreador::query()
-            ->where('label', 'Ativo')
+            ->where('label', 'Disponivel')
             ->value('id');
     }
 
@@ -228,22 +224,22 @@ class EstoqueRastreadores extends Page
 
     public function exportarCsv(): StreamedResponse
     {
-        $fileName = 'estoque-rastreadores-'.now()->format('Y-m-d-His').'.csv';
-        $rastreadores = $this->rastreadoresQuery()->get();
+        $fileName = 'estoque-chips-'.now()->format('Y-m-d-His').'.csv';
+        $chips = $this->chipsQuery()->get();
 
-        return response()->streamDownload(function () use ($rastreadores): void {
+        return response()->streamDownload(function () use ($chips): void {
             $handle = fopen('php://output', 'w');
 
             fwrite($handle, "\xEF\xBB\xBF");
-            fputcsv($handle, ['Modelo', 'IMEI', 'Ativacao', 'Status Estoque', 'Tecnico'], ';');
+            fputcsv($handle, ['Numero Chip', 'Fornecedor', 'Operadora', 'Status Estoque', 'Tecnico'], ';');
 
-            foreach ($rastreadores as $rastreador) {
+            foreach ($chips as $chip) {
                 fputcsv($handle, [
-                    $rastreador->modelo,
-                    $rastreador->imei,
-                    $rastreador->ativacao,
-                    $rastreador->statusRastreador?->label,
-                    $rastreador->tecnico?->nome,
+                    $chip->iccid,
+                    $chip->fornecedor,
+                    $chip->operadora,
+                    $chip->statusRastreador?->label,
+                    $chip->tecnico?->nome,
                 ], ';');
             }
 
@@ -268,27 +264,27 @@ class EstoqueRastreadores extends Page
             ->get();
     }
 
-    public function rastreadores(): Collection
+    public function chips(): Collection
     {
-        return $this->rastreadoresQuery()
+        return $this->chipsQuery()
             ->offset(($this->pagina - 1) * self::ITENS_POR_PAGINA)
             ->limit(self::ITENS_POR_PAGINA)
             ->get();
     }
 
-    public function totalRastreadores(): int
+    public function totalChips(): int
     {
-        return (clone $this->rastreadoresQuery())->toBase()->getCountForPagination();
+        return (clone $this->chipsQuery())->toBase()->getCountForPagination();
     }
 
     public function totalPaginas(): int
     {
-        return max(1, (int) ceil($this->totalRastreadores() / self::ITENS_POR_PAGINA));
+        return max(1, (int) ceil($this->totalChips() / self::ITENS_POR_PAGINA));
     }
 
     public function inicioPagina(): int
     {
-        if ($this->totalRastreadores() === 0) {
+        if ($this->totalChips() === 0) {
             return 0;
         }
 
@@ -297,7 +293,7 @@ class EstoqueRastreadores extends Page
 
     public function fimPagina(): int
     {
-        return min($this->totalRastreadores(), $this->pagina * self::ITENS_POR_PAGINA);
+        return min($this->totalChips(), $this->pagina * self::ITENS_POR_PAGINA);
     }
 
     public function paginasVisiveis(): array
@@ -329,9 +325,9 @@ class EstoqueRastreadores extends Page
         return $visible;
     }
 
-    private function rastreadoresQuery(): Builder
+    private function chipsQuery(): Builder
     {
-        return Rastreador::query()
+        return Chip::query()
             ->with(['statusRastreador', 'tecnico'])
             ->when($this->filtroTecnicoId, fn ($query): mixed => $query->where('tecnico_id', $this->filtroTecnicoId))
             ->when($this->filtroStatusId, fn ($query): mixed => $query->where('status_rastreador_id', $this->filtroStatusId))
@@ -340,14 +336,15 @@ class EstoqueRastreadores extends Page
 
                 $query->where(function ($query) use ($search): void {
                     $query
-                        ->where('modelo', 'like', $search)
-                        ->orWhere('imei', 'like', $search)
-                        ->orWhere('ativacao', 'like', $search)
+                        ->where('iccid', 'like', $search)
+                        ->orWhere('fornecedor', 'like', $search)
+                        ->orWhere('operadora', 'like', $search)
+                        ->orWhereHas('statusRastreador', fn ($query): mixed => $query->where('label', 'like', $search))
                         ->orWhereHas('tecnico', fn ($query): mixed => $query->where('nome', 'like', $search));
                 });
             })
             ->latest('updated_at')
             ->latest('id')
-            ->orderBy('imei');
+            ->orderBy('iccid');
     }
 }

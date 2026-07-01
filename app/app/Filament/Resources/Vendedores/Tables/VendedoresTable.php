@@ -30,12 +30,17 @@ class VendedoresTable
                     ->label('Editar'),
                 DeleteAction::make()
                     ->label('Excluir')
-                    ->requiresConfirmation(),
+                    ->modalSubmitActionLabel('Excluir')
+                    ->requiresConfirmation()
+                    ->modalDescription('Deseja excluir este vendedor?'),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
-                        ->label('Excluir selecionados'),
+                        ->label('Excluir selecionados')
+                        ->modalSubmitActionLabel('Excluir')
+                        ->requiresConfirmation()
+                        ->modalDescription('Deseja excluir os vendedores selecionados?'),
                 ]),
             ])
             ->defaultSort('nome');

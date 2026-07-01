@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Contratos\Tables;
 
+use App\Filament\Resources\Contratos\ContratoResource;
 use App\Filament\Resources\Contratos\Pages\ListContratos;
 use App\Models\Contrato;
 use App\Models\Permission;
@@ -14,6 +15,7 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Notifications\Notification;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -30,12 +32,6 @@ class ContratosTable
                     ->wrap(),
                 TextColumn::make('veiculo.rastreador.imei')
                     ->label('Rastreador'),
-                TextColumn::make('veiculo.veiculo')
-                    ->label('Veiculo')
-                    ->sortable(),
-                TextColumn::make('veiculo.placa')
-                    ->label('Placa')
-                    ->sortable(),
                 TextColumn::make('tipoContrato.label')
                     ->label('Tipo')
                     ->sortable(),
@@ -63,25 +59,38 @@ class ContratosTable
             ->recordActions([
                 Action::make('enviar')
                     ->label('Enviar')
+                    ->icon(Heroicon::PaperAirplane)
                     ->visible(fn (Contrato $record): bool => (auth()->user()?->hasPermission(Permission::CADASTRO_ESCRITA) ?? false)
                         && $record->statusContrato?->label === 'Nao Enviado')
                     ->modalSubmitActionLabel('Enviar')
                     ->requiresConfirmation()
                     ->modalDescription('Enviar este contrato para assinatura pela ZapSign?')
                     ->action(fn (Contrato $record): mixed => self::enviarContrato($record)),
+                Action::make('documento')
+                    ->label('Documento')
+                    ->icon(Heroicon::DocumentText)
+                    ->color(fn (Contrato $record): string => $record->statusContrato?->label === 'Assinado' ? 'success' : 'gray')
+                    ->visible(fn (Contrato $record): bool => filled($record->doc_token))
+                    ->url(fn (Contrato $record): string => route('contratos.documento', $record))
+                    ->openUrlInNewTab(),
                 EditAction::make()
                     ->label('Editar')
-                    ->visible(fn (): bool => auth()->user()?->hasPermission(Permission::CADASTRO_ESCRITA) ?? false),
+                    ->visible(fn (Contrato $record): bool => ContratoResource::canEdit($record)),
                 DeleteAction::make()
                     ->label('Excluir')
                     ->visible(fn (): bool => auth()->user()?->hasPermission(Permission::CADASTRO_EXCLUSAO) ?? false)
-                    ->requiresConfirmation(),
+                    ->modalSubmitActionLabel('Excluir')
+                    ->requiresConfirmation()
+                    ->modalDescription('Deseja excluir este contrato?'),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
                         ->label('Excluir selecionados')
-                        ->visible(fn (): bool => auth()->user()?->hasPermission(Permission::CADASTRO_EXCLUSAO) ?? false),
+                        ->visible(fn (): bool => auth()->user()?->hasPermission(Permission::CADASTRO_EXCLUSAO) ?? false)
+                        ->modalSubmitActionLabel('Excluir')
+                        ->requiresConfirmation()
+                        ->modalDescription('Deseja excluir os contratos selecionados?'),
                 ]),
             ])
             ->defaultSort('updated_at', 'desc');

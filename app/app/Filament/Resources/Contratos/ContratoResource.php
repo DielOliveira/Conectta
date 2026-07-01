@@ -56,8 +56,16 @@ class ContratoResource extends Resource
 
     public static function canEdit($record): bool
     {
-        return (auth()->user()?->isAdmin() ?? false)
+        $podeEditar = (auth()->user()?->isAdmin() ?? false)
             || (auth()->user()?->hasPermission(Permission::CADASTRO_ESCRITA) ?? false);
+
+        if (! $podeEditar) {
+            return false;
+        }
+
+        $record?->loadMissing('statusContrato');
+
+        return $record?->statusContrato?->label === 'Nao Enviado';
     }
 
     public static function canDelete($record): bool

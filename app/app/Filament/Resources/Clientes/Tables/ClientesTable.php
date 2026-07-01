@@ -63,12 +63,18 @@ class ClientesTable
                 DeleteAction::make()
                     ->label('Excluir')
                     ->visible(fn (): bool => auth()->user()?->hasPermission(Permission::CADASTRO_EXCLUSAO) ?? false)
-                    ->requiresConfirmation(),
+                    ->modalSubmitActionLabel('Excluir')
+                    ->requiresConfirmation()
+                    ->modalDescription('Deseja excluir este cliente?'),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
-                        ->visible(fn (): bool => auth()->user()?->hasPermission(Permission::CADASTRO_EXCLUSAO) ?? false),
+                        ->label('Excluir selecionados')
+                        ->visible(fn (): bool => auth()->user()?->hasPermission(Permission::CADASTRO_EXCLUSAO) ?? false)
+                        ->modalSubmitActionLabel('Excluir')
+                        ->requiresConfirmation()
+                        ->modalDescription('Deseja excluir os clientes selecionados?'),
                 ]),
             ])
             ->defaultSort('nome');

@@ -294,21 +294,21 @@
         <div class="ct-card">
             <div class="ct-form-grid">
                 <label class="ct-field">
-                    <span class="ct-label">Modelo *</span>
-                    <input wire:model="modelo" type="text" class="ct-input" />
-                    @error('modelo') <span class="ct-error">{{ $message }}</span> @enderror
+                    <span class="ct-label">Fornecedor</span>
+                    <input wire:model="fornecedor" type="text" class="ct-input" />
+                    @error('fornecedor') <span class="ct-error">{{ $message }}</span> @enderror
                 </label>
 
                 <label class="ct-field">
-                    <span class="ct-label">Ativacao</span>
-                    <input wire:model="ativacao" type="number" class="ct-input" />
-                    @error('ativacao') <span class="ct-error">{{ $message }}</span> @enderror
+                    <span class="ct-label">Operadora</span>
+                    <input wire:model="operadora" type="text" class="ct-input" />
+                    @error('operadora') <span class="ct-error">{{ $message }}</span> @enderror
                 </label>
 
                 <label class="ct-field">
-                    <span class="ct-label">IMEI *</span>
-                    <input wire:model="imei" type="text" class="ct-input" />
-                    @error('imei') <span class="ct-error">{{ $message }}</span> @enderror
+                    <span class="ct-label">Numero Chip *</span>
+                    <input wire:model="iccid" type="text" class="ct-input" />
+                    @error('iccid') <span class="ct-error">{{ $message }}</span> @enderror
                 </label>
 
                 <label class="ct-field">
@@ -360,30 +360,30 @@
             <table class="ct-table">
                 <thead>
                     <tr>
-                        <th>Modelo</th>
-                        <th>IMEI</th>
-                        <th>Ativacao</th>
+                        <th>Numero Chip</th>
+                        <th>Fornecedor</th>
+                        <th>Operadora</th>
                         <th>Status Estoque</th>
                         <th>Tecnico</th>
                         <th></th>
                     </tr>
                 </thead>
                 <tbody>
-                    @forelse ($this->rastreadores() as $rastreador)
-                        <tr wire:key="rastreador-{{ $rastreador->id }}">
+                    @forelse ($this->chips() as $chip)
+                        <tr wire:key="chip-{{ $chip->id }}">
                             <td>
-                                <button type="button" wire:click="editar({{ $rastreador->id }})" class="ct-link">
-                                    {{ $rastreador->modelo }}
+                                <button type="button" wire:click="editar({{ $chip->id }})" class="ct-link">
+                                    {{ $chip->iccid }}
                                 </button>
                             </td>
-                            <td>{{ $rastreador->imei }}</td>
-                            <td>{{ $rastreador->ativacao }}</td>
-                            <td>{{ $rastreador->statusRastreador?->label }}</td>
-                            <td>{{ $rastreador->tecnico?->nome }}</td>
+                            <td>{{ $chip->fornecedor }}</td>
+                            <td>{{ $chip->operadora }}</td>
+                            <td>{{ $chip->statusRastreador?->label }}</td>
+                            <td>{{ $chip->tecnico?->nome }}</td>
                             <td>
                                 <button
                                     type="button"
-                                    wire:click="mountAction('confirmarExclusao', { id: {{ $rastreador->id }} })"
+                                    wire:click="mountAction('confirmarExclusao', { id: {{ $chip->id }} })"
                                     class="ct-delete"
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" aria-hidden="true">
@@ -395,7 +395,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="ct-empty">Nenhum rastreador encontrado.</td>
+                            <td colspan="6" class="ct-empty">Nenhum chip encontrado.</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -404,7 +404,7 @@
 
         <div class="ct-pagination">
             <div>
-                {{ $this->inicioPagina() }} a {{ $this->fimPagina() }} de {{ $this->totalRastreadores() }} registros
+                {{ $this->inicioPagina() }} a {{ $this->fimPagina() }} de {{ $this->totalChips() }} registros
             </div>
 
             <div class="ct-page-buttons">

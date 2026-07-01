@@ -41,13 +41,18 @@ class TecnicosTable
                 DeleteAction::make()
                     ->label('Excluir')
                     ->visible(fn (): bool => auth()->user()?->hasPermission(Permission::ESTOQUE_ESCRITA) ?? false)
-                    ->requiresConfirmation(),
+                    ->modalSubmitActionLabel('Excluir')
+                    ->requiresConfirmation()
+                    ->modalDescription('Deseja excluir este tecnico?'),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
                         ->visible(fn (): bool => auth()->user()?->hasPermission(Permission::ESTOQUE_ESCRITA) ?? false)
-                        ->label('Excluir selecionados'),
+                        ->label('Excluir selecionados')
+                        ->modalSubmitActionLabel('Excluir')
+                        ->requiresConfirmation()
+                        ->modalDescription('Deseja excluir os tecnicos selecionados?'),
                 ]),
             ])
             ->defaultSort('nome');

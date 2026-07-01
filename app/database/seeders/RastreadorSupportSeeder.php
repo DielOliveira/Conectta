@@ -37,19 +37,19 @@ class RastreadorSupportSeeder extends Seeder
             ['is_ativo' => true],
         );
 
+        $disponivelId = StatusRastreador::query()
+            ->where('label', 'Disponivel')
+            ->value('id');
+
         Chip::query()->firstOrCreate(
             ['iccid' => '9.9874-8737'],
-            ['fornecedor' => 'Seed', 'operadora' => 'Operadora', 'tecnico_id' => $outros->id],
+            ['fornecedor' => 'Seed', 'operadora' => 'Operadora', 'tecnico_id' => $outros->id, 'status_rastreador_id' => $disponivelId],
         );
 
         Chip::query()->firstOrCreate(
             ['iccid' => '8.7654-3210'],
-            ['fornecedor' => 'Seed', 'operadora' => 'Operadora', 'tecnico_id' => $romeu->id],
+            ['fornecedor' => 'Seed', 'operadora' => 'Operadora', 'tecnico_id' => $romeu->id, 'status_rastreador_id' => $disponivelId],
         );
-
-        $disponivelId = StatusRastreador::query()
-            ->where('label', 'Disponivel')
-            ->value('id');
 
         Rastreador::query()->firstOrCreate(
             ['imei' => '862292050969070'],

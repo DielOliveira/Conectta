@@ -382,6 +382,7 @@ class BackupRestoreService
             'operadora' => null,
             'iccid' => $iccid,
             'tecnico_id' => $this->tecnicoIdPorNome($instalador),
+            'status_rastreador_id' => DB::table('status_rastreadores')->where('label', 'Disponivel')->value('id') ?: null,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
