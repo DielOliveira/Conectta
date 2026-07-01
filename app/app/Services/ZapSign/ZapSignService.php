@@ -3,6 +3,7 @@
 namespace App\Services\ZapSign;
 
 use App\Models\ConfiguracaoIntegracao;
+use App\Models\Pais;
 use App\Models\TipoContrato;
 use App\Models\Veiculo;
 use Illuminate\Http\Client\ConnectionException;
@@ -11,7 +12,7 @@ use Illuminate\Support\Facades\Http;
 class ZapSignService
 {
     /**
-     * @param array<string, mixed> $dados
+     * @param  array<string, mixed>  $dados
      * @return array<string, mixed>
      */
     public function criarDocumento(Veiculo $veiculo, TipoContrato $tipoContrato, array $dados): array
@@ -25,7 +26,7 @@ class ZapSignService
         $templateId = $this->templateId($configuracao, $tipoContrato->label);
 
         if (blank($templateId)) {
-            throw new ZapSignException('Template ZapSign nao configurado para contrato ' . $tipoContrato->label . '.');
+            throw new ZapSignException('Template ZapSign nao configurado para contrato '.$tipoContrato->label.'.');
         }
 
         $payload = $this->payload($veiculo, $tipoContrato, $templateId, $dados);
@@ -39,7 +40,7 @@ class ZapSignService
                 ->withHeaders(['Authorization' => $this->authorizationHeader((string) $configuracao->token, $configuracao->auth_scheme)])
                 ->post('/api/v1/models/create-doc/', $payload);
         } catch (ConnectionException $exception) {
-            throw new ZapSignException('Nao foi possivel conectar na ZapSign: ' . $exception->getMessage(), previous: $exception);
+            throw new ZapSignException('Nao foi possivel conectar na ZapSign: '.$exception->getMessage(), previous: $exception);
         }
 
         $body = $response->json();
@@ -54,7 +55,6 @@ class ZapSignService
 
         return $body;
     }
-
 
     /**
      * @return array<string, mixed>
@@ -74,9 +74,9 @@ class ZapSignService
                 ->acceptJson()
                 ->timeout((int) ($configuracao->timeout ?: 30))
                 ->withHeaders(['Authorization' => $this->authorizationHeader((string) $configuracao->token, $configuracao->auth_scheme)])
-                ->get('/api/v1/docs/' . $token . '/');
+                ->get('/api/v1/docs/'.$token.'/');
         } catch (ConnectionException $exception) {
-            throw new ZapSignException('Nao foi possivel conectar na ZapSign: ' . $exception->getMessage(), previous: $exception);
+            throw new ZapSignException('Nao foi possivel conectar na ZapSign: '.$exception->getMessage(), previous: $exception);
         }
 
         $body = $response->json();
@@ -91,6 +91,7 @@ class ZapSignService
 
         return $body;
     }
+
     private function templateId(ConfiguracaoIntegracao $configuracao, string $tipo): ?string
     {
         return match ($tipo) {
@@ -102,20 +103,20 @@ class ZapSignService
     }
 
     /**
-     * @param array<string, mixed> $dados
+     * @param  array<string, mixed>  $dados
      * @return array<string, mixed>
      */
     private function payload(Veiculo $veiculo, TipoContrato $tipoContrato, string $templateId, array $dados): array
     {
         $veiculo->loadMissing(['cliente.estado', 'tecnicoInstala']);
         $cliente = $veiculo->cliente;
-        $telefone = $this->digits($cliente?->telefone1);
+        [$telefonePais, $telefone] = $this->telefonePaisNumero($cliente?->telefone1_pais, $cliente?->telefone1);
         $cpfCnpj = $this->digits($cliente?->cpf_cnpj);
 
         if ($tipoContrato->label === 'Comodato') {
             $signerName = (string) ($dados['comodato_empresa'] ?? $cliente?->nome ?? '');
             $signerEmail = (string) ($dados['comodato_email'] ?? $cliente?->email ?? '');
-            $signerPhone = $this->digits($dados['comodato_telefone'] ?? $cliente?->telefone1);
+            [$signerPhonePais, $signerPhone] = $this->telefonePaisNumero($cliente?->telefone1_pais, $dados['comodato_telefone'] ?? $cliente?->telefone1);
 
             return [
                 'template_id' => $templateId,
@@ -137,6 +138,8 @@ class ZapSignService
                     ['de' => '{{TECNICO}}', 'para' => (string) ($dados['comodato_tecnico'] ?? $veiculo->tecnicoInstala?->nome)],
                 ],
                 'external_id' => (string) $veiculo->id,
+                'signer_phone_country' => $signerPhonePais,
+                'signer_phone_number' => $signerPhone,
             ];
         }
 
@@ -166,7 +169,7 @@ class ZapSignService
                 ['de' => '{{DATAHOJE}}', 'para' => now()->format('d/m/Y')],
             ],
             'external_id' => (string) $veiculo->id,
-            'signer_phone_country' => '55',
+            'signer_phone_country' => $telefonePais,
             'signer_phone_number' => $telefone,
         ];
     }
@@ -179,7 +182,7 @@ class ZapSignService
 
         $scheme = trim((string) $authScheme);
 
-        return $scheme === '' ? $token : $scheme . ' ' . $token;
+        return $scheme === '' ? $token : $scheme.' '.$token;
     }
 
     private function digits(mixed $value): string
@@ -187,6 +190,20 @@ class ZapSignService
         return preg_replace('/\D+/', '', (string) $value) ?? '';
     }
 
+    /**
+     * @return array{0: string, 1: string}
+     */
+    private function telefonePaisNumero(mixed $pais, mixed $telefone): array
+    {
+        $pais = Pais::codigoTelefone(Pais::normalizarCodigoTelefone((string) $pais) ?? (string) $pais);
+        $numero = $this->digits($telefone);
+
+        if ($numero !== '' && str_starts_with($numero, $pais) && strlen($numero) > 11) {
+            $numero = substr($numero, strlen($pais));
+        }
+
+        return [$pais, $numero];
+    }
 
     private function mensagemErroConsulta(int $status, mixed $body): string
     {
@@ -201,16 +218,17 @@ class ZapSignService
                 return 'Token da ZapSign nao encontrado ou invalido. Confira o token do ambiente ativo nas Integracoes.';
             }
 
-            return 'ZapSign recusou a consulta do documento: ' . $message;
+            return 'ZapSign recusou a consulta do documento: '.$message;
         }
 
         return match ($status) {
             400 => 'ZapSign recusou a consulta do documento por dados invalidos.',
             401, 403 => 'ZapSign recusou a consulta do documento por falha de autenticacao.',
             404 => 'Documento da ZapSign nao encontrado.',
-            default => 'ZapSign retornou erro ao consultar documento. Codigo HTTP: ' . $status . '.',
+            default => 'ZapSign retornou erro ao consultar documento. Codigo HTTP: '.$status.'.',
         };
     }
+
     private function mensagemErro(int $status, mixed $body): string
     {
         $message = is_array($body)
@@ -224,14 +242,14 @@ class ZapSignService
                 return 'Token da ZapSign nao encontrado ou invalido. Confira o token do ambiente ativo nas Integracoes.';
             }
 
-            return 'ZapSign recusou a criacao do documento: ' . $message;
+            return 'ZapSign recusou a criacao do documento: '.$message;
         }
 
         return match ($status) {
             400 => 'ZapSign recusou a criacao do documento por dados invalidos.',
             401, 403 => 'ZapSign recusou a criacao do documento por falha de autenticacao.',
             404 => 'Endpoint da ZapSign nao encontrado.',
-            default => 'ZapSign retornou erro ao criar documento. Codigo HTTP: ' . $status . '.',
+            default => 'ZapSign retornou erro ao criar documento. Codigo HTTP: '.$status.'.',
         };
     }
 }

@@ -14,6 +14,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use UnitEnum;
 
 class ContratoResource extends Resource
 {
@@ -22,6 +23,8 @@ class ContratoResource extends Resource
     protected static ?string $slug = 'contratos';
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentText;
+
+    protected static string|UnitEnum|null $navigationGroup = 'Cadastro';
 
     protected static ?int $navigationSort = 3;
 

@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Contratos\Schemas;
 
 use App\Models\Cliente;
+use App\Models\Pais;
 use App\Models\StatusContrato;
 use App\Models\TipoContrato;
 use App\Models\Veiculo;
@@ -15,6 +16,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Illuminate\Support\HtmlString;
 
 class ContratoForm
 {
@@ -82,7 +84,7 @@ class ContratoForm
                             ->columnSpan(6),
                         Placeholder::make('preview_contrato')
                             ->label('Dados calculados')
-                            ->content(fn (Get $get): \Illuminate\Support\HtmlString => new \Illuminate\Support\HtmlString(self::previewContrato((int) $get('veiculo_id'), self::tipoSelecionado($get('tipo_contrato_id')))))
+                            ->content(fn (Get $get): HtmlString => new HtmlString(self::previewContrato((int) $get('veiculo_id'), self::tipoSelecionado($get('tipo_contrato_id')))))
                             ->visible(fn (Get $get): bool => filled($get('veiculo_id')) && filled($get('tipo_contrato_id')))
                             ->columnSpanFull(),
                         TextInput::make('dados.valor_mensal')
@@ -160,7 +162,7 @@ class ContratoForm
                 $placa = $veiculo->placa ?: 'Sem placa';
                 $status = $veiculo->statusRastreador?->label ?: 'Sem status';
 
-                return [$veiculo->id => $imei . ' - ' . $veiculo->veiculo . ' / ' . $placa . ' (' . $status . ')'];
+                return [$veiculo->id => $imei.' - '.$veiculo->veiculo.' / '.$placa.' ('.$status.')'];
             })
             ->all();
     }
@@ -180,7 +182,7 @@ class ContratoForm
         }
 
         $cliente = $veiculo->cliente;
-        $telefone = self::formatTelefone($cliente?->telefone1);
+        $telefone = self::formatTelefoneComPais($cliente?->telefone1_pais, $cliente?->telefone1);
         $endereco = collect([$cliente?->rua, $cliente?->numero, $cliente?->setor])->filter()->implode(' ');
 
         if ($tipoContrato === 'Comodato') {
@@ -212,7 +214,7 @@ class ContratoForm
 
         $html = '<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 18px;padding:12px 14px;border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb;color:#374151;font-size:13px;">';
         foreach ($items as $label => $value) {
-            $html .= '<div style="min-width:0;overflow-wrap:anywhere;"><strong style="color:#111827;">' . e($label) . ':</strong> ' . e((string) ($value ?? '')) . '</div>';
+            $html .= '<div style="min-width:0;overflow-wrap:anywhere;"><strong style="color:#111827;">'.e($label).':</strong> '.e((string) ($value ?? '')).'</div>';
         }
         $html .= '</div>';
 
@@ -228,6 +230,14 @@ class ContratoForm
         }
 
         return (string) $value;
+    }
+
+    private static function formatTelefoneComPais(mixed $pais, mixed $telefone): string
+    {
+        $pais = Pais::codigoTelefone(Pais::normalizarCodigoTelefone((string) $pais) ?? (string) $pais);
+        $telefoneFormatado = self::formatTelefone($telefone);
+
+        return $telefoneFormatado === '' ? '' : '+'.$pais.' '.$telefoneFormatado;
     }
 
     private static function preencherDadosPadrao(Set $set, Get $get, mixed $veiculoId): void
@@ -253,7 +263,7 @@ class ContratoForm
         $set('dados.comodato_empresa', $cliente?->nome);
         $set('dados.comodato_cnpj', $cliente?->cpf_cnpj_formatado);
         $set('dados.comodato_email', $cliente?->email);
-        $set('dados.comodato_telefone', $cliente?->telefone1);
+        $set('dados.comodato_telefone', self::formatTelefoneComPais($cliente?->telefone1_pais, $cliente?->telefone1));
     }
 
     private static function tipoSelecionado(mixed $tipoContratoId): ?string

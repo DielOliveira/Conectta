@@ -58,6 +58,9 @@ class RestoreBackup extends Page
 
     public function restaurar(BackupRestoreService $service): void
     {
+        @ini_set('max_execution_time', '0');
+        @set_time_limit(0);
+
         if (! auth()->user()?->isAdmin()) {
             Notification::make()->title('Voce nao tem permissao para esta acao.')->danger()->send();
 

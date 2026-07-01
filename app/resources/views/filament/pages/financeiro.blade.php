@@ -1110,7 +1110,10 @@
                                     <span class="ct-fin-modal-label">Valor Planejado</span>
                                     <input
                                         type="text"
-                                        wire:model="modalValorPlanejado"
+                                        inputmode="decimal"
+                                        autocomplete="off"
+                                        wire:model.blur="modalValorPlanejado"
+                                        oninput="this.value = window.conecttaMaskMoney(this.value)"
                                         class="ct-fin-modal-input"
                                     />
                                     @error('modalValorPlanejado') <span class="ct-error">{{ $message }}</span> @enderror
@@ -1120,7 +1123,10 @@
                                     <span class="ct-fin-modal-label">Valor Efetivado</span>
                                     <input
                                         type="text"
-                                        wire:model="modalValorEfetivado"
+                                        inputmode="decimal"
+                                        autocomplete="off"
+                                        wire:model.blur="modalValorEfetivado"
+                                        oninput="this.value = window.conecttaMaskMoney(this.value)"
                                         class="ct-fin-modal-input"
                                     />
                                     @error('modalValorEfetivado') <span class="ct-error">{{ $message }}</span> @enderror
@@ -1158,7 +1164,10 @@
                                         <span class="ct-fin-modal-label">Valor Efetivado</span>
                                         <input
                                             type="text"
-                                            wire:model="parcelamentoValorEfetivado"
+                                            inputmode="decimal"
+                                            autocomplete="off"
+                                            wire:model.blur="parcelamentoValorEfetivado"
+                                            oninput="this.value = window.conecttaMaskMoney(this.value)"
                                             class="ct-fin-modal-input"
                                         />
                                         @error('parcelamentoValorEfetivado') <span class="ct-error">{{ $message }}</span> @enderror
@@ -1344,4 +1353,19 @@
             </div>
         @endif
     </div>
+
+    <script>
+        window.conecttaMaskMoney = window.conecttaMaskMoney || function (value) {
+            const digits = String(value || '').replace(/\D/g, '');
+
+            if (digits === '') {
+                return '';
+            }
+
+            return (Number.parseInt(digits, 10) / 100).toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+            });
+        };
+    </script>
 </x-filament-panels::page>

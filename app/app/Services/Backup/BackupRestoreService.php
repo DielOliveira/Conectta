@@ -2,7 +2,9 @@
 
 namespace App\Services\Backup;
 
+use App\Models\Pais;
 use Carbon\Carbon;
+use Database\Seeders\PaisSeeder;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 use Throwable;
@@ -12,7 +14,7 @@ class BackupRestoreService
     public function __construct(private readonly XlsxTableReader $reader) {}
 
     /**
-     * @param array<string, string> $files
+     * @param  array<string, string>  $files
      * @return array<string, mixed>
      */
     public function restore(array $files, bool $limparBase = true): array
@@ -35,6 +37,7 @@ class BackupRestoreService
                 $this->limparBase();
             }
 
+            $summary['tabelas']['paises'] = $this->garantirPaises();
             $summary['tabelas']['vendedores'] = $this->importVendedores($files['vendedores']);
             $summary['tabelas']['tecnicos'] = $this->importTecnicos($files['tecnicos']);
             $summary['tabelas']['rastreadores'] = $this->importRastreadores($files['rastreadores']);
@@ -62,13 +65,13 @@ class BackupRestoreService
     }
 
     /**
-     * @param array<string, string> $files
+     * @param  array<string, string>  $files
      */
     private function validarArquivos(array $files): void
     {
         foreach (['clientes', 'veiculos', 'rastreadores', 'tecnicos', 'vendedores', 'lancamentos', 'invoices', 'faturamentos'] as $key) {
             if (blank($files[$key] ?? null) || ! is_file($files[$key])) {
-                throw new RuntimeException('Arquivo obrigatorio nao encontrado: ' . $key . '.');
+                throw new RuntimeException('Arquivo obrigatorio nao encontrado: '.$key.'.');
             }
         }
     }
@@ -78,6 +81,13 @@ class BackupRestoreService
         foreach (['contratos', 'invoices', 'lancamentos', 'veiculos', 'chips', 'rastreadores', 'clientes', 'tecnicos', 'vendedores', 'faturamentos'] as $table) {
             DB::table($table)->truncate();
         }
+    }
+
+    private function garantirPaises(): int
+    {
+        app(PaisSeeder::class)->run();
+
+        return Pais::query()->count();
     }
 
     private function importVendedores(string $path): int
@@ -122,7 +132,7 @@ class BackupRestoreService
                 'id' => $this->int($row['Id'] ?? null),
                 'modelo' => $this->text($row['Modelo'] ?? null, 50),
                 'ativacao' => $this->int($row['Ativacao'] ?? null),
-                'imei' => $this->text($row['IMEI'] ?? null, 50) ?: 'SEM-IMEI-' . $this->int($row['Id'] ?? random_int(100000, 999999)),
+                'imei' => $this->text($row['IMEI'] ?? null, 50) ?: 'SEM-IMEI-'.$this->int($row['Id'] ?? random_int(100000, 999999)),
                 'tecnico_id' => $this->fk('tecnicos', $row['Tecnico'] ?? null),
                 'is_estoque' => $this->bool($row['Is Estoque'] ?? true),
                 'status_rastreador_id' => $this->fk('status_rastreadores', $row['Status Rastreador'] ?? null),
@@ -136,7 +146,7 @@ class BackupRestoreService
     }
 
     /**
-     * @param array<int, string> $avisos
+     * @param  array<int, string>  $avisos
      */
     private function importClientes(string $path, array &$avisos): int
     {
@@ -147,11 +157,11 @@ class BackupRestoreService
             $cpf = $this->digits($row['CPF CNPJ'] ?? null);
 
             if ($cpf === '') {
-                $cpf = 'IMPORTADO-' . $id;
-                $avisos[] = 'Cliente ' . $id . ' estava sem CPF/CNPJ.';
+                $cpf = 'IMPORTADO-'.$id;
+                $avisos[] = 'Cliente '.$id.' estava sem CPF/CNPJ.';
             } elseif (isset($cpfs[$cpf])) {
-                $cpf .= '-DUP-' . $id;
-                $avisos[] = 'Cliente ' . $id . ' tinha CPF/CNPJ duplicado no backup e recebeu sufixo tecnico.';
+                $cpf .= '-DUP-'.$id;
+                $avisos[] = 'Cliente '.$id.' tinha CPF/CNPJ duplicado no backup e recebeu sufixo tecnico.';
             }
 
             $cpfs[$this->digits($row['CPF CNPJ'] ?? null)] = true;
@@ -176,7 +186,9 @@ class BackupRestoreService
                 'setor' => $this->text($row['Setor'] ?? null, 50),
                 'cidade' => $this->text($row['Cidade'] ?? null, 50),
                 'telefone1' => $this->digits($row['Telefone 1'] ?? null) ?: '00000000000',
+                'telefone1_pais' => 'BR',
                 'telefone2' => $this->digits($row['Telefone 2'] ?? null) ?: null,
+                'telefone2_pais' => blank($this->digits($row['Telefone 2'] ?? null)) ? null : 'BR',
                 'empresa' => $this->text($row['Empresa'] ?? null, 50),
                 'indicacao' => $this->text($row['Indicacao'] ?? null, 50),
                 'data_adesao' => $this->date($row['Data Adesao'] ?? null) ?? now()->toDateString(),
@@ -271,6 +283,7 @@ class BackupRestoreService
 
         return $this->insertChunked('contratos', $rows);
     }
+
     private function importLancamentos(string $path): int
     {
         $rows = [];
@@ -365,6 +378,7 @@ class BackupRestoreService
 
         return DB::table('tipo_contratos')->where('label', $label)->value('id') ?: null;
     }
+
     private function chipId(mixed $numeroChip, mixed $instalador): ?int
     {
         $iccid = $this->text($numeroChip, 50);
@@ -409,7 +423,7 @@ class BackupRestoreService
     }
 
     /**
-     * @param array<int, array<string, mixed>> $rows
+     * @param  array<int, array<string, mixed>>  $rows
      */
     private function insertChunked(string $table, array $rows): int
     {
@@ -427,13 +441,13 @@ class BackupRestoreService
     }
 
     /**
-     * @param array<int, string> $tables
+     * @param  array<int, string>  $tables
      */
     private function ajustarAutoIncrement(array $tables): void
     {
         foreach ($tables as $table) {
             $max = (int) DB::table($table)->max('id');
-            DB::statement('ALTER TABLE ' . $table . ' AUTO_INCREMENT = ' . ($max + 1));
+            DB::statement('ALTER TABLE '.$table.' AUTO_INCREMENT = '.($max + 1));
         }
     }
 

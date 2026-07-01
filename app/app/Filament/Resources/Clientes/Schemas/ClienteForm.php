@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Clientes\Schemas;
 
+use App\Models\Pais;
 use App\Rules\CpfCnpj;
 use Carbon\CarbonInterface;
 use Filament\Forms\Components\Checkbox;
@@ -41,7 +42,7 @@ class ClienteForm
                                 ->validationAttribute('CPF/CNPJ')
                                 ->required()
                                 ->maxLength(50)
-                                ->rules([new CpfCnpj()])
+                                ->rules([new CpfCnpj])
                                 ->unique(ignoreRecord: true)
                                 ->dehydrateStateUsing(fn (?string $state): string => preg_replace('/\D+/', '', $state ?? ''))
                                 ->columnSpan(6),
@@ -141,20 +142,43 @@ class ClienteForm
                 Section::make('Contato')
                     ->schema([
                         Grid::make(12)->schema([
+                            Select::make('telefone1_pais')
+                                ->label('DDI celular')
+                                ->options(fn (): array => Pais::telefoneOptions())
+                                ->default('BR')
+                                ->formatStateUsing(fn ($state): string => Pais::normalizarCodigoTelefone($state) ?? 'BR')
+                                ->dehydrateStateUsing(fn ($state): string => Pais::normalizarCodigoTelefone($state) ?? 'BR')
+                                ->searchable()
+                                ->preload()
+                                ->live()
+                                ->required()
+                                ->columnSpan(4),
                             TextInput::make('telefone1')
                                 ->label('Telefone Celular')
                                 ->validationAttribute('telefone celular')
-                                ->placeholder('(00) 0.0000-0000')
-                                ->mask('(99) 9.9999-9999')
+                                ->placeholder('62999999999')
                                 ->dehydrateStateUsing(fn (?string $state): string => self::onlyDigitsOrNull($state) ?? '')
                                 ->formatStateUsing(fn ($state): ?string => self::formatTelefoneCelular($state))
                                 ->required()
                                 ->maxLength(50)
-                                ->columnSpan(6),
+                                ->columnSpan(8),
+                            Select::make('telefone2_pais')
+                                ->label('DDI secundario')
+                                ->options(fn (): array => Pais::telefoneOptions())
+                                ->default('BR')
+                                ->formatStateUsing(fn ($state): string => Pais::normalizarCodigoTelefone($state) ?? 'BR')
+                                ->dehydrateStateUsing(fn ($state): ?string => Pais::normalizarCodigoTelefone($state))
+                                ->searchable()
+                                ->preload()
+                                ->live()
+                                ->columnSpan(4),
                             TextInput::make('telefone2')
                                 ->label('Telefone Secundario')
+                                ->placeholder('Numero sem codigo do pais')
+                                ->dehydrateStateUsing(fn (?string $state): ?string => self::onlyDigitsOrNull($state))
+                                ->formatStateUsing(fn ($state): ?string => self::formatTelefoneCelular($state))
                                 ->maxLength(50)
-                                ->columnSpan(6),
+                                ->columnSpan(8),
                         ]),
                     ])
                     ->columnSpanFull(),
