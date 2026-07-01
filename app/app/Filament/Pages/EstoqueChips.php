@@ -6,6 +6,7 @@ use App\Models\Chip;
 use App\Models\Permission;
 use App\Models\StatusRastreador;
 use App\Models\Tecnico;
+use App\Services\Audit\AuditLogger;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -127,10 +128,29 @@ class EstoqueChips extends Page
             'status_rastreador_id' => 'status estoque',
         ]);
 
-        Chip::query()->updateOrCreate(
-            ['id' => $this->editingId],
-            $data,
-        );
+        if ($this->editingId) {
+            $chip = Chip::query()->findOrFail($this->editingId);
+            $antes = AuditLogger::snapshot($chip);
+            $chip->update($data);
+            $chip->refresh();
+
+            AuditLogger::registrar(
+                'chip.editado',
+                'Chip editado no estoque.',
+                $chip,
+                antes: $antes,
+                depois: AuditLogger::snapshot($chip),
+            );
+        } else {
+            $chip = Chip::query()->create($data);
+
+            AuditLogger::registrar(
+                'chip.criado',
+                'Chip incluido no estoque.',
+                $chip,
+                depois: AuditLogger::snapshot($chip),
+            );
+        }
 
         Notification::make()
             ->title($this->editingId ? 'Chip atualizado.' : 'Chip incluido.')

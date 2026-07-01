@@ -4,16 +4,18 @@ namespace App\Filament\Pages;
 
 use App\Models\Cliente;
 use App\Models\Invoice;
-use App\Models\Permission;
 use App\Models\Lancamento;
+use App\Models\Permission;
 use App\Models\StatusCliente;
 use App\Rules\CpfCnpj;
+use App\Services\Audit\AuditLogger;
 use App\Services\Lytex\LytexException;
 use App\Services\Lytex\LytexInvoiceService;
 use Carbon\CarbonImmutable;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Validator;
@@ -251,7 +253,22 @@ class Financeiro extends Page
             return;
         }
 
-        Cliente::query()->whereKey($clienteId)->update(['dia_pagamento' => $dia]);
+        $cliente = Cliente::query()->findOrFail($clienteId);
+        $antes = AuditLogger::snapshot($cliente);
+
+        $cliente->forceFill(['dia_pagamento' => $dia])->save();
+
+        AuditLogger::registrar(
+            'cliente.vencimento_financeiro',
+            'Vencimento do cliente alterado pelo financeiro.',
+            $cliente,
+            antes: $antes,
+            depois: AuditLogger::snapshot($cliente),
+            contexto: [
+                'dia_pagamento_antes' => $antes['dia_pagamento'] ?? null,
+                'dia_pagamento_depois' => $cliente->dia_pagamento,
+            ],
+        );
     }
 
     public function salvarAnotacao(int $clienteId): void
@@ -262,9 +279,18 @@ class Financeiro extends Page
 
         $anotacao = $this->anotacoes[$clienteId] ?? null;
 
-        Cliente::query()
-            ->whereKey($clienteId)
-            ->update(['anotacoes' => blank($anotacao) ? null : (string) $anotacao]);
+        $cliente = Cliente::query()->findOrFail($clienteId);
+        $antes = AuditLogger::snapshot($cliente);
+
+        $cliente->forceFill(['anotacoes' => blank($anotacao) ? null : (string) $anotacao])->save();
+
+        AuditLogger::registrar(
+            'cliente.anotacao_financeiro',
+            'Anotacao do cliente alterada pelo financeiro.',
+            $cliente,
+            antes: $antes,
+            depois: AuditLogger::snapshot($cliente),
+        );
     }
 
     public function toggleReplicar(int $clienteId): void
@@ -274,10 +300,23 @@ class Financeiro extends Page
         }
 
         $cliente = Cliente::query()->findOrFail($clienteId);
+        $antes = AuditLogger::snapshot($cliente);
 
         $cliente->forceFill([
             'replicar_pagamento' => ! $cliente->replicar_pagamento,
         ])->save();
+
+        AuditLogger::registrar(
+            'cliente.replicar_pagamento_financeiro',
+            'Replicar pagamento do cliente alterado pelo financeiro.',
+            $cliente,
+            antes: $antes,
+            depois: AuditLogger::snapshot($cliente),
+            contexto: [
+                'replicar_pagamento_antes' => $antes['replicar_pagamento'] ?? null,
+                'replicar_pagamento_depois' => $cliente->replicar_pagamento,
+            ],
+        );
     }
 
     public function abrirLancamento(int $clienteId, int $mes, int $ano): void
@@ -374,6 +413,13 @@ class Financeiro extends Page
             'modalObservacao' => 'observacao',
         ]);
 
+        $antes = null;
+
+        if ($this->modalLancamentoId) {
+            $lancamentoAtual = Lancamento::query()->find($this->modalLancamentoId);
+            $antes = $lancamentoAtual ? AuditLogger::snapshot($lancamentoAtual) : null;
+        }
+
         $lancamento = Lancamento::query()->updateOrCreate(
             ['id' => $this->modalLancamentoId],
             [
@@ -390,6 +436,19 @@ class Financeiro extends Page
         );
 
         $this->modalLancamentoId = $lancamento->id;
+
+        AuditLogger::registrar(
+            $antes ? 'financeiro.lancamento_editado' : 'financeiro.lancamento_criado',
+            $antes ? 'Lancamento financeiro editado.' : 'Lancamento financeiro criado.',
+            $lancamento,
+            antes: $antes,
+            depois: AuditLogger::snapshot($lancamento),
+            contexto: [
+                'cliente_id' => $this->modalClienteId,
+                'mes_referencia' => $this->modalMes,
+                'ano_referencia' => $this->modalAno,
+            ],
+        );
 
         Notification::make()
             ->title('Lancamento salvo.')
@@ -433,7 +492,7 @@ class Financeiro extends Page
     public function parcelamentosModal(): EloquentCollection
     {
         if ($this->modalClienteId === null || $this->modalMes === null || $this->modalAno === null) {
-            return new EloquentCollection();
+            return new EloquentCollection;
         }
 
         return Lancamento::query()
@@ -468,7 +527,7 @@ class Financeiro extends Page
             'parcelamentoValorEfetivado' => 'valor efetivado',
         ]);
 
-        Lancamento::query()->create([
+        $lancamento = Lancamento::query()->create([
             'cliente_id' => $this->modalClienteId,
             'data_lancamento' => $this->parcelamentoDataLancamento,
             'valor_efetivado' => $this->valorDecimal($this->parcelamentoValorEfetivado),
@@ -476,6 +535,19 @@ class Financeiro extends Page
             'ano_referencia' => $this->modalAno,
             'time_stamp' => now(),
         ]);
+
+        AuditLogger::registrar(
+            'financeiro.parcelamento_criado',
+            'Parcelamento financeiro criado.',
+            $lancamento,
+            depois: AuditLogger::snapshot($lancamento),
+            contexto: [
+                'lancamento_principal_id' => $this->modalLancamentoId,
+                'cliente_id' => $this->modalClienteId,
+                'mes_referencia' => $this->modalMes,
+                'ano_referencia' => $this->modalAno,
+            ],
+        );
 
         $this->parcelamentoDataLancamento = null;
         $this->parcelamentoValorEfetivado = '';
@@ -496,10 +568,29 @@ class Financeiro extends Page
             return;
         }
 
-        Lancamento::query()
+        $lancamento = Lancamento::query()
             ->whereKey($lancamentoId)
             ->where('cliente_id', $this->modalClienteId)
-            ->delete();
+            ->first();
+
+        if (! $lancamento) {
+            return;
+        }
+
+        $antes = AuditLogger::snapshot($lancamento);
+        $lancamento->delete();
+
+        AuditLogger::registrar(
+            'financeiro.parcelamento_excluido',
+            'Parcelamento financeiro excluido.',
+            entidadeTipo: 'Lancamento',
+            entidadeId: $lancamentoId,
+            antes: $antes,
+            contexto: [
+                'lancamento_principal_id' => $this->modalLancamentoId,
+                'cliente_id' => $this->modalClienteId,
+            ],
+        );
     }
 
     public function gerarBoleto(): void
@@ -532,7 +623,20 @@ class Financeiro extends Page
             return;
         }
 
-        $this->salvarInvoiceLytex($response);
+        $invoice = $this->salvarInvoiceLytex($response);
+
+        AuditLogger::registrar(
+            'boleto.gerado',
+            'Boleto gerado pela Lytex.',
+            $invoice,
+            depois: AuditLogger::snapshot($invoice),
+            contexto: [
+                'lancamento_id' => $this->modalLancamentoId,
+                'cliente_id' => $this->modalClienteId,
+                'mes_referencia' => $this->modalMes,
+                'ano_referencia' => $this->modalAno,
+            ],
+        );
 
         Notification::make()
             ->title('Boleto gerado com sucesso.')
@@ -568,7 +672,20 @@ class Financeiro extends Page
             return;
         }
 
-        $this->salvarInvoiceLytex($response);
+        $antes = AuditLogger::snapshot($invoice);
+        $invoice = $this->salvarInvoiceLytex($response);
+
+        AuditLogger::registrar(
+            'boleto.atualizado',
+            'Boleto atualizado pela Lytex.',
+            $invoice,
+            antes: $antes,
+            depois: AuditLogger::snapshot($invoice),
+            contexto: [
+                'lancamento_id' => $this->modalLancamentoId,
+                'cliente_id' => $this->modalClienteId,
+            ],
+        );
 
         Notification::make()
             ->title('Boleto atualizado.')
@@ -617,7 +734,20 @@ class Financeiro extends Page
             return;
         }
 
-        $this->salvarInvoiceLytex($response);
+        $antes = AuditLogger::snapshot($invoice);
+        $invoice = $this->salvarInvoiceLytex($response);
+
+        AuditLogger::registrar(
+            'boleto.cancelado',
+            'Boleto cancelado pela Lytex.',
+            $invoice,
+            antes: $antes,
+            depois: AuditLogger::snapshot($invoice),
+            contexto: [
+                'lancamento_id' => $this->modalLancamentoId,
+                'cliente_id' => $this->modalClienteId,
+            ],
+        );
 
         Notification::make()
             ->title('Boleto cancelado.')
@@ -644,7 +774,7 @@ class Financeiro extends Page
     public function boletosModal(): EloquentCollection
     {
         if ($this->modalLancamentoId === null) {
-            return new EloquentCollection();
+            return new EloquentCollection;
         }
 
         return Invoice::query()
@@ -658,10 +788,10 @@ class Financeiro extends Page
         $invoice = $this->boletoModal();
 
         if ($invoice?->total_value !== null) {
-            return 'R$' . $this->moeda($invoice->total_value);
+            return 'R$'.$this->moeda($invoice->total_value);
         }
 
-        return 'R$' . $this->moeda($this->valorPlanejadoBoleto());
+        return 'R$'.$this->moeda($this->valorPlanejadoBoleto());
     }
 
     public function boletoVencimentoExibicao(): string
@@ -694,7 +824,7 @@ class Financeiro extends Page
         $url = trim((string) ($boleto?->link_checkout ?? ''));
         $hash = trim((string) ($boleto?->hash_id ?? ''));
 
-        return $url !== '' ? $url : ($hash === '' ? null : 'https://checkout-pay.lytex.com.br/fatura/' . $hash);
+        return $url !== '' ? $url : ($hash === '' ? null : 'https://checkout-pay.lytex.com.br/fatura/'.$hash);
     }
 
     public function boletoPrintUrl(?Invoice $invoice = null): ?string
@@ -703,7 +833,7 @@ class Financeiro extends Page
         $url = trim((string) ($boleto?->link_boleto ?? ''));
         $hash = trim((string) ($boleto?->hash_id ?? ''));
 
-        return $url !== '' ? $url : ($hash === '' ? null : 'https://public-api-pay.lytex.com.br/v1/invoices/print/' . $hash);
+        return $url !== '' ? $url : ($hash === '' ? null : 'https://public-api-pay.lytex.com.br/v1/invoices/print/'.$hash);
     }
 
     public function boletoPodeRealizarBaixa(?Invoice $invoice = null): bool
@@ -769,7 +899,7 @@ class Financeiro extends Page
             return 'Telefone celular do cliente invalido.';
         }
 
-        if (Validator::make(['cpf_cnpj' => $cliente->cpf_cnpj], ['cpf_cnpj' => ['required', new CpfCnpj()]])->fails()) {
+        if (Validator::make(['cpf_cnpj' => $cliente->cpf_cnpj], ['cpf_cnpj' => ['required', new CpfCnpj]])->fails()) {
             return 'CPF ou CNPJ do cliente invalido.';
         }
 
@@ -901,14 +1031,14 @@ class Financeiro extends Page
         return (string) (int) round($valor * 100);
     }
 
-    private function salvarInvoiceLytex(array $response): void
+    private function salvarInvoiceLytex(array $response): Invoice
     {
         $dueDate = data_get($response, 'dueDate', $this->boletoVencimento);
         $totalValue = data_get($response, 'totalValue');
 
         $faturaId = data_get($response, '_id');
 
-        Invoice::query()->updateOrCreate(
+        $invoice = Invoice::query()->updateOrCreate(
             filled($faturaId)
                 ? ['fatura_id' => $faturaId]
                 : ['lancamento_id' => $this->modalLancamentoId],
@@ -930,6 +1060,8 @@ class Financeiro extends Page
         Lancamento::query()
             ->whereKey($this->modalLancamentoId)
             ->update(['numero_boleto' => 'Lytex']);
+
+        return $invoice;
     }
 
     private function statusBoletoLocal(?string $status): ?string
@@ -967,7 +1099,7 @@ class Financeiro extends Page
         $this->linhas = $linhasOriginais;
         $this->pagina = $paginaAtual;
         [$mes1, $mes2] = $this->mesesVisiveis();
-        $fileName = 'financeiro-' . now()->format('Y-m-d-His') . '.csv';
+        $fileName = 'financeiro-'.now()->format('Y-m-d-His').'.csv';
 
         return response()->streamDownload(function () use ($linhas, $mes1, $mes2): void {
             $handle = fopen('php://output', 'w');
@@ -1138,7 +1270,7 @@ class Financeiro extends Page
         ];
     }
 
-    private function clientesQuery(): \Illuminate\Database\Eloquent\Builder
+    private function clientesQuery(): Builder
     {
         [$mes1, $mes2] = $this->mesesVisiveis();
 
@@ -1147,7 +1279,7 @@ class Financeiro extends Page
             ->when($this->statusClienteId, fn ($query): mixed => $query->where('status_cliente_id', $this->statusClienteId))
             ->when($this->diaVencimento, fn ($query): mixed => $query->where('dia_pagamento', $this->diaVencimento))
             ->when($this->clienteSearch !== '', function ($query): void {
-                $search = '%' . $this->clienteSearch . '%';
+                $search = '%'.$this->clienteSearch.'%';
                 $digits = preg_replace('/\D+/', '', $this->clienteSearch);
 
                 $query->where(function ($query) use ($search, $digits): void {
@@ -1156,7 +1288,7 @@ class Financeiro extends Page
                         ->orWhere('anotacoes', 'like', $search);
 
                     if ($digits !== '') {
-                        $query->orWhere('cpf_cnpj', 'like', '%' . $digits . '%');
+                        $query->orWhere('cpf_cnpj', 'like', '%'.$digits.'%');
                     }
                 });
             })
@@ -1164,7 +1296,7 @@ class Financeiro extends Page
             ->orderBy('nome');
     }
 
-    private function aplicarFiltrosMensais(\Illuminate\Database\Eloquent\Builder $query, array $mes1, array $mes2): void
+    private function aplicarFiltrosMensais(Builder $query, array $mes1, array $mes2): void
     {
         $this->aplicarFiltroMensal(
             $query,
@@ -1186,7 +1318,7 @@ class Financeiro extends Page
     }
 
     private function aplicarFiltroMensal(
-        \Illuminate\Database\Eloquent\Builder $query,
+        Builder $query,
         int $mes,
         int $ano,
         string $consulta,
@@ -1303,7 +1435,7 @@ class Financeiro extends Page
 
     private function clientesComConsultaMensal(int $mes, int $ano, string $consulta): Collection
     {
-        $search = '%' . $consulta . '%';
+        $search = '%'.$consulta.'%';
 
         return Lancamento::query()
             ->select('cliente_id')

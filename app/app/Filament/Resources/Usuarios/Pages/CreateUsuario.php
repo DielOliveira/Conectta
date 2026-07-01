@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Usuarios\Pages;
 
 use App\Filament\Resources\Usuarios\UsuarioResource;
+use App\Services\Audit\AuditLogger;
 use Filament\Resources\Pages\CreateRecord;
 
 class CreateUsuario extends CreateRecord
@@ -12,5 +13,20 @@ class CreateUsuario extends CreateRecord
     protected function getRedirectUrl(): string
     {
         return static::getResource()::getUrl('index');
+    }
+
+    protected function afterCreate(): void
+    {
+        $this->record->loadMissing('permissions');
+
+        AuditLogger::registrar(
+            'usuario.criado',
+            'Usuario criado.',
+            $this->record,
+            depois: AuditLogger::snapshot($this->record),
+            contexto: [
+                'permissions' => $this->record->permissions->pluck('nome')->values()->all(),
+            ],
+        );
     }
 }

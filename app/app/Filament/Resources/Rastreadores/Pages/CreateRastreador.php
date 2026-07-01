@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Rastreadores\Pages;
 
 use App\Filament\Resources\Rastreadores\RastreadorResource;
+use App\Services\Audit\AuditLogger;
 use Filament\Resources\Pages\CreateRecord;
 
 class CreateRastreador extends CreateRecord
@@ -28,5 +29,20 @@ class CreateRastreador extends CreateRecord
         }
 
         return $data;
+    }
+
+    protected function afterCreate(): void
+    {
+        AuditLogger::registrar(
+            'rastreador.criado',
+            'Rastreador criado.',
+            $this->record,
+            depois: AuditLogger::snapshot($this->record),
+            contexto: [
+                'tecnico_id' => $this->record->tecnico_id,
+                'status_rastreador_id' => $this->record->status_rastreador_id,
+                'is_estoque' => $this->record->is_estoque,
+            ],
+        );
     }
 }

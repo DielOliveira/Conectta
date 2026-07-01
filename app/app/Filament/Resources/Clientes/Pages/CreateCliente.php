@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Clientes\Pages;
 
 use App\Filament\Resources\Clientes\ClienteResource;
 use App\Models\StatusCliente;
+use App\Services\Audit\AuditLogger;
 use Filament\Resources\Pages\CreateRecord;
 
 class CreateCliente extends CreateRecord
@@ -22,5 +23,20 @@ class CreateCliente extends CreateRecord
             ->value('id');
 
         return $data;
+    }
+
+    protected function afterCreate(): void
+    {
+        AuditLogger::registrar(
+            'cliente.criado',
+            'Cliente criado.',
+            $this->record,
+            depois: AuditLogger::snapshot($this->record),
+            contexto: [
+                'status_cliente_id' => $this->record->status_cliente_id,
+                'vendedor_id' => $this->record->vendedor_id,
+                'cliente_origem_id' => $this->record->cliente_origem_id,
+            ],
+        );
     }
 }

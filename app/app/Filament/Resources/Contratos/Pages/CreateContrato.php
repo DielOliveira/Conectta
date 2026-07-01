@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Contratos\Pages;
 
 use App\Filament\Resources\Contratos\ContratoResource;
 use App\Models\StatusContrato;
+use App\Services\Audit\AuditLogger;
 use Filament\Resources\Pages\CreateRecord;
 
 class CreateContrato extends CreateRecord
@@ -21,5 +22,19 @@ class CreateContrato extends CreateRecord
             ?: $data['status_contrato_id'];
 
         return $data;
+    }
+
+    protected function afterCreate(): void
+    {
+        AuditLogger::registrar(
+            'contrato.criado',
+            'Contrato criado.',
+            $this->record,
+            depois: AuditLogger::snapshot($this->record),
+            contexto: [
+                'veiculo_id' => $this->record->veiculo_id,
+                'tipo_contrato' => $this->record->tipo_contrato,
+            ],
+        );
     }
 }

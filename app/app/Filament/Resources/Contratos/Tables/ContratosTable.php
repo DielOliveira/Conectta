@@ -7,6 +7,7 @@ use App\Filament\Resources\Contratos\Pages\ListContratos;
 use App\Models\Contrato;
 use App\Models\Permission;
 use App\Models\StatusContrato;
+use App\Services\Audit\AuditLogger;
 use App\Services\ZapSign\ZapSignException;
 use App\Services\ZapSign\ZapSignService;
 use Filament\Actions\Action;
@@ -111,6 +112,10 @@ class ContratosTable
         }
 
         $dados = is_array($record->dados) ? $record->dados : [];
+        $antes = [
+            'status' => $record->statusContrato?->label,
+            'doc_token_cadastrado' => filled($record->doc_token),
+        ];
 
         try {
             $response = app(ZapSignService::class)->criarDocumento($record->veiculo, $record->tipoContrato, $dados);
@@ -128,6 +133,23 @@ class ContratosTable
             'status_contrato_id' => StatusContrato::query()->where('label', 'Enviado')->value('id'),
             'doc_token' => data_get($response, 'token'),
         ])->save();
+
+        $record->load('statusContrato');
+
+        AuditLogger::registrar(
+            acao: 'contrato.enviado',
+            descricao: 'Contrato enviado para assinatura pela ZapSign.',
+            entidade: $record,
+            antes: $antes,
+            depois: [
+                'status' => $record->statusContrato?->label,
+                'doc_token_cadastrado' => filled($record->doc_token),
+            ],
+            contexto: [
+                'tipo_contrato' => $record->tipoContrato?->label,
+                'veiculo_id' => $record->veiculo_id,
+            ],
+        );
 
         Notification::make()
             ->title('Contrato enviado')

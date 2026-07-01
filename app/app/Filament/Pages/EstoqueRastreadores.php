@@ -6,6 +6,7 @@ use App\Models\Permission;
 use App\Models\Rastreador;
 use App\Models\StatusRastreador;
 use App\Models\Tecnico;
+use App\Services\Audit\AuditLogger;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -127,14 +128,35 @@ class EstoqueRastreadores extends Page
             'tecnico_id' => 'tecnico',
         ]);
 
-        Rastreador::query()->updateOrCreate(
-            ['id' => $this->editingId],
-            [
-                ...$data,
-                'is_estoque' => true,
-                'criado_em' => now(),
-            ],
-        );
+        $data = [
+            ...$data,
+            'is_estoque' => true,
+            'criado_em' => now(),
+        ];
+
+        if ($this->editingId) {
+            $rastreador = Rastreador::query()->findOrFail($this->editingId);
+            $antes = AuditLogger::snapshot($rastreador);
+            $rastreador->update($data);
+            $rastreador->refresh();
+
+            AuditLogger::registrar(
+                'rastreador.editado',
+                'Rastreador editado no estoque.',
+                $rastreador,
+                antes: $antes,
+                depois: AuditLogger::snapshot($rastreador),
+            );
+        } else {
+            $rastreador = Rastreador::query()->create($data);
+
+            AuditLogger::registrar(
+                'rastreador.criado',
+                'Rastreador incluido no estoque.',
+                $rastreador,
+                depois: AuditLogger::snapshot($rastreador),
+            );
+        }
 
         Notification::make()
             ->title($this->editingId ? 'Rastreador atualizado.' : 'Rastreador incluido.')

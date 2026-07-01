@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Services\Audit\AuditLogger;
 use App\Services\Backup\BackupRestoreService;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -30,12 +31,19 @@ class RestoreBackup extends Page
     protected string $view = 'filament.pages.restore-backup';
 
     public mixed $clientes = null;
+
     public mixed $veiculos = null;
+
     public mixed $rastreadores = null;
+
     public mixed $tecnicos = null;
+
     public mixed $vendedores = null;
+
     public mixed $lancamentos = null;
+
     public mixed $invoices = null;
+
     public mixed $faturamentos = null;
 
     public bool $confirmarLimpeza = false;
@@ -93,6 +101,16 @@ class RestoreBackup extends Page
                 'faturamentos' => $this->path($this->faturamentos),
             ]);
 
+            AuditLogger::registrar(
+                acao: 'backup.restore',
+                descricao: 'Restore de backup executado.',
+                contexto: [
+                    'limpar_base' => true,
+                    'resultado' => $this->resultado,
+                    'arquivos' => $this->nomesArquivos(),
+                ],
+            );
+
             Notification::make()
                 ->title('Restore concluido.')
                 ->success()
@@ -115,5 +133,31 @@ class RestoreBackup extends Page
         }
 
         return $file->getRealPath();
+    }
+
+    /**
+     * @return array<string, string|null>
+     */
+    private function nomesArquivos(): array
+    {
+        return [
+            'clientes' => $this->nomeArquivo($this->clientes),
+            'veiculos' => $this->nomeArquivo($this->veiculos),
+            'rastreadores' => $this->nomeArquivo($this->rastreadores),
+            'tecnicos' => $this->nomeArquivo($this->tecnicos),
+            'vendedores' => $this->nomeArquivo($this->vendedores),
+            'lancamentos' => $this->nomeArquivo($this->lancamentos),
+            'invoices' => $this->nomeArquivo($this->invoices),
+            'faturamentos' => $this->nomeArquivo($this->faturamentos),
+        ];
+    }
+
+    private function nomeArquivo(mixed $file): ?string
+    {
+        if (! $file instanceof TemporaryUploadedFile) {
+            return null;
+        }
+
+        return $file->getClientOriginalName();
     }
 }

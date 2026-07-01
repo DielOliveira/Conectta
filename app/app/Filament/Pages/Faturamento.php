@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Models\Faturamento as FaturamentoModel;
 use App\Models\Lancamento;
 use App\Models\Permission;
+use App\Services\Audit\AuditLogger;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
@@ -75,12 +76,26 @@ class Faturamento extends Page
         );
 
         $novoStatus = ! $faturamento->is_aberto;
+        $antes = AuditLogger::snapshot($faturamento);
 
         FaturamentoModel::query()
             ->where('ano', $this->ano)
             ->update(['is_aberto' => false]);
 
         $faturamento->update(['is_aberto' => $novoStatus]);
+        $faturamento->refresh();
+
+        AuditLogger::registrar(
+            $novoStatus ? 'faturamento.mes_aberto' : 'faturamento.mes_fechado',
+            $novoStatus ? 'Mes de faturamento aberto.' : 'Mes de faturamento fechado.',
+            $faturamento,
+            antes: $antes,
+            depois: AuditLogger::snapshot($faturamento),
+            contexto: [
+                'ano' => $this->ano,
+                'mes' => $mes,
+            ],
+        );
 
         Notification::make()
             ->title($novoStatus ? 'Mes marcado como aberto.' : 'Mes fechado.')
@@ -161,7 +176,7 @@ class Faturamento extends Page
 
     public function moeda(float|int|string|null $valor): string
     {
-        return 'R$' . number_format((float) $valor, 2, ',', '.');
+        return 'R$'.number_format((float) $valor, 2, ',', '.');
     }
 
     public function mesNome(int $mes): string

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ConfiguracaoIntegracao;
 use App\Models\Invoice;
 use App\Models\LytexWebhookLog;
+use App\Services\Audit\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -62,7 +63,7 @@ class LytexWebhookController extends Controller
         }
 
         if (! in_array($webhookType, ['liquidateInvoice', 'scheduleInvoicePayment', 'cancelInvoice'], true)) {
-            $log->update(['message' => 'Evento nao tratado: ' . $webhookType]);
+            $log->update(['message' => 'Evento nao tratado: '.$webhookType]);
 
             return response()->json(['message' => 'Evento nao tratado.'], 202);
         }
@@ -76,6 +77,7 @@ class LytexWebhookController extends Controller
         }
 
         $statusLocal = $this->statusLocal($status, $webhookType);
+        $antes = AuditLogger::snapshot($invoice);
 
         $invoice->forceFill([
             'status' => $statusLocal,
@@ -94,6 +96,20 @@ class LytexWebhookController extends Controller
             'invoice_id' => $invoice->id,
             'status' => $statusLocal,
         ]);
+
+        AuditLogger::registrar(
+            'boleto.status_webhook',
+            'Status do boleto atualizado pelo webhook da Lytex.',
+            $invoice,
+            antes: $antes,
+            depois: AuditLogger::snapshot($invoice),
+            contexto: [
+                'webhook_type' => $webhookType,
+                'status_recebido' => $status,
+                'status_local' => $statusLocal,
+                'webhook_log_id' => $log->id,
+            ],
+        );
 
         return response()->json(['message' => 'Webhook processado.']);
     }

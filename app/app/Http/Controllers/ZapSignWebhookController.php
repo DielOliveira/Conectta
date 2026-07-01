@@ -6,6 +6,7 @@ use App\Models\ConfiguracaoIntegracao;
 use App\Models\Contrato;
 use App\Models\StatusContrato;
 use App\Models\ZapSignWebhookLog;
+use App\Services\Audit\AuditLogger;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -76,6 +77,8 @@ class ZapSignWebhookController extends Controller
             return response()->json(['message' => 'Contrato nao encontrado.'], 202);
         }
 
+        $statusAnterior = $contrato->status_contrato_id;
+
         $contrato->forceFill([
             'status_contrato_id' => $statusLocal,
         ])->save();
@@ -91,6 +94,19 @@ class ZapSignWebhookController extends Controller
             'contrato_id' => $contrato->id,
             'status' => $status,
         ]);
+
+        AuditLogger::registrar(
+            'contrato.status_webhook',
+            'Status do contrato atualizado pelo webhook da ZapSign.',
+            $contrato,
+            antes: ['status_contrato_id' => $statusAnterior],
+            depois: ['status_contrato_id' => $statusLocal],
+            contexto: [
+                'event_type' => $eventType,
+                'status_recebido' => $status,
+                'webhook_log_id' => $log->id,
+            ],
+        );
 
         return response()->json(['message' => 'Webhook processado.']);
     }
@@ -168,7 +184,6 @@ class ZapSignWebhookController extends Controller
         return $eventType;
     }
 
-
     private function statusContratoLocal(string $eventType): ?int
     {
         $label = match ($eventType) {
@@ -185,7 +200,4 @@ class ZapSignWebhookController extends Controller
 
         return StatusContrato::query()->where('label', $label)->value('id');
     }
-
-
-
 }
