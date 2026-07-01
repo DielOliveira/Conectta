@@ -2,6 +2,7 @@
     $tipoSelecionado = $tipos->firstWhere('id', $tipoSelecionadoId) ?? $tipos->first();
     $isComodato = $tipoSelecionado?->label === 'Comodato';
     $contratoAtual = $contratos->where('tipo_contrato_id', $tipoSelecionado?->id)->sortByDesc('created_at')->first();
+    $podeEnviarContrato = ($contratoAtual?->statusContrato?->label ?? 'Nao Enviado') === 'Nao Enviado';
     $cliente = $veiculo->cliente;
     $cpfCnpj = $cliente?->cpf_cnpj_formatado ?? '';
     $telefoneNumeros = preg_replace('/\D+/', '', (string) $cliente?->telefone1);
@@ -108,7 +109,9 @@
 
                 <div class="actions">
                     <a class="btn btn-secondary" href="/admin/rastreadores/{{ $veiculo->id }}/edit">Cancelar</a>
-                    <button class="btn btn-primary" type="submit">Enviar</button>
+                    @if ($podeEnviarContrato)
+                        <button class="btn btn-primary" type="submit">Enviar</button>
+                    @endif
                 </div>
             </form>
         </section>

@@ -64,7 +64,7 @@ class ContratosTable
                 Action::make('enviar')
                     ->label('Enviar')
                     ->visible(fn (Contrato $record): bool => (auth()->user()?->hasPermission(Permission::CADASTRO_ESCRITA) ?? false)
-                        && blank($record->doc_token))
+                        && $record->statusContrato?->label === 'Nao Enviado')
                     ->modalSubmitActionLabel('Enviar')
                     ->requiresConfirmation()
                     ->modalDescription('Enviar este contrato para assinatura pela ZapSign?')
@@ -89,7 +89,18 @@ class ContratosTable
 
     private static function enviarContrato(Contrato $record): mixed
     {
-        $record->loadMissing(['veiculo', 'tipoContrato']);
+        $record->loadMissing(['veiculo', 'tipoContrato', 'statusContrato']);
+
+        if ($record->statusContrato?->label !== 'Nao Enviado') {
+            Notification::make()
+                ->title('Contrato nao pode ser enviado')
+                ->body('Apenas contratos com status Nao Enviado podem ser enviados.')
+                ->warning()
+                ->send();
+
+            return null;
+        }
+
         $dados = is_array($record->dados) ? $record->dados : [];
 
         try {

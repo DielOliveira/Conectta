@@ -101,7 +101,11 @@
     <div class="ct-contract-message" x-show="message" x-text="message" :class="messageType === 'success' ? 'is-success' : 'is-error'"></div>
 
     @foreach ($tipos as $tipo)
-        @php $isComodato = $tipo->label === 'Comodato'; @endphp
+        @php
+            $isComodato = $tipo->label === 'Comodato';
+            $contratoAtualTipo = $contratos->where('tipo_contrato_id', $tipo->id)->sortByDesc('created_at')->first();
+            $podeEnviarTipo = ($contratoAtualTipo?->statusContrato?->label ?? 'Nao Enviado') === 'Nao Enviado';
+        @endphp
         <details @if ($loop->first) open @endif>
             <summary>{{ $tipo->label }}</summary>
             <div data-contract-card data-url="{{ route('contratos-rastreador.enviar', $veiculo) }}">
@@ -138,9 +142,11 @@
                     </div>
                 @endif
 
-                <div class="actions">
-                    <button class="btn btn-primary" type="button" data-contract-send @click="send($el)" x-text="sending ? 'Enviando...' : 'Enviar'" :disabled="sending">Enviar</button>
-                </div>
+                @if ($podeEnviarTipo)
+                    <div class="actions">
+                        <button class="btn btn-primary" type="button" data-contract-send @click="send($el)" x-text="sending ? 'Enviando...' : 'Enviar'" :disabled="sending">Enviar</button>
+                    </div>
+                @endif
             </div>
         </details>
     @endforeach

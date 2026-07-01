@@ -3,9 +3,7 @@
 use App\Http\Controllers\ContratosRastreadorController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return view('welcome');
-});
+Route::redirect('/', '/admin/login');
 
 Route::middleware('auth')->group(function (): void {
     Route::get('/admin/contratos-rastreador/{veiculo}', [ContratosRastreadorController::class, 'show'])->name('contratos-rastreador.show');

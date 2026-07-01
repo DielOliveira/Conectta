@@ -17,10 +17,10 @@ Data: 22/06/2026.
 
 Usuario administrador criado pelo seeder:
 
-- Email: `admin@conectta.local`
-- Senha: `admin123`
+- Email: definido por `ADMIN_EMAIL`.
+- Senha: definida obrigatoriamente por `ADMIN_PASSWORD`.
 
-Observacao: senha apenas para ambiente local de desenvolvimento.
+Observacao: nao manter senha padrao ou senha compartilhada em producao.
 
 ### Cliente
 
@@ -325,7 +325,7 @@ Data: 22/06/2026.
 - Botao de `ReplicarPagamento` alterna ligado/desligado na grade.
 - Popup de lancamento criado como placeholder, com botoes `Anterior`, `Fechar` e `Proximo`.
 - Botao `Exportar` gera CSV compativel com Excel da grade atual com os dois meses visiveis.
-- Criado `FinanceiroDemoSeeder` para popular alguns lancamentos locais de exemplo.
+- `FinanceiroDemoSeeder` foi usado durante desenvolvimento e removido na limpeza para producao.
 - Paginacao implementada no rodape da tela financeira:
   - mostra intervalo atual e total filtrado;
   - permite navegar entre paginas;
@@ -550,7 +550,7 @@ Data: 23/06/2026.
 - Ordenacao por `Cliente.DiaPagamento` crescente.
 - Lista inicial limitada a 8 registros, acompanhando o `TOP (8)` do SQL enviado.
 - Botao `Exportar` gera CSV compativel com Excel usando a mesma lista filtrada, sem limitar a 8 registros.
-- `FinanceiroDemoSeeder` passou a criar alguns `Invoice` demo com status `Atrasado`.
+- `FinanceiroDemoSeeder` foi usado durante desenvolvimento para validar invoices demo e removido na limpeza para producao.
 - Layout ajustado para ocupar largura total do painel e evitar centralizacao/deslocamento horizontal.
 - Labels de `Status Boleto` padronizadas por cor:
   - `Aguardando Pagamento`: amarelo claro;
@@ -558,7 +558,7 @@ Data: 23/06/2026.
   - `Atrasado`: vermelho;
   - `Cancelado`: vermelho;
   - `Processando`: laranja.
-- `FinanceiroDemoSeeder` ajustado para criar lancamentos abertos com esses status reais.
+- Seeders financeiros demo removidos da base versionada para evitar dados de exemplo em producao.
 
 ## Fluxo Financeiro - Boletos
 
@@ -598,10 +598,8 @@ Data: 23/06/2026.
 
 ### Bootstrap de dados de exemplo
 
-- Criado `DemoBootstrapSeeder` para gerar dados locais de teste.
-- O seeder cria 3 clientes demo.
-- Cada cliente demo recebe 3 veiculos/rastreadores.
-- Os veiculos demo respeitam as regras de IMEI/chip ativo unico, cancelamento e recalculo de status do cliente.
+- `DemoBootstrapSeeder` foi usado durante desenvolvimento para gerar dados locais de teste.
+- O seeder demo foi removido da base versionada na limpeza para producao.
 
 
 ## Usuarios e Permissoes

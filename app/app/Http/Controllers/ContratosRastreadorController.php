@@ -48,6 +48,23 @@ class ContratosRastreadorController extends Controller
         );
 
         $tipoContrato = TipoContrato::query()->findOrFail($data['tipo_contrato_id']);
+        $contrato = $veiculo->contratos()
+            ->with('statusContrato')
+            ->where('tipo_contrato_id', $tipoContrato->id)
+            ->latest()
+            ->first();
+
+        if (($contrato?->statusContrato?->label ?? 'Nao Enviado') !== 'Nao Enviado') {
+            $message = 'Apenas contratos com status Nao Enviado podem ser enviados.';
+
+            if ($request->expectsJson()) {
+                return response()->json(['message' => $message], 422);
+            }
+
+            return back()
+                ->withInput()
+                ->withErrors(['contrato' => $message]);
+        }
 
         try {
             $response = $zapSignService->criarDocumento($veiculo, $tipoContrato, $request->all());
@@ -61,12 +78,12 @@ class ContratosRastreadorController extends Controller
                 ->withErrors(['zapsign' => $exception->getMessage()]);
         }
 
-        Contrato::query()->create([
+        ($contrato ?: new Contrato)->forceFill([
             'veiculo_id' => $veiculo->id,
             'tipo_contrato_id' => $tipoContrato->id,
             'status_contrato_id' => StatusContrato::query()->where('label', 'Enviado')->value('id'),
             'doc_token' => data_get($response, 'token'),
-        ]);
+        ])->save();
 
         if ($request->expectsJson()) {
             return response()->json(['message' => 'Documento enviado para a ZapSign.']);
