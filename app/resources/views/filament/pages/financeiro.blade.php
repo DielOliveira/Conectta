@@ -173,7 +173,7 @@
 
         .ct-fin-month-filters {
             display: grid;
-            grid-template-columns: 22% 23% 22% 33%;
+            grid-template-columns: 21% 24% 22% 33%;
         }
 
         .ct-fin-filter-cell {
@@ -256,7 +256,7 @@
             font-size: 12px;
             font-weight: 700;
             gap: 6px;
-            grid-template-columns: 22% 23% 22% 33%;
+            grid-template-columns: 21% 24% 22% 33%;
             min-height: 30px;
             padding: 0 6px;
         }
@@ -344,26 +344,106 @@
             padding: 0 4px 0 0;
         }
 
+        .ct-fin-anotacao-wrap {
+            align-items: center;
+            display: grid;
+            gap: 4px;
+            grid-template-columns: minmax(0, 1fr) 18px;
+        }
+
+        .ct-fin-anotacao-wrap .ct-fin-text-input {
+            min-width: 0;
+        }
+
         .ct-fin-replicar {
             align-items: center;
+            background: transparent;
             border: 0;
             border-radius: 999px;
-            color: #ffffff;
             cursor: pointer;
             display: inline-flex;
-            font-size: 16px;
-            font-weight: 800;
-            height: 24px;
+            height: 18px;
             justify-content: center;
-            width: 24px;
+            padding: 0;
+            transition: color 120ms ease, opacity 120ms ease, transform 120ms ease;
+            width: 18px;
+        }
+
+        .ct-fin-replicar svg {
+            height: 16px;
+            stroke-width: 3;
+            width: 16px;
         }
 
         .ct-fin-replicar-on {
-            background: #111827;
+            color: #111827;
         }
 
         .ct-fin-replicar-off {
-            background: #cbd5e1;
+            color: #cbd5e1;
+        }
+
+        .ct-fin-replicar:hover {
+            opacity: 0.85;
+            transform: translateX(1px);
+        }
+
+        .ct-fin-th-action {
+            align-items: center;
+            display: inline-flex;
+            gap: 5px;
+            justify-content: center;
+            width: 100%;
+        }
+
+        .ct-fin-copy-planned {
+            align-items: center;
+            background: transparent;
+            border: 0;
+            color: #4f63c6;
+            cursor: pointer;
+            display: inline-flex;
+            height: 18px;
+            justify-content: center;
+            padding: 0;
+            transition: color 120ms ease, opacity 120ms ease, transform 120ms ease;
+            width: 18px;
+        }
+
+        .ct-fin-copy-planned svg {
+            height: 16px;
+            width: 16px;
+        }
+
+        .ct-fin-copy-planned:hover {
+            color: #3346a8;
+            transform: translateY(1px);
+        }
+
+        .ct-fin-copy-planned-active {
+            color: #15803d;
+        }
+
+        .ct-fin-copy-planned:disabled {
+            cursor: wait;
+            opacity: 0.85;
+            transform: none;
+        }
+
+        .ct-fin-spinner {
+            animation: ct-fin-spin 700ms linear infinite;
+            border: 1.5px solid currentColor;
+            border-right-color: transparent;
+            border-radius: 999px;
+            display: inline-block;
+            height: 12px;
+            width: 12px;
+        }
+
+        @keyframes ct-fin-spin {
+            to {
+                transform: rotate(360deg);
+            }
         }
 
         .ct-fin-modal-backdrop {
@@ -834,7 +914,6 @@
                             <col style="width: 128px" />
                             <col style="width: 78px" />
                             <col style="width: 116px" />
-                            <col style="width: 24px" />
                         </colgroup>
                         <thead>
                             <tr>
@@ -843,7 +922,6 @@
                                 <th>Cliente</th>
                                 <th>Venc.</th>
                                 <th>Anotacoes</th>
-                                <th></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -864,28 +942,34 @@
                                         />
                                     </td>
                                     <td>
-                                        <input
-                                            type="text"
-                                            wire:model.live.debounce.2000ms="anotacoes.{{ $linha['cliente']->id }}"
-                                            wire:blur="salvarAnotacao({{ $linha['cliente']->id }})"
-                                            wire:keydown.enter="salvarAnotacao({{ $linha['cliente']->id }})"
-                                            class="ct-fin-text-input"
-                                        />
-                                    </td>
-                                    <td class="ct-fin-number">
-                                        <button
-                                            type="button"
-                                            wire:click="toggleReplicar({{ $linha['cliente']->id }})"
-                                            class="ct-fin-replicar {{ $linha['cliente']->replicar_pagamento ? 'ct-fin-replicar-on' : 'ct-fin-replicar-off' }}"
-                                            title="Replicar pagamento"
-                                        >
-                                            &gt;
-                                        </button>
+                                        <div class="ct-fin-anotacao-wrap">
+                                            <input
+                                                type="text"
+                                                wire:model.live.debounce.2000ms="anotacoes.{{ $linha['cliente']->id }}"
+                                                wire:blur="salvarAnotacao({{ $linha['cliente']->id }})"
+                                                wire:keydown.enter="salvarAnotacao({{ $linha['cliente']->id }})"
+                                                class="ct-fin-text-input"
+                                            />
+                                            <button
+                                                type="button"
+                                                x-data="{ active: @js((bool) $linha['cliente']->replicar_pagamento) }"
+                                                x-effect="active = @js((bool) $linha['cliente']->replicar_pagamento)"
+                                                x-on:click="active = ! active; $wire.toggleReplicar({{ $linha['cliente']->id }})"
+                                                class="ct-fin-replicar"
+                                                x-bind:class="active ? 'ct-fin-replicar-on' : 'ct-fin-replicar-off'"
+                                                title="{{ $linha['cliente']->replicar_pagamento ? 'Replicacao de pagamento ativa' : 'Replicacao de pagamento inativa' }}"
+                                                aria-label="{{ $linha['cliente']->replicar_pagamento ? 'Desativar replicacao de pagamento' : 'Ativar replicacao de pagamento' }}"
+                                            >
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                                                    <path d="M9 18l6-6-6-6" stroke-linecap="round" stroke-linejoin="round" />
+                                                </svg>
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="6" class="ct-fin-number">Nenhum cliente encontrado.</td>
+                                    <td colspan="5" class="ct-fin-number">Nenhum cliente encontrado.</td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -954,15 +1038,38 @@
                         </div>
                         <table class="ct-fin-table">
                             <colgroup>
-                                <col style="width: 22%" />
-                                <col style="width: 23%" />
+                                <col style="width: 21%" />
+                                <col style="width: 24%" />
                                 <col style="width: 22%" />
                                 <col style="width: 33%" />
                             </colgroup>
                             <thead>
                                 <tr>
                                     <th>N. Boleto</th>
-                                    <th>Planejado</th>
+                                    <th>
+                                        <span class="ct-fin-th-action">
+                                            <span>Planejado</span>
+                                            <button
+                                                type="button"
+                                                x-data="{ active: false }"
+                                                x-on:click="if (active) return; active = true; Promise.resolve($wire.replicarPlanejadoMes({{ $month['meta']['mes'] }}, {{ $month['meta']['ano'] }})).finally(() => active = false)"
+                                                class="ct-fin-copy-planned"
+                                                x-bind:class="{ 'ct-fin-copy-planned-active': active }"
+                                                x-bind:disabled="active"
+                                                title="Replicar planejado do mes anterior"
+                                                aria-label="Replicar planejado do mes anterior"
+                                            >
+                                                <span x-show="! active" x-cloak>
+                                                    <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                                        <path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-11.25a.75.75 0 0 0-1.5 0v4.69L7.53 9.72a.75.75 0 0 0-1.06 1.06l3 3a.75.75 0 0 0 1.06 0l3-3a.75.75 0 1 0-1.06-1.06l-1.72 1.72V6.75Z" clip-rule="evenodd" />
+                                                    </svg>
+                                                </span>
+                                                <span x-show="active" x-cloak>
+                                                    <span class="ct-fin-spinner" aria-hidden="true"></span>
+                                                </span>
+                                            </button>
+                                        </span>
+                                    </th>
                                     <th>Efetuado</th>
                                     <th>Observacao</th>
                                 </tr>

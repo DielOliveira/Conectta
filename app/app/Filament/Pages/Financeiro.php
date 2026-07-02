@@ -319,6 +319,110 @@ class Financeiro extends Page
         );
     }
 
+    public function replicarPlanejadoMes(int $mes, int $ano): void
+    {
+        if (! $this->autorizar(Permission::FINANCEIRO_ESCRITA)) {
+            return;
+        }
+
+        $mesDestino = CarbonImmutable::create($ano, $mes, 1);
+        $mesOrigem = $mesDestino->subMonth();
+
+        $clienteIds = (clone $this->clientesQuery())
+            ->where('replicar_pagamento', true)
+            ->pluck('id');
+
+        if ($clienteIds->isEmpty()) {
+            Notification::make()
+                ->title('Nenhum cliente com replicacao ativa encontrado.')
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        $origens = Lancamento::query()
+            ->select('cliente_id')
+            ->selectRaw('MAX(valor_planejado) as valor_planejado')
+            ->whereIn('cliente_id', $clienteIds)
+            ->where('mes_referencia', (int) $mesOrigem->month)
+            ->where('ano_referencia', (int) $mesOrigem->year)
+            ->where('valor_planejado', '>', 0)
+            ->groupBy('cliente_id')
+            ->get();
+
+        $copiados = 0;
+        $ignorados = 0;
+
+        foreach ($origens as $origem) {
+            $valorPlanejado = (float) $origem->valor_planejado;
+
+            if ($valorPlanejado <= 0) {
+                $ignorados++;
+
+                continue;
+            }
+
+            $jaTemValor = Lancamento::query()
+                ->where('cliente_id', $origem->cliente_id)
+                ->where('mes_referencia', $mes)
+                ->where('ano_referencia', $ano)
+                ->where('valor_planejado', '>', 0)
+                ->exists();
+
+            if ($jaTemValor) {
+                $ignorados++;
+
+                continue;
+            }
+
+            $lancamento = Lancamento::query()
+                ->where('cliente_id', $origem->cliente_id)
+                ->where('mes_referencia', $mes)
+                ->where('ano_referencia', $ano)
+                ->orderBy('id')
+                ->first();
+
+            if ($lancamento) {
+                $lancamento->forceFill([
+                    'valor_planejado' => $valorPlanejado,
+                    'time_stamp' => now(),
+                ])->save();
+            } else {
+                Lancamento::query()->create([
+                    'cliente_id' => $origem->cliente_id,
+                    'mes_referencia' => $mes,
+                    'ano_referencia' => $ano,
+                    'valor_planejado' => $valorPlanejado,
+                    'time_stamp' => now(),
+                ]);
+            }
+
+            $copiados++;
+        }
+
+        AuditLogger::registrar(
+            'financeiro.planejados_replicados',
+            'Valores planejados replicados do mes anterior.',
+            entidadeTipo: 'Lancamento',
+            contexto: [
+                'mes_origem' => (int) $mesOrigem->month,
+                'ano_origem' => (int) $mesOrigem->year,
+                'mes_destino' => $mes,
+                'ano_destino' => $ano,
+                'clientes_com_replicacao' => $clienteIds->count(),
+                'lancamentos_copiados' => $copiados,
+                'lancamentos_ignorados' => $ignorados,
+            ],
+        );
+
+        Notification::make()
+            ->title($copiados === 1 ? '1 valor planejado replicado.' : $copiados.' valores planejados replicados.')
+            ->body($ignorados > 0 ? $ignorados.' clientes foram ignorados por ja terem valor ou nao terem valor no mes anterior.' : null)
+            ->success()
+            ->send();
+    }
+
     public function abrirLancamento(int $clienteId, int $mes, int $ano): void
     {
         $cliente = Cliente::query()->findOrFail($clienteId);
