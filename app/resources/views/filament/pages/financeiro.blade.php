@@ -903,34 +903,44 @@
                             <div class="ct-fin-filter-cell">
                                 <button
                                     type="button"
-                                    wire:click="{{ $isMes1 ? 'alternarNumeroBoletoMes1' : 'alternarNumeroBoletoMes2' }}"
-                                    class="ct-fin-tristate {{ $boletoState === 1 ? 'ct-fin-tristate-filled' : '' }} {{ $boletoState === 0 ? 'ct-fin-tristate-empty' : '' }}"
+                                    x-data="{ state: @js($boletoState), next() { this.state = this.state === 2 ? 1 : (this.state === 1 ? 0 : 2) } }"
+                                    x-effect="state = @js($boletoState)"
+                                    x-on:click="next(); $wire.{{ $isMes1 ? 'alternarNumeroBoletoMes1' : 'alternarNumeroBoletoMes2' }}()"
+                                    class="ct-fin-tristate"
+                                    x-bind:class="{ 'ct-fin-tristate-filled': state === 1, 'ct-fin-tristate-empty': state === 0 }"
                                     title="Filtro de boleto"
                                 >
-                                    @if ($boletoState === 2)
+                                    <span x-show="state === 2" x-cloak>
                                         <svg class="ct-fin-fa-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" aria-hidden="true"><path fill="currentColor" d="M400 32H48C21.5 32 0 53.5 0 80v352c0 26.5 21.5 48 48 48h352c26.5 0 48-21.5 48-48V80c0-26.5-21.5-48-48-48zm0 400H48V80h352v352zM183 352.4 91.7 261.1c-4.7-4.7-4.7-12.3 0-17l22.6-22.6c4.7-4.7 12.3-4.7 17 0l60.3 60.3 124.7-124.7c4.7-4.7 12.3-4.7 17 0l22.6 22.6c4.7 4.7 4.7 12.3 0 17L200 352.4c-4.7 4.7-12.3 4.7-17 0z" /></svg>
-                                    @elseif ($boletoState === 1)
+                                    </span>
+                                    <span x-show="state === 1" x-cloak>
                                         <svg class="ct-fin-fa-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" aria-hidden="true"><path fill="currentColor" d="M400 32H48C21.5 32 0 53.5 0 80v352c0 26.5 21.5 48 48 48h352c26.5 0 48-21.5 48-48V80c0-26.5-21.5-48-48-48zm0 400H48V80h352v352zM128 232h192c6.6 0 12 5.4 12 12v24c0 6.6-5.4 12-12 12H128c-6.6 0-12-5.4-12-12v-24c0-6.6 5.4-12 12-12z" /></svg>
-                                    @else
+                                    </span>
+                                    <span x-show="state === 0" x-cloak>
                                         <svg class="ct-fin-fa-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" aria-hidden="true"><path fill="currentColor" d="M400 32H48C21.5 32 0 53.5 0 80v352c0 26.5 21.5 48 48 48h352c26.5 0 48-21.5 48-48V80c0-26.5-21.5-48-48-48zm0 400H48V80h352v352z" /></svg>
-                                    @endif
+                                    </span>
                                 </button>
                             </div>
                             <div class="ct-fin-filter-cell"></div>
                             <div class="ct-fin-filter-cell">
                                 <button
                                     type="button"
-                                    wire:click="{{ $isMes1 ? 'alternarValorEfetuadoMes1' : 'alternarValorEfetuadoMes2' }}"
-                                    class="ct-fin-tristate {{ $efetuadoState === 1 ? 'ct-fin-tristate-filled' : '' }} {{ $efetuadoState === 0 ? 'ct-fin-tristate-empty' : '' }}"
+                                    x-data="{ state: @js($efetuadoState), next() { this.state = this.state === 2 ? 1 : (this.state === 1 ? 0 : 2) } }"
+                                    x-effect="state = @js($efetuadoState)"
+                                    x-on:click="next(); $wire.{{ $isMes1 ? 'alternarValorEfetuadoMes1' : 'alternarValorEfetuadoMes2' }}()"
+                                    class="ct-fin-tristate"
+                                    x-bind:class="{ 'ct-fin-tristate-filled': state === 1, 'ct-fin-tristate-empty': state === 0 }"
                                     title="Filtro de valor efetuado"
                                 >
-                                    @if ($efetuadoState === 2)
+                                    <span x-show="state === 2" x-cloak>
                                         <svg class="ct-fin-fa-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" aria-hidden="true"><path fill="currentColor" d="M400 32H48C21.5 32 0 53.5 0 80v352c0 26.5 21.5 48 48 48h352c26.5 0 48-21.5 48-48V80c0-26.5-21.5-48-48-48zm0 400H48V80h352v352zM183 352.4 91.7 261.1c-4.7-4.7-4.7-12.3 0-17l22.6-22.6c4.7-4.7 12.3-4.7 17 0l60.3 60.3 124.7-124.7c4.7-4.7 12.3-4.7 17 0l22.6 22.6c4.7 4.7 4.7 12.3 0 17L200 352.4c-4.7 4.7-12.3 4.7-17 0z" /></svg>
-                                    @elseif ($efetuadoState === 1)
+                                    </span>
+                                    <span x-show="state === 1" x-cloak>
                                         <svg class="ct-fin-fa-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" aria-hidden="true"><path fill="currentColor" d="M400 32H48C21.5 32 0 53.5 0 80v352c0 26.5 21.5 48 48 48h352c26.5 0 48-21.5 48-48V80c0-26.5-21.5-48-48-48zm0 400H48V80h352v352zM128 232h192c6.6 0 12 5.4 12 12v24c0 6.6-5.4 12-12 12H128c-6.6 0-12-5.4-12-12v-24c0-6.6 5.4-12 12-12z" /></svg>
-                                    @else
+                                    </span>
+                                    <span x-show="state === 0" x-cloak>
                                         <svg class="ct-fin-fa-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512" aria-hidden="true"><path fill="currentColor" d="M400 32H48C21.5 32 0 53.5 0 80v352c0 26.5 21.5 48 48 48h352c26.5 0 48-21.5 48-48V80c0-26.5-21.5-48-48-48zm0 400H48V80h352v352z" /></svg>
-                                    @endif
+                                    </span>
                                 </button>
                             </div>
                             <div class="ct-fin-filter-cell">
