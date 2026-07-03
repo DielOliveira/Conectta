@@ -447,26 +447,63 @@
         }
 
         .ct-fin-modal-backdrop {
-            align-items: center;
-            background: rgba(15, 23, 42, 0.35);
+            align-items: stretch;
+            background: rgba(15, 23, 42, 0.28);
             display: flex;
             inset: 0;
-            justify-content: center;
+            justify-content: flex-end;
             position: fixed;
-            z-index: 60;
+            z-index: 40;
         }
 
         .ct-fin-modal {
             background: #ffffff;
-            border-radius: 8px;
-            box-shadow: 0 24px 70px rgba(15, 23, 42, 0.25);
+            border-radius: 8px 0 0 8px;
+            box-shadow: -18px 0 60px rgba(15, 23, 42, 0.22);
             display: grid;
-            gap: 20px;
-            grid-template-rows: auto minmax(0, 1fr);
-            max-height: min(92vh, 820px);
-            max-width: 626px;
-            padding: 28px 30px;
-            width: min(94vw, 626px);
+            gap: 18px;
+            grid-template-rows: auto auto minmax(0, 1fr);
+            height: 100vh;
+            padding: 24px 28px;
+            width: min(92vw, max(540px, 40vw));
+        }
+
+        .ct-fin-modal-head {
+            align-items: start;
+            display: flex;
+            gap: 18px;
+            justify-content: space-between;
+        }
+
+        .ct-fin-modal-kicker {
+            color: #64748b;
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .ct-fin-modal-title {
+            color: #0f172a;
+            font-size: 24px;
+            font-weight: 750;
+            line-height: 1.15;
+            margin-top: 4px;
+        }
+
+        .ct-fin-modal-close {
+            align-items: center;
+            background: #ffffff;
+            border: 1px solid #d9dee7;
+            border-radius: 6px;
+            color: #334155;
+            cursor: pointer;
+            display: inline-flex;
+            flex: 0 0 auto;
+            font-size: 24px;
+            height: 38px;
+            justify-content: center;
+            line-height: 1;
+            width: 38px;
         }
 
         .ct-fin-modal-body {
@@ -478,7 +515,7 @@
         .ct-fin-modal-tabs {
             border-bottom: 1px solid #cbd5e1;
             display: flex;
-            gap: 18px;
+            gap: 12px;
         }
 
         .ct-fin-modal-tab {
@@ -498,16 +535,15 @@
         }
 
         .ct-fin-modal-card {
-            border: 1px solid #d9dee7;
-            border-radius: 6px;
             display: grid;
             gap: 18px;
-            padding: 28px 30px;
+            padding: 4px 0 0;
         }
 
         .ct-fin-modal-client {
             color: #475569;
-            font-size: 28px;
+            font-size: 18px;
+            font-weight: 700;
             line-height: 1.15;
         }
 
@@ -588,6 +624,20 @@
             color: #64748b;
             display: flex;
             min-height: 280px;
+        }
+
+        @media (max-width: 720px) {
+            .ct-fin-modal {
+                border-radius: 0;
+                max-width: none;
+                padding: 20px;
+                width: 100vw;
+            }
+
+            .ct-fin-modal-grid,
+            .ct-fin-parcel-form {
+                grid-template-columns: 1fr;
+            }
         }
 
         .ct-fin-parcel-form {
@@ -1159,10 +1209,20 @@
         @if ($lancamentoModalAberto)
             <div class="ct-fin-modal-backdrop">
                 <div class="ct-fin-modal">
+                    <div class="ct-fin-modal-head">
+                        <div>
+                            <div class="ct-fin-modal-kicker">{{ $modalMes ? $this->mesNome($modalMes) : '' }} {{ $modalAno }}</div>
+                            <div class="ct-fin-modal-title">{{ $modalClienteNome }}</div>
+                        </div>
+                        <button type="button" wire:click="fecharLancamento" class="ct-fin-modal-close" aria-label="Fechar">&times;</button>
+                    </div>
+
                     <div class="ct-fin-modal-tabs">
                         <button
                             type="button"
                             wire:click="selecionarAbaModal('lancamento')"
+                            wire:loading.attr="disabled"
+                            wire:target="selecionarAbaModal"
                             class="ct-fin-modal-tab {{ $modalAba === 'lancamento' ? 'ct-fin-modal-tab-active' : '' }}"
                         >
                             Lancamento
@@ -1170,6 +1230,8 @@
                         <button
                             type="button"
                             wire:click="selecionarAbaModal('parcelamento')"
+                            wire:loading.attr="disabled"
+                            wire:target="selecionarAbaModal"
                             class="ct-fin-modal-tab {{ $modalAba === 'parcelamento' ? 'ct-fin-modal-tab-active' : '' }}"
                         >
                             Parcelamento
@@ -1177,6 +1239,8 @@
                         <button
                             type="button"
                             wire:click="selecionarAbaModal('boleto')"
+                            wire:loading.attr="disabled"
+                            wire:target="selecionarAbaModal"
                             class="ct-fin-modal-tab {{ $modalAba === 'boleto' ? 'ct-fin-modal-tab-active' : '' }}"
                         >
                             Boleto
@@ -1398,7 +1462,6 @@
                                             <span class="ct-fin-boleto-label">Acoes:</span>
                                             <div class="ct-fin-boleto-actions">
                                                 @if ($boleto)
-                                                    <button type="button" wire:click="atualizarBoleto" class="ct-fin-boleto-action">Refresh</button>
                                                     {{-- Botao mantido oculto ate o fluxo de baixa ser definido.
                                                     <button
                                                         type="button"
@@ -1411,8 +1474,7 @@
                                                     --}}
                                                     <button
                                                         type="button"
-                                                        wire:click="cancelarBoleto"
-                                                        wire:confirm="Deseja realmente cancelar este boleto na Lytex?"
+                                                        wire:click="mountAction('confirmarCancelamentoBoleto')"
                                                         class="ct-fin-boleto-action"
                                                     >
                                                         Cancelar Boleto
@@ -1433,7 +1495,7 @@
                                                 <summary>
                                                     <span>{{ $boletoHistorico->vencimento?->format('d/m/Y') ?? 'Sem vencimento' }}</span>
                                                     <span class="ct-fin-boleto-status {{ $this->boletoStatusClasse($boletoHistorico->status) }}">
-                                                        {{ $boletoHistorico->status ?? 'Sem status' }}
+                                                        {{ $this->statusBoletoLabel($boletoHistorico->status) ?: 'Sem status' }}
                                                     </span>
                                                     <span>{{ $this->moeda($boletoHistorico->total_value ?? 0) }}</span>
                                                 </summary>

@@ -13,6 +13,7 @@ use App\Services\Lytex\LytexException;
 use App\Services\Lytex\LytexInvoiceData;
 use App\Services\Lytex\LytexInvoiceService;
 use Carbon\CarbonImmutable;
+use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
@@ -494,6 +495,17 @@ class Financeiro extends Page
         $this->modalAba = $aba;
     }
 
+    public function confirmarCancelamentoBoletoAction(): Action
+    {
+        return Action::make('confirmarCancelamentoBoleto')
+            ->label('Cancelar boleto')
+            ->modalSubmitActionLabel('Cancelar boleto')
+            ->color('danger')
+            ->requiresConfirmation()
+            ->modalDescription('Deseja realmente cancelar este boleto na Lytex?')
+            ->action(fn (): mixed => $this->cancelarBoleto());
+    }
+
     public function salvarLancamentoModal(): void
     {
         if (! $this->autorizar(Permission::FINANCEIRO_ESCRITA)) {
@@ -908,19 +920,47 @@ class Financeiro extends Page
 
     public function boletoStatus(): string
     {
-        return (string) ($this->boletoModal()?->status ?? 'Nao gerado');
+        return $this->statusBoletoLabel($this->boletoModal()?->status ?? 'Nao gerado');
     }
 
     public function boletoStatusClasse(?string $status = null): string
     {
-        return match (str($status ?? $this->boletoStatus())->lower()->ascii()->toString()) {
-            'aguardando pagamento' => 'ct-fin-boleto-status-warning',
-            'pago' => 'ct-fin-boleto-status-success',
-            'atrasado', 'cancelado' => 'ct-fin-boleto-status-danger',
-            'processando' => 'ct-fin-boleto-status-orange',
-            'nao gerado' => 'ct-fin-boleto-status-neutral',
+        return match ($this->statusBoletoKey($status ?? $this->boletoModal()?->status ?? 'Nao gerado')) {
+            'aguardando_pagamento', 'waiting_payment', 'waitingpayment', 'waiting', 'pending' => 'ct-fin-boleto-status-warning',
+            'pago', 'paid' => 'ct-fin-boleto-status-success',
+            'atrasado', 'overdue', 'late', 'cancelado', 'canceled', 'cancelled' => 'ct-fin-boleto-status-danger',
+            'processando', 'processing' => 'ct-fin-boleto-status-orange',
+            'nao_gerado' => 'ct-fin-boleto-status-neutral',
             default => 'ct-fin-boleto-status-neutral',
         };
+    }
+
+    public function statusBoletoLabel(?string $status): string
+    {
+        $status = trim((string) $status);
+
+        if ($status === '') {
+            return '';
+        }
+
+        return match ($this->statusBoletoKey($status)) {
+            'paid', 'pago' => 'Pago',
+            'canceled', 'cancelled', 'cancelado' => 'Cancelado',
+            'overdue', 'late', 'atrasado' => 'Atrasado',
+            'processing', 'processando' => 'Processando',
+            'waiting_payment', 'waitingpayment', 'waiting', 'pending', 'aguardando_pagamento' => 'Aguardando Pagamento',
+            'nao_gerado' => 'Nao gerado',
+            default => str($status)->headline()->toString(),
+        };
+    }
+
+    private function statusBoletoKey(?string $status): string
+    {
+        return str((string) $status)
+            ->lower()
+            ->ascii()
+            ->replace(['-', ' '], '_')
+            ->toString();
     }
 
     public function boletoInvoiceUrl(?Invoice $invoice = null): ?string
