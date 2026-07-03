@@ -86,6 +86,24 @@ class Integracoes extends Page
     public bool $zapsignHomologacaoTokenCadastrado = false;
     public bool $zapsignHomologacaoCallbackSecretCadastrado = false;
 
+    public string $zapiAmbienteAtivo = 'producao';
+    public string $zapiProducaoBaseUrl = '';
+    public string $zapiProducaoInstanceId = '';
+    public string $zapiProducaoToken = '';
+    public string $zapiProducaoClientToken = '';
+    public int $zapiProducaoTimeout = 30;
+    public string $zapiProducaoPixEndpoint = 'send-button-pix';
+    public bool $zapiProducaoTokenCadastrado = false;
+    public bool $zapiProducaoClientTokenCadastrado = false;
+    public string $zapiHomologacaoBaseUrl = '';
+    public string $zapiHomologacaoInstanceId = '';
+    public string $zapiHomologacaoToken = '';
+    public string $zapiHomologacaoClientToken = '';
+    public int $zapiHomologacaoTimeout = 30;
+    public string $zapiHomologacaoPixEndpoint = 'send-button-pix';
+    public bool $zapiHomologacaoTokenCadastrado = false;
+    public bool $zapiHomologacaoClientTokenCadastrado = false;
+
     public function mount(): void
     {
         $producao = ConfiguracaoIntegracao::lytexAmbiente('producao');
@@ -96,6 +114,10 @@ class Integracoes extends Page
         $zapsignHomologacao = ConfiguracaoIntegracao::zapsignAmbiente('homologacao');
         $zapsignAtiva = ConfiguracaoIntegracao::zapsignAtiva();
 
+        $zapiProducao = ConfiguracaoIntegracao::zapiAmbiente('producao');
+        $zapiHomologacao = ConfiguracaoIntegracao::zapiAmbiente('homologacao');
+        $zapiAtiva = ConfiguracaoIntegracao::zapiAtiva();
+
         $this->lytexAmbienteAtivo = (string) $ativa->ambiente;
         $this->carregarAmbiente('producao', $producao);
         $this->carregarAmbiente('homologacao', $homologacao);
@@ -103,6 +125,10 @@ class Integracoes extends Page
         $this->zapsignAmbienteAtivo = (string) $zapsignAtiva->ambiente;
         $this->carregarZapSignAmbiente('producao', $zapsignProducao);
         $this->carregarZapSignAmbiente('homologacao', $zapsignHomologacao);
+
+        $this->zapiAmbienteAtivo = (string) $zapiAtiva->ambiente;
+        $this->carregarZapiAmbiente('producao', $zapiProducao);
+        $this->carregarZapiAmbiente('homologacao', $zapiHomologacao);
     }
 
     public function salvarLytex(): void
@@ -340,6 +366,103 @@ class Integracoes extends Page
 
         return ConfiguracaoIntegracao::query()->updateOrCreate(
             ['integracao' => 'zapsign', 'ambiente' => $ambiente],
+            $dados,
+        );
+    }
+
+    public function salvarZapi(): void
+    {
+        if (! auth()->user()?->isAdmin()) {
+            Notification::make()->title('Voce nao tem permissao para esta acao.')->danger()->send();
+
+            return;
+        }
+
+        $data = $this->validate(
+            [
+                'zapiAmbienteAtivo' => ['required', 'in:producao,homologacao'],
+                'zapiProducaoBaseUrl' => ['required', 'url', 'max:255'],
+                'zapiProducaoInstanceId' => ['nullable', 'string', 'max:255'],
+                'zapiProducaoToken' => ['nullable', 'string', 'max:5000'],
+                'zapiProducaoClientToken' => ['nullable', 'string', 'max:5000'],
+                'zapiProducaoTimeout' => ['required', 'integer', 'min:5', 'max:120'],
+                'zapiProducaoPixEndpoint' => ['required', 'string', 'max:120'],
+                'zapiHomologacaoBaseUrl' => ['required', 'url', 'max:255'],
+                'zapiHomologacaoInstanceId' => ['nullable', 'string', 'max:255'],
+                'zapiHomologacaoToken' => ['nullable', 'string', 'max:5000'],
+                'zapiHomologacaoClientToken' => ['nullable', 'string', 'max:5000'],
+                'zapiHomologacaoTimeout' => ['required', 'integer', 'min:5', 'max:120'],
+                'zapiHomologacaoPixEndpoint' => ['required', 'string', 'max:120'],
+            ],
+            [
+                'required' => 'O campo :attribute e obrigatorio.',
+                'url' => 'O campo :attribute deve ser uma URL valida.',
+                'integer' => 'O campo :attribute deve ser um numero inteiro.',
+                'min' => 'O campo :attribute deve ser pelo menos :min.',
+                'max' => 'O campo :attribute deve ter no maximo :max caracteres.',
+                'in' => 'O campo :attribute e invalido.',
+            ],
+            [
+                'zapiAmbienteAtivo' => 'ambiente ativo da Z-API',
+                'zapiProducaoBaseUrl' => 'URL base de producao da Z-API',
+                'zapiHomologacaoBaseUrl' => 'URL base de homologacao da Z-API',
+            ],
+        );
+
+        $producao = $this->salvarZapiAmbiente('producao', $data, 'Producao');
+        $homologacao = $this->salvarZapiAmbiente('homologacao', $data, 'Homologacao');
+
+        ConfiguracaoIntegracao::query()
+            ->where('integracao', 'zapi')
+            ->update(['ativo' => false]);
+
+        ConfiguracaoIntegracao::query()
+            ->whereKey($data['zapiAmbienteAtivo'] === 'producao' ? $producao->id : $homologacao->id)
+            ->update(['ativo' => true]);
+
+        $this->zapiProducaoToken = '';
+        $this->zapiHomologacaoToken = '';
+        $this->zapiProducaoClientToken = '';
+        $this->zapiHomologacaoClientToken = '';
+        $this->zapiProducaoTokenCadastrado = filled($producao->token);
+        $this->zapiHomologacaoTokenCadastrado = filled($homologacao->token);
+        $this->zapiProducaoClientTokenCadastrado = filled($producao->client_secret);
+        $this->zapiHomologacaoClientTokenCadastrado = filled($homologacao->client_secret);
+
+        Notification::make()->title('Configuracao da Z-API salva.')->success()->send();
+    }
+
+    private function carregarZapiAmbiente(string $ambiente, ConfiguracaoIntegracao $configuracao): void
+    {
+        $prefixo = $ambiente === 'producao' ? 'zapiProducao' : 'zapiHomologacao';
+
+        $this->{$prefixo . 'BaseUrl'} = (string) $configuracao->base_url;
+        $this->{$prefixo . 'InstanceId'} = (string) $configuracao->client_id;
+        $this->{$prefixo . 'Timeout'} = (int) ($configuracao->timeout ?: 30);
+        $this->{$prefixo . 'PixEndpoint'} = (string) ($configuracao->pix_endpoint ?: 'send-button-pix');
+        $this->{$prefixo . 'TokenCadastrado'} = filled($configuracao->token);
+        $this->{$prefixo . 'ClientTokenCadastrado'} = filled($configuracao->client_secret);
+    }
+
+    private function salvarZapiAmbiente(string $ambiente, array $data, string $sufixo): ConfiguracaoIntegracao
+    {
+        $dados = [
+            'base_url' => rtrim($data["zapi{$sufixo}BaseUrl"], '/'),
+            'client_id' => blank($data["zapi{$sufixo}InstanceId"]) ? null : trim($data["zapi{$sufixo}InstanceId"]),
+            'timeout' => (int) $data["zapi{$sufixo}Timeout"],
+            'pix_endpoint' => trim($data["zapi{$sufixo}PixEndpoint"]),
+        ];
+
+        if (filled($data["zapi{$sufixo}Token"])) {
+            $dados['token'] = trim($data["zapi{$sufixo}Token"]);
+        }
+
+        if (filled($data["zapi{$sufixo}ClientToken"])) {
+            $dados['client_secret'] = trim($data["zapi{$sufixo}ClientToken"]);
+        }
+
+        return ConfiguracaoIntegracao::query()->updateOrCreate(
+            ['integracao' => 'zapi', 'ambiente' => $ambiente],
             $dados,
         );
     }

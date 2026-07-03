@@ -2,22 +2,48 @@
     <style>
         .ct-routine-page {
             display: grid;
-            gap: 16px;
+            gap: 18px;
         }
 
-        .ct-routine-summary {
+        .ct-routine-panel {
             background: #fff;
             border: 1px solid #e5e7eb;
             border-radius: 8px;
+            padding: 18px;
+        }
+
+        .ct-routine-head {
             display: grid;
-            gap: 14px;
-            grid-template-columns: repeat(7, minmax(120px, 1fr));
-            padding: 16px;
+            gap: 18px;
+            grid-template-columns: minmax(280px, 1.1fr) minmax(320px, 2fr);
+        }
+
+        .ct-routine-title {
+            color: #0f172a;
+            font-size: 18px;
+            font-weight: 800;
+            margin-bottom: 4px;
+        }
+
+        .ct-routine-muted {
+            color: #64748b;
+            font-size: 13px;
+        }
+
+        .ct-routine-summary {
+            display: grid;
+            gap: 10px;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
         }
 
         .ct-routine-stat {
+            background: #f8fafc;
+            border: 1px solid #eef2f7;
+            border-radius: 6px;
             display: grid;
-            gap: 4px;
+            gap: 6px;
+            min-width: 0;
+            padding: 12px;
         }
 
         .ct-routine-label {
@@ -31,6 +57,14 @@
             color: #0f172a;
             font-size: 15px;
             font-weight: 800;
+            overflow-wrap: anywhere;
+        }
+
+        .ct-routine-meta {
+            display: grid;
+            gap: 10px;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            margin-top: 14px;
         }
 
         .ct-routine-table-wrap {
@@ -42,9 +76,25 @@
 
         .ct-routine-table {
             border-collapse: collapse;
-            min-width: 980px;
+            min-width: 1120px;
+            table-layout: fixed;
             width: 100%;
         }
+
+        .ct-routine-table th:nth-child(1),
+        .ct-routine-table td:nth-child(1) { width: 240px; }
+        .ct-routine-table th:nth-child(2),
+        .ct-routine-table td:nth-child(2) { width: 140px; }
+        .ct-routine-table th:nth-child(3),
+        .ct-routine-table td:nth-child(3) { width: 145px; }
+        .ct-routine-table th:nth-child(4),
+        .ct-routine-table td:nth-child(4) { width: 105px; }
+        .ct-routine-table th:nth-child(5),
+        .ct-routine-table td:nth-child(5) { width: 95px; }
+        .ct-routine-table th:nth-child(6),
+        .ct-routine-table td:nth-child(6) { width: 130px; }
+        .ct-routine-table th:nth-child(7),
+        .ct-routine-table td:nth-child(7) { width: 120px; }
 
         .ct-routine-table th {
             background: #f8fafc;
@@ -63,6 +113,19 @@
             font-size: 13px;
             padding: 12px;
             vertical-align: top;
+        }
+
+        .ct-routine-cell-main {
+            font-weight: 700;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .ct-routine-error {
+            color: #991b1b;
+            max-width: 100%;
+            overflow-wrap: anywhere;
         }
 
         .ct-routine-table tr:last-child td {
@@ -98,12 +161,12 @@
             text-decoration: underline;
         }
 
-        .ct-routine-error {
-            color: #991b1b;
-            max-width: 280px;
-        }
-
         @media (max-width: 900px) {
+            .ct-routine-head,
+            .ct-routine-meta {
+                grid-template-columns: 1fr;
+            }
+
             .ct-routine-summary {
                 grid-template-columns: repeat(2, minmax(0, 1fr));
             }
@@ -120,34 +183,49 @@
     @endphp
 
     <div class="ct-routine-page">
-        <section class="ct-routine-summary">
-            <div class="ct-routine-stat">
-                <span class="ct-routine-label">Data</span>
-                <span class="ct-routine-value">{{ $record->data_processamento?->format('d/m/Y') }}</span>
+        <section class="ct-routine-panel">
+            <div class="ct-routine-head">
+                <div>
+                    <div class="ct-routine-title">{{ $record->tipo ?? 'Execucao de cobranca' }}</div>
+                    <div class="ct-routine-muted">
+                        Processamento de {{ $record->data_processamento?->format('d/m/Y') }}.
+                        {{ $record->dry_run ? 'Simulacao' : 'Execucao real' }}.
+                    </div>
+                </div>
+
+                <div class="ct-routine-summary">
+                    <div class="ct-routine-stat">
+                        <span class="ct-routine-label">Processados</span>
+                        <span class="ct-routine-value">{{ $record->total_processados }}</span>
+                    </div>
+                    <div class="ct-routine-stat">
+                        <span class="ct-routine-label">Enviados/pendentes</span>
+                        <span class="ct-routine-value">{{ $record->total_enviados }}</span>
+                    </div>
+                    <div class="ct-routine-stat">
+                        <span class="ct-routine-label">Ignorados</span>
+                        <span class="ct-routine-value">{{ $record->total_ignorados }}</span>
+                    </div>
+                    <div class="ct-routine-stat">
+                        <span class="ct-routine-label">Erros</span>
+                        <span class="ct-routine-value">{{ $record->total_erros }}</span>
+                    </div>
+                </div>
             </div>
-            <div class="ct-routine-stat">
-                <span class="ct-routine-label">Status</span>
-                <span class="ct-routine-value">{{ $record->status }}</span>
-            </div>
-            <div class="ct-routine-stat">
-                <span class="ct-routine-label">Tipo</span>
-                <span class="ct-routine-value">{{ $record->tipo ?? '-' }}</span>
-            </div>
-            <div class="ct-routine-stat">
-                <span class="ct-routine-label">Processados</span>
-                <span class="ct-routine-value">{{ $record->total_processados }}</span>
-            </div>
-            <div class="ct-routine-stat">
-                <span class="ct-routine-label">Enviados/pendentes</span>
-                <span class="ct-routine-value">{{ $record->total_enviados }}</span>
-            </div>
-            <div class="ct-routine-stat">
-                <span class="ct-routine-label">Ignorados</span>
-                <span class="ct-routine-value">{{ $record->total_ignorados }}</span>
-            </div>
-            <div class="ct-routine-stat">
-                <span class="ct-routine-label">Erros</span>
-                <span class="ct-routine-value">{{ $record->total_erros }}</span>
+
+            <div class="ct-routine-meta">
+                <div class="ct-routine-stat">
+                    <span class="ct-routine-label">Status</span>
+                    <span class="ct-routine-value">{{ $record->status }}</span>
+                </div>
+                <div class="ct-routine-stat">
+                    <span class="ct-routine-label">Iniciou</span>
+                    <span class="ct-routine-value">{{ $record->iniciado_em?->format('d/m/Y H:i') ?? '-' }}</span>
+                </div>
+                <div class="ct-routine-stat">
+                    <span class="ct-routine-label">Finalizou</span>
+                    <span class="ct-routine-value">{{ $record->finalizado_em?->format('d/m/Y H:i') ?? '-' }}</span>
+                </div>
             </div>
         </section>
 
@@ -168,7 +246,7 @@
                 <tbody>
                     @forelse ($this->envios() as $envio)
                         <tr>
-                            <td>{{ $envio->cliente?->nome ?? '-' }}</td>
+                            <td><div class="ct-routine-cell-main" title="{{ $envio->cliente?->nome ?? '-' }}">{{ $envio->cliente?->nome ?? '-' }}</div></td>
                             <td>{{ $envio->tipo }}</td>
                             <td>
                                 <span class="ct-routine-badge {{ $statusClass($envio->status) }}">

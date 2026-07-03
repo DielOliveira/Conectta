@@ -409,4 +409,91 @@
             <button class="ct-btn ct-btn-primary" type="submit">Salvar ZapSign</button>
         </div>
     </form>
+
+    <form class="ct-integrations" wire:submit.prevent="salvarZapi">
+        <section class="ct-integration-card">
+            <div class="ct-integration-header">
+                <div>
+                    <h2 class="ct-integration-title">Z-API WhatsApp</h2>
+                    <div class="ct-integration-subtitle">Configure Homologacao e Producao separadamente. O ambiente ativo e usado para enviar mensagens de cobranca.</div>
+                </div>
+            </div>
+
+            <div class="ct-form-grid">
+                <label class="ct-field ct-col-4">
+                    <span class="ct-label">Ambiente ativo</span>
+                    <select class="ct-select" wire:model="zapiAmbienteAtivo">
+                        <option value="homologacao">Homologacao</option>
+                        <option value="producao">Producao</option>
+                    </select>
+                    @error('zapiAmbienteAtivo') <span class="ct-error">{{ $message }}</span> @enderror
+                </label>
+            </div>
+        </section>
+
+        <div class="ct-env-grid">
+            @foreach ([['Homologacao', 'homologacao'], ['Producao', 'producao']] as [$label, $ambiente])
+                @php
+                    $prefix = $ambiente === 'producao' ? 'zapiProducao' : 'zapiHomologacao';
+                    $isActive = $zapiAmbienteAtivo === $ambiente;
+                    $tokenFlag = $ambiente === 'producao' ? $zapiProducaoTokenCadastrado : $zapiHomologacaoTokenCadastrado;
+                    $clientTokenFlag = $ambiente === 'producao' ? $zapiProducaoClientTokenCadastrado : $zapiHomologacaoClientTokenCadastrado;
+                @endphp
+
+                <section class="ct-env-card {{ $isActive ? 'is-active' : '' }}">
+                    <div class="ct-integration-header">
+                        <div>
+                            <h3 class="ct-integration-title">{{ $label }}</h3>
+                            <div class="ct-integration-subtitle">Dados usados para {{ $ambiente === 'producao' ? 'envio real de WhatsApp' : 'testes de WhatsApp' }}.</div>
+                        </div>
+                        <div class="ct-status-pill {{ $isActive ? 'is-active' : '' }}">{{ $isActive ? 'Ativo' : 'Inativo' }}</div>
+                    </div>
+
+                    <div class="ct-form-grid">
+                        <label class="ct-field ct-col-12">
+                            <span class="ct-label">URL base</span>
+                            <input class="ct-input" type="url" wire:model="{{ $prefix }}BaseUrl" placeholder="https://api.z-api.io">
+                            @error($prefix . 'BaseUrl') <span class="ct-error">{{ $message }}</span> @enderror
+                        </label>
+
+                        <label class="ct-field ct-col-6">
+                            <span class="ct-label">Instance ID</span>
+                            <input class="ct-input" type="text" wire:model="{{ $prefix }}InstanceId" autocomplete="off" placeholder="ID da instancia Z-API">
+                            @error($prefix . 'InstanceId') <span class="ct-error">{{ $message }}</span> @enderror
+                        </label>
+
+                        <label class="ct-field ct-col-6">
+                            <span class="ct-label">Endpoint PIX</span>
+                            <input class="ct-input" type="text" wire:model="{{ $prefix }}PixEndpoint" placeholder="send-button-pix">
+                            @error($prefix . 'PixEndpoint') <span class="ct-error">{{ $message }}</span> @enderror
+                        </label>
+
+                        <label class="ct-field ct-col-6">
+                            <span class="ct-label">Token</span>
+                            <input class="ct-input" type="password" wire:model="{{ $prefix }}Token" autocomplete="new-password" placeholder="{{ $tokenFlag ? 'Token cadastrado. Digite apenas para trocar.' : 'Informe o token da instancia' }}">
+                            <span class="ct-token-note">{{ $tokenFlag ? 'O token salvo fica criptografado e nao e exibido.' : 'O token sera salvo criptografado.' }}</span>
+                            @error($prefix . 'Token') <span class="ct-error">{{ $message }}</span> @enderror
+                        </label>
+
+                        <label class="ct-field ct-col-6">
+                            <span class="ct-label">Client Token</span>
+                            <input class="ct-input" type="password" wire:model="{{ $prefix }}ClientToken" autocomplete="new-password" placeholder="{{ $clientTokenFlag ? 'Client Token cadastrado. Digite apenas para trocar.' : 'Informe o Client Token da Z-API' }}">
+                            <span class="ct-token-note">{{ $clientTokenFlag ? 'O Client Token salvo fica criptografado e nao e exibido.' : 'O Client Token sera salvo criptografado.' }}</span>
+                            @error($prefix . 'ClientToken') <span class="ct-error">{{ $message }}</span> @enderror
+                        </label>
+
+                        <label class="ct-field ct-col-4">
+                            <span class="ct-label">Timeout</span>
+                            <input class="ct-input" type="number" min="5" max="120" wire:model="{{ $prefix }}Timeout">
+                            @error($prefix . 'Timeout') <span class="ct-error">{{ $message }}</span> @enderror
+                        </label>
+                    </div>
+                </section>
+            @endforeach
+        </div>
+
+        <div class="ct-actions">
+            <button class="ct-btn ct-btn-primary" type="submit">Salvar Z-API</button>
+        </div>
+    </form>
 </x-filament-panels::page>

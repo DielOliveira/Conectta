@@ -4,9 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
+    'cobranca_agendamento_id',
     'data_processamento',
     'tipo',
     'status',
@@ -38,4 +40,8 @@ class CobrancaExecucao extends Model
         return $this->hasMany(CobrancaEnvio::class);
     }
 
+    public function agendamento(): BelongsTo
+    {
+        return $this->belongsTo(CobrancaAgendamento::class, 'cobranca_agendamento_id');
+    }
 }

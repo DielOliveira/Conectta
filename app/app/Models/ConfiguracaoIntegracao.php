@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Model;
     'template_principal_id',
     'template_aditivo_id',
     'template_comodato_id',
+    'pix_endpoint',
     'ativo',
 ])]
 class ConfiguracaoIntegracao extends Model
@@ -51,6 +52,47 @@ class ConfiguracaoIntegracao extends Model
         $producao->forceFill(['ativo' => true])->save();
 
         return $producao;
+    }
+
+    public static function zapiAtiva(): self
+    {
+        $ativa = self::query()
+            ->where('integracao', 'zapi')
+            ->where('ativo', true)
+            ->first();
+
+        if ($ativa) {
+            return $ativa;
+        }
+
+        $producao = self::zapiAmbiente('producao');
+        $producao->forceFill(['ativo' => true])->save();
+
+        return $producao;
+    }
+
+    public static function zapiAmbiente(string $ambiente): self
+    {
+        $temAmbienteAtivo = self::query()
+            ->where('integracao', 'zapi')
+            ->where('ativo', true)
+            ->exists();
+
+        return self::query()->firstOrCreate(
+            [
+                'integracao' => 'zapi',
+                'ambiente' => $ambiente,
+            ],
+            [
+                'base_url' => config('services.whatsapp.zapi.base_url', 'https://api.z-api.io'),
+                'client_id' => $ambiente === 'producao' ? config('services.whatsapp.zapi.instance_id') : null,
+                'token' => $ambiente === 'producao' ? config('services.whatsapp.zapi.token') : null,
+                'client_secret' => $ambiente === 'producao' ? config('services.whatsapp.zapi.client_token') : null,
+                'timeout' => (int) config('services.whatsapp.zapi.timeout', 30),
+                'pix_endpoint' => config('services.whatsapp.zapi.pix_endpoint', 'send-button-pix'),
+                'ativo' => $ambiente === 'producao' && ! $temAmbienteAtivo,
+            ],
+        );
     }
 
     public static function zapsignAmbiente(string $ambiente): self

@@ -33,7 +33,7 @@ class CobrancaMensagemModeloResource extends Resource
 
     protected static string|UnitEnum|null $navigationGroup = 'Rotinas';
 
-    protected static ?int $navigationSort = 2;
+    protected static ?int $navigationSort = 3;
 
     protected static ?string $modelLabel = 'Modelo de mensagem';
 

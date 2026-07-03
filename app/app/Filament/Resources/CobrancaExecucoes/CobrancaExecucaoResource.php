@@ -4,6 +4,7 @@ namespace App\Filament\Resources\CobrancaExecucoes;
 
 use App\Filament\Resources\CobrancaExecucoes\Pages\ListCobrancaExecucoes;
 use App\Filament\Resources\CobrancaExecucoes\Pages\ViewCobrancaExecucao;
+use App\Models\CobrancaAgendamento;
 use App\Models\CobrancaExecucao;
 use App\Models\Permission;
 use Filament\Actions\Action;
@@ -26,7 +27,7 @@ class CobrancaExecucaoResource extends Resource
 
     protected static string|UnitEnum|null $navigationGroup = 'Rotinas';
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = 2;
 
     protected static ?string $modelLabel = 'Execucao de cobranca';
 
@@ -55,6 +56,10 @@ class CobrancaExecucaoResource extends Resource
                     ->label('Tipo')
                     ->searchable()
                     ->sortable(),
+                TextColumn::make('agendamento.tipo')
+                    ->label('Agendamento')
+                    ->formatStateUsing(fn (?string $state): string => $state ? (CobrancaAgendamento::TIPOS[$state] ?? $state) : 'Manual/comando')
+                    ->toggleable(),
                 IconColumn::make('dry_run')
                     ->label('Simulacao')
                     ->boolean(),

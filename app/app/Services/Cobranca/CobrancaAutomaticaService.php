@@ -31,7 +31,7 @@ class CobrancaAutomaticaService
     /**
      * @return array{execucao_ids:array<int, int>,total_processados:int,total_enviados:int,total_ignorados:int,total_erros:int,dry_run:bool}
      */
-    public function processar(?CarbonImmutable $data = null, bool $dryRun = true, ?string $tipo = null, ?int $limit = null, ?int $clienteId = null): array
+    public function processar(?CarbonImmutable $data = null, bool $dryRun = true, ?string $tipo = null, ?int $limit = null, ?int $clienteId = null, ?int $agendamentoId = null): array
     {
         $data ??= CarbonImmutable::today();
 
@@ -44,7 +44,7 @@ class CobrancaAutomaticaService
         $execucaoIds = [];
 
         foreach ($this->planosDoDia($data, $tipo) as $plano) {
-            $resultadoPlano = $this->processarPlano($data, $dryRun, $plano, $limit, $clienteId);
+            $resultadoPlano = $this->processarPlano($data, $dryRun, $plano, $limit, $clienteId, $agendamentoId);
             $execucaoIds[] = $resultadoPlano['execucao_id'];
 
             foreach (array_keys($totais) as $contador) {
@@ -63,9 +63,10 @@ class CobrancaAutomaticaService
      * @param array{tipo:string,vencimento:CarbonImmutable,dias_atraso:int|null} $plano
      * @return array{execucao_id:int,total_processados:int,total_enviados:int,total_ignorados:int,total_erros:int}
      */
-    private function processarPlano(CarbonImmutable $data, bool $dryRun, array $plano, ?int $limit, ?int $clienteId): array
+    private function processarPlano(CarbonImmutable $data, bool $dryRun, array $plano, ?int $limit, ?int $clienteId, ?int $agendamentoId): array
     {
         $execucao = CobrancaExecucao::query()->create([
+            'cobranca_agendamento_id' => $agendamentoId,
             'data_processamento' => $data->toDateString(),
             'tipo' => $plano['tipo'],
             'status' => 'processando',

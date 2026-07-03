@@ -26,7 +26,7 @@ class CobrancaWhatsappService
     /**
      * @return array{processados:int,enviados:int,simulados:int,erros:int}
      */
-    public function enviarPendentes(?int $limit = null, ?int $envioId = null, ?int $clienteId = null, bool $dryRun = true): array
+    public function enviarPendentes(?int $limit = null, ?int $envioId = null, ?int $clienteId = null, bool $dryRun = true, ?int $execucaoId = null): array
     {
         $contadores = [
             'processados' => 0,
@@ -40,6 +40,7 @@ class CobrancaWhatsappService
             ->where('status', 'pendente_whatsapp')
             ->when($envioId !== null, fn (Builder $query): Builder => $query->whereKey($envioId))
             ->when($clienteId !== null, fn (Builder $query): Builder => $query->where('cliente_id', $clienteId))
+            ->when($execucaoId !== null, fn (Builder $query): Builder => $query->where('cobranca_execucao_id', $execucaoId))
             ->oldest('id');
 
         if ($limit !== null) {

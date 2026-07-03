@@ -49,6 +49,11 @@ php artisan config:cache
 php artisan route:cache
 php artisan view:cache
 
+cat >/etc/cron.d/conectta-scheduler <<'CRON'
+* * * * * root cd /var/www/conectta/repo/app && php artisan schedule:run >> /var/log/conectta-scheduler.log 2>&1
+CRON
+chmod 644 /etc/cron.d/conectta-scheduler
+
 chown -R root:www-data /var/www/conectta/repo/app
 find storage bootstrap/cache -type d -exec chmod 775 {} \;
 find storage bootstrap/cache -type f ! -name .gitignore -exec chmod 664 {} \;

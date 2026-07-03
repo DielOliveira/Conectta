@@ -2,6 +2,7 @@
 
 namespace App\Services\Whatsapp;
 
+use App\Models\ConfiguracaoIntegracao;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 
@@ -35,7 +36,7 @@ class ZapiWhatsappService
      */
     public function enviarPix(string $telefone, string $pixCopiaCola): array
     {
-        return $this->post((string) config('services.whatsapp.zapi.pix_endpoint', 'send-button-pix'), [
+        return $this->post($this->configuracao()->pix_endpoint ?: 'send-button-pix', [
             'phone' => $telefone,
             'pixKey' => $pixCopiaCola,
             'type' => 'EVP',
@@ -48,11 +49,12 @@ class ZapiWhatsappService
      */
     private function post(string $endpoint, array $payload): array
     {
-        $baseUrl = rtrim((string) config('services.whatsapp.zapi.base_url'), '/');
-        $instanceId = trim((string) config('services.whatsapp.zapi.instance_id'));
-        $token = trim((string) config('services.whatsapp.zapi.token'));
-        $clientToken = trim((string) config('services.whatsapp.zapi.client_token'));
-        $timeout = (int) config('services.whatsapp.zapi.timeout', 30);
+        $configuracao = $this->configuracao();
+        $baseUrl = rtrim((string) $configuracao->base_url, '/');
+        $instanceId = trim((string) $configuracao->client_id);
+        $token = trim((string) $configuracao->token);
+        $clientToken = trim((string) $configuracao->client_secret);
+        $timeout = (int) ($configuracao->timeout ?: 30);
 
         if ($baseUrl === '' || $instanceId === '' || $token === '' || $clientToken === '') {
             throw new WhatsappException('Configuracao da Z-API incompleta.');
@@ -95,5 +97,10 @@ class ZapiWhatsappService
         }
 
         return 'Z-API retornou erro HTTP '.$status.'.';
+    }
+
+    private function configuracao(): ConfiguracaoIntegracao
+    {
+        return ConfiguracaoIntegracao::zapiAtiva();
     }
 }
