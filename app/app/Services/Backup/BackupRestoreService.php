@@ -288,22 +288,27 @@ class BackupRestoreService
     {
         $rows = [];
         foreach ($this->reader->rows($path) as $row) {
-            if (! $this->fk('clientes', $row['Cliente'] ?? null)) {
+            $clienteId = $this->fk('clientes', $row['Cliente'] ?? null);
+            $valorEfetivado = $this->decimal($row['Valor Efetivado'] ?? null);
+            $mesReferencia = $this->int($row['Mes Referencia'] ?? null);
+            $anoReferencia = $this->int($row['Ano Referencia'] ?? null);
+
+            if (! $clienteId && ! $this->isLancamentoAjusteFaturamento($mesReferencia, $anoReferencia, $valorEfetivado)) {
                 continue;
             }
 
             $rows[] = [
                 'id' => $this->int($row['Id'] ?? null),
                 'numr' => $this->int($row['NUMR'] ?? null),
-                'cliente_id' => $this->fk('clientes', $row['Cliente'] ?? null),
+                'cliente_id' => $clienteId,
                 'data_lancamento' => $this->date($row['Data Lancamento'] ?? null),
                 'valor_planejado' => $this->decimal($row['Valor Planejado'] ?? null),
-                'valor_efetivado' => $this->decimal($row['Valor Efetivado'] ?? null),
+                'valor_efetivado' => $valorEfetivado,
                 'numero_boleto' => $this->text($row['Numero Boleto'] ?? null, 500),
                 'observacao' => $this->text($row['Observacao'] ?? null, 65535),
                 'is_baixado' => $this->bool($row['is Baixado'] ?? false),
-                'mes_referencia' => $this->int($row['Mes Referencia'] ?? null),
-                'ano_referencia' => $this->int($row['Ano Referencia'] ?? null),
+                'mes_referencia' => $mesReferencia,
+                'ano_referencia' => $anoReferencia,
                 'time_stamp' => $this->dateTime($row['Time Stamp'] ?? null),
                 'log' => $this->text($row['Log'] ?? null, 65535),
                 'created_at' => now(),
@@ -312,6 +317,13 @@ class BackupRestoreService
         }
 
         return $this->insertChunked('lancamentos', $rows);
+    }
+
+    private function isLancamentoAjusteFaturamento(?int $mesReferencia, ?int $anoReferencia, ?float $valorEfetivado): bool
+    {
+        return $mesReferencia !== null
+            && $anoReferencia !== null
+            && $valorEfetivado !== null;
     }
 
     private function importInvoices(string $path): int

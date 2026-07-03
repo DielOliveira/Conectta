@@ -15,6 +15,8 @@ use UnitEnum;
 
 class Faturamento extends Page
 {
+    private const ANOS_PERMITIDOS = [2023, 2024, 2025, 2026, 2027];
+
     protected static ?string $slug = 'faturamento';
 
     protected static string|UnitEnum|null $navigationGroup = 'Financeiro';
@@ -105,20 +107,7 @@ class Faturamento extends Page
 
     public function anosDisponiveis(): array
     {
-        $anos = Lancamento::query()
-            ->select('ano_referencia')
-            ->whereNotNull('ano_referencia')
-            ->distinct()
-            ->orderByDesc('ano_referencia')
-            ->pluck('ano_referencia')
-            ->map(fn ($ano): int => (int) $ano)
-            ->push((int) now()->year)
-            ->unique()
-            ->sortDesc()
-            ->values()
-            ->all();
-
-        return $anos === [] ? [(int) now()->year] : $anos;
+        return self::ANOS_PERMITIDOS;
     }
 
     public function linhasFaturamento(): Collection
@@ -153,7 +142,7 @@ class Faturamento extends Page
     {
         $totaisLancados = Lancamento::query()
             ->select('ano_referencia', DB::raw('sum(valor_efetivado) as total'))
-            ->whereNotNull('ano_referencia')
+            ->whereIn('ano_referencia', self::ANOS_PERMITIDOS)
             ->whereNotNull('cliente_id')
             ->groupBy('ano_referencia')
             ->pluck('total', 'ano_referencia');
