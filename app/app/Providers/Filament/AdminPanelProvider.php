@@ -38,6 +38,7 @@ class AdminPanelProvider extends PanelProvider
             ->topNavigation()
             ->navigationGroups([
                 'Cadastro',
+                'Rotinas',
                 'Financeiro',
                 'Estoque',
                 'Administrativo',

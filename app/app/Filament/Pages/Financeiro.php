@@ -10,6 +10,7 @@ use App\Models\StatusCliente;
 use App\Rules\CpfCnpj;
 use App\Services\Audit\AuditLogger;
 use App\Services\Lytex\LytexException;
+use App\Services\Lytex\LytexInvoiceData;
 use App\Services\Lytex\LytexInvoiceService;
 use Carbon\CarbonImmutable;
 use Filament\Notifications\Notification;
@@ -1141,6 +1142,7 @@ class Financeiro extends Page
         $totalValue = data_get($response, 'totalValue');
 
         $faturaId = data_get($response, '_id');
+        $hashId = data_get($response, '_hashId');
 
         $invoice = Invoice::query()->updateOrCreate(
             filled($faturaId)
@@ -1154,7 +1156,11 @@ class Financeiro extends Page
                 'total_value' => is_numeric($totalValue) ? ((float) $totalValue / 100) : $this->valorPlanejadoBoleto(),
                 'created_at_external' => data_get($response, 'createdAt'),
                 'updated_at_external' => data_get($response, 'updatedAt'),
-                'hash_id' => data_get($response, '_hashId'),
+                'hash_id' => $hashId,
+                'link_checkout' => data_get($response, 'linkCheckout') ?: (filled($hashId) ? 'https://checkout-pay.lytex.com.br/fatura/'.$hashId : null),
+                'link_boleto' => data_get($response, 'linkBoleto') ?: (filled($hashId) ? 'https://public-api-pay.lytex.com.br/v1/invoices/print/'.$hashId : null),
+                'linha_digitavel' => LytexInvoiceData::linhaDigitavel($response),
+                'pix_copia_cola' => LytexInvoiceData::pixCopiaCola($response),
                 'status' => $this->statusBoletoLocal(data_get($response, 'status')),
                 'vencimento' => $this->dataInvoice($dueDate),
                 'user_id' => auth()->id(),

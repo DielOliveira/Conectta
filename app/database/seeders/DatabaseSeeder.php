@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             ClienteSupportSeeder::class,
             RastreadorSupportSeeder::class,
             PermissionSeeder::class,
+            CobrancaMensagemModeloSeeder::class,
             AdminUserSeeder::class,
         ]);
     }

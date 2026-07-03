@@ -16,6 +16,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'hash_id',
     'link_checkout',
     'link_boleto',
+    'linha_digitavel',
+    'pix_copia_cola',
     'lancamento_id',
     'status',
     'vencimento',

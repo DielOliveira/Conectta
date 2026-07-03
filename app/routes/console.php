@@ -3,8 +3,60 @@
 use App\Http\Controllers\LytexWebhookController;
 use App\Models\ConfiguracaoIntegracao;
 use App\Models\Invoice;
+use App\Services\Cobranca\CobrancaAutomaticaService;
+use App\Services\Cobranca\CobrancaWhatsappService;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schedule;
+
+Artisan::command('cobrancas:processar {--data= : Data de processamento no formato YYYY-MM-DD} {--tipo= : boleto_7_dias, lembrete_vencimento ou atraso_X} {--limit= : Limite de itens para processar} {--cliente= : ID do cliente para processar isoladamente} {--executar : Executa de verdade. Sem esta flag roda em simulacao.}', function (CobrancaAutomaticaService $service) {
+    $dataOption = trim((string) $this->option('data'));
+    $data = $dataOption === '' ? CarbonImmutable::today() : CarbonImmutable::parse($dataOption);
+    $tipo = trim((string) $this->option('tipo')) ?: null;
+    $limitOption = $this->option('limit');
+    $limit = is_numeric($limitOption) ? max(1, (int) $limitOption) : null;
+    $clienteOption = $this->option('cliente');
+    $clienteId = is_numeric($clienteOption) ? max(1, (int) $clienteOption) : null;
+    $dryRun = ! (bool) $this->option('executar');
+
+    $resultado = $service->processar($data, $dryRun, $tipo, $limit, $clienteId);
+
+    $this->info($dryRun ? 'Simulacao concluida.' : 'Processamento concluido.');
+    $this->line('Execucoes: '.implode(', ', $resultado['execucao_ids']));
+    $this->line('Processados: '.$resultado['total_processados']);
+    $this->line('Enviados/pendentes: '.$resultado['total_enviados']);
+    $this->line('Ignorados: '.$resultado['total_ignorados']);
+    $this->line('Erros: '.$resultado['total_erros']);
+
+    return self::SUCCESS;
+})->purpose('Processa as rotinas automaticas de cobranca.');
+
+Artisan::command('cobrancas:enviar-whatsapp {--limit= : Limite de envios pendentes} {--envio= : ID especifico do envio} {--cliente= : ID do cliente para enviar isoladamente} {--executar : Executa de verdade. Sem esta flag roda em simulacao.}', function (CobrancaWhatsappService $service) {
+    $limitOption = $this->option('limit');
+    $limit = is_numeric($limitOption) ? max(1, (int) $limitOption) : null;
+    $envioOption = $this->option('envio');
+    $envioId = is_numeric($envioOption) ? max(1, (int) $envioOption) : null;
+    $clienteOption = $this->option('cliente');
+    $clienteId = is_numeric($clienteOption) ? max(1, (int) $clienteOption) : null;
+    $dryRun = ! (bool) $this->option('executar');
+
+    $resultado = $service->enviarPendentes($limit, $envioId, $clienteId, $dryRun);
+
+    $this->info($dryRun ? 'Simulacao de WhatsApp concluida.' : 'Envio de WhatsApp concluido.');
+    $this->line('Processados: '.$resultado['processados']);
+    $this->line('Enviados: '.$resultado['enviados']);
+    $this->line('Simulados: '.$resultado['simulados']);
+    $this->line('Erros: '.$resultado['erros']);
+
+    return self::SUCCESS;
+})->purpose('Envia pelo WhatsApp as cobrancas pendentes.');
+
+if ((bool) env('COBRANCAS_AUTOMATICAS_ATIVAS', false)) {
+    Schedule::command('cobrancas:processar --executar')
+        ->dailyAt(env('COBRANCAS_AUTOMATICAS_HORA', '08:00'))
+        ->withoutOverlapping();
+}
 
 if (! app()->isProduction()) {
     Artisan::command('conectta:lytex-webhook-test {invoiceId? : fatura_id externa da Lytex} {--event=liquidateInvoice : liquidateInvoice, scheduleInvoicePayment ou cancelInvoice} {--status= : Status externo opcional} {--show-payload : Exibe o payload assinado antes de processar}', function () {

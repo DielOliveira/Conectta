@@ -18,4 +18,5 @@ app/storage/logs/
 app/storage/pail/
 app/vendor/
 
+payloads-whatsapp/
 tmp/

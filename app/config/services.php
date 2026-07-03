@@ -43,4 +43,15 @@ return [
         'timeout' => env('LYTEX_TIMEOUT', 30),
     ],
 
+    'whatsapp' => [
+        'zapi' => [
+            'base_url' => env('WHATSAPP_ZAPI_BASE_URL', 'https://api.z-api.io'),
+            'instance_id' => env('WHATSAPP_ZAPI_INSTANCE_ID'),
+            'token' => env('WHATSAPP_ZAPI_TOKEN'),
+            'client_token' => env('WHATSAPP_ZAPI_CLIENT_TOKEN'),
+            'timeout' => env('WHATSAPP_ZAPI_TIMEOUT', 30),
+            'pix_endpoint' => env('WHATSAPP_ZAPI_PIX_ENDPOINT', 'send-button-pix'),
+        ],
+    ],
+
 ];
