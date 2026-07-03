@@ -453,14 +453,11 @@ class BackupRestoreService
 
     private function text(mixed $value, int $limit): ?string
     {
-        if ($value === null) {
+        if ($this->isBlankImportMarker($value)) {
             return null;
         }
 
         $text = trim((string) $value);
-        if ($text === '' || $text === '-') {
-            return null;
-        }
 
         return mb_substr($text, 0, $limit);
     }
@@ -472,7 +469,7 @@ class BackupRestoreService
 
     private function int(mixed $value): ?int
     {
-        if ($value === null || $value === '') {
+        if ($this->isBlankImportMarker($value)) {
             return null;
         }
 
@@ -481,7 +478,7 @@ class BackupRestoreService
 
     private function decimal(mixed $value): ?float
     {
-        if ($value === null || $value === '') {
+        if ($this->isBlankImportMarker($value)) {
             return null;
         }
 
@@ -519,7 +516,7 @@ class BackupRestoreService
 
     private function carbon(mixed $value): ?Carbon
     {
-        if ($value === null || $value === '') {
+        if ($this->isBlankImportMarker($value)) {
             return null;
         }
 
@@ -532,5 +529,16 @@ class BackupRestoreService
         } catch (Throwable) {
             return null;
         }
+    }
+
+    private function isBlankImportMarker(mixed $value): bool
+    {
+        if ($value === null) {
+            return true;
+        }
+
+        $text = trim((string) $value);
+
+        return in_array($text, ['', '-', "'-"], true);
     }
 }
