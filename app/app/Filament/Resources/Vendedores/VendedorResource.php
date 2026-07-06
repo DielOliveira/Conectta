@@ -7,6 +7,7 @@ use App\Filament\Resources\Vendedores\Pages\EditVendedor;
 use App\Filament\Resources\Vendedores\Pages\ListVendedores;
 use App\Filament\Resources\Vendedores\Schemas\VendedorForm;
 use App\Filament\Resources\Vendedores\Tables\VendedoresTable;
+use App\Models\Permission;
 use App\Models\Vendedor;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -23,9 +24,9 @@ class VendedorResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUser;
 
-    protected static string|UnitEnum|null $navigationGroup = 'Administrativo';
+    protected static string|UnitEnum|null $navigationGroup = 'Cadastro';
 
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 4;
 
     protected static ?string $modelLabel = 'Vendedor';
 
@@ -45,27 +46,27 @@ class VendedorResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()?->isAdmin() ?? false;
+        return auth()->user()?->hasPermission(Permission::CADASTRO_LEITURA) ?? false;
     }
 
     public static function canCreate(): bool
     {
-        return auth()->user()?->isAdmin() ?? false;
+        return auth()->user()?->hasPermission(Permission::CADASTRO_ESCRITA) ?? false;
     }
 
     public static function canEdit($record): bool
     {
-        return auth()->user()?->isAdmin() ?? false;
+        return auth()->user()?->hasPermission(Permission::CADASTRO_ESCRITA) ?? false;
     }
 
     public static function canDelete($record): bool
     {
-        return auth()->user()?->isAdmin() ?? false;
+        return auth()->user()?->hasPermission(Permission::CADASTRO_EXCLUSAO) ?? false;
     }
 
     public static function canDeleteAny(): bool
     {
-        return auth()->user()?->isAdmin() ?? false;
+        return auth()->user()?->hasPermission(Permission::CADASTRO_EXCLUSAO) ?? false;
     }
 
     public static function getPages(): array
