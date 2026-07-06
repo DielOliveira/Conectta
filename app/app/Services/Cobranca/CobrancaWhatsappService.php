@@ -139,6 +139,13 @@ class CobrancaWhatsappService
             return $etapas;
         }
 
+        if ($this->envioDeAtraso($envio)) {
+            return [
+                ...$etapas,
+                ...$this->etapasBoletosAtrasados($envio, $telefone, $lancamento),
+            ];
+        }
+
         $invoice = $envio->invoice;
 
         if (! $invoice) {
@@ -196,6 +203,67 @@ class CobrancaWhatsappService
         return $etapas;
     }
 
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function etapasBoletosAtrasados(CobrancaEnvio $envio, string $telefone, Lancamento $lancamentoPrincipal): array
+    {
+        $boletos = $this->boletosDoPayload($envio);
+
+        if ($boletos === []) {
+            $invoice = $envio->invoice;
+
+            if (! $invoice) {
+                throw new WhatsappException('Invoice nao encontrada para envio do boleto.');
+            }
+
+            $boletos[] = [
+                'link_boleto' => $envio->link_boleto ?: $invoice->link_boleto,
+                'mes_referencia' => (int) $lancamentoPrincipal->mes_referencia,
+                'ano_referencia' => (int) $lancamentoPrincipal->ano_referencia,
+            ];
+        }
+
+        $etapas = [];
+
+        foreach ($boletos as $boleto) {
+            $documento = $this->documentoPdfUrlDoLink((string) ($boleto['link_boleto'] ?? ''));
+
+            if ($documento === '') {
+                throw new WhatsappException('Link do boleto nao informado.');
+            }
+
+            $etapas[] = [
+                'tipo' => 'documento',
+                'telefone' => $telefone,
+                'documento' => $documento,
+                'nome_arquivo' => $this->nomeArquivoBoletoReferencia(
+                    (int) ($boleto['mes_referencia'] ?? $lancamentoPrincipal->mes_referencia),
+                    (int) ($boleto['ano_referencia'] ?? $lancamentoPrincipal->ano_referencia),
+                ),
+            ];
+        }
+
+        return $etapas;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function boletosDoPayload(CobrancaEnvio $envio): array
+    {
+        $payload = json_decode((string) $envio->whatsapp_payload, true);
+
+        if (! is_array($payload) || ! is_array($payload['boletos'] ?? null)) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            $payload['boletos'],
+            fn (mixed $boleto): bool => is_array($boleto) && filled($boleto['link_boleto'] ?? null),
+        ));
+    }
+
     private function garantirDadosPagamento(Invoice $invoice): Invoice
     {
         if (filled($invoice->linha_digitavel) && filled($invoice->pix_copia_cola)) {
@@ -224,7 +292,12 @@ class CobrancaWhatsappService
 
     private function documentoPdfUrl(CobrancaEnvio $envio, Invoice $invoice): string
     {
-        $url = trim((string) ($envio->link_boleto ?: $invoice->link_boleto));
+        return $this->documentoPdfUrlDoLink((string) ($envio->link_boleto ?: $invoice->link_boleto));
+    }
+
+    private function documentoPdfUrlDoLink(string $link): string
+    {
+        $url = trim($link);
 
         if ($url === '') {
             return '';
@@ -234,6 +307,11 @@ class CobrancaWhatsappService
     }
 
     private function nomeArquivoBoleto(Lancamento $lancamento): string
+    {
+        return $this->nomeArquivoBoletoReferencia((int) $lancamento->mes_referencia, (int) $lancamento->ano_referencia);
+    }
+
+    private function nomeArquivoBoletoReferencia(int $mes, int $ano): string
     {
         $meses = [
             1 => 'Janeiro',
@@ -250,7 +328,15 @@ class CobrancaWhatsappService
             12 => 'Dezembro',
         ];
 
-        return 'BoletoConectta_'.($meses[(int) $lancamento->mes_referencia] ?? 'Mensalidade').'.pdf';
+        $nomeMes = $meses[$mes] ?? 'Mensalidade';
+        $sufixoAno = $ano > 0 ? '_'.$ano : '';
+
+        return 'BoletoConectta_'.$nomeMes.$sufixoAno.'.pdf';
+    }
+
+    private function envioDeAtraso(CobrancaEnvio $envio): bool
+    {
+        return str((string) $envio->tipo)->startsWith('atraso_');
     }
 
     private function modeloMensagem(string $tipo, string $padrao): string

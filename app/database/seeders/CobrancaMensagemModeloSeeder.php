@@ -39,7 +39,7 @@ class CobrancaMensagemModeloSeeder extends Seeder
         ];
 
         foreach ($modelos as $tipo => $dados) {
-            CobrancaMensagemModelo::query()->updateOrCreate(
+            CobrancaMensagemModelo::query()->firstOrCreate(
                 [
                     'tipo' => $tipo,
                     'canal' => 'whatsapp',

@@ -263,6 +263,13 @@ class CobrancaAutomaticaService
         bool $dryRun,
     ): string {
         $mensagem = $this->montarMensagem($tipo, $lancamento->cliente, $lancamento, $vencimento, $valor, $diasAtraso);
+        $whatsappPayload = null;
+
+        if ($diasAtraso !== null) {
+            $whatsappPayload = [
+                'boletos' => $this->boletosAtrasadosParaWhatsapp($lancamento, $invoice, $vencimento),
+            ];
+        }
 
         $this->registrar(
             $execucao,
@@ -277,9 +284,81 @@ class CobrancaAutomaticaService
             $this->invoiceUrl($invoice),
             $this->boletoUrl($invoice),
             $mensagem,
+            whatsappPayload: $whatsappPayload,
         );
 
         return 'total_enviados';
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function boletosAtrasadosParaWhatsapp(Lancamento $lancamentoPrincipal, Invoice $invoicePrincipal, CarbonImmutable $vencimentoPrincipal): array
+    {
+        $boletos = [
+            $this->boletoWhatsappPayload($lancamentoPrincipal, $invoicePrincipal, $vencimentoPrincipal),
+        ];
+
+        $clienteId = (int) $lancamentoPrincipal->cliente_id;
+        $mesPrincipal = (int) $lancamentoPrincipal->mes_referencia;
+        $anoPrincipal = (int) $lancamentoPrincipal->ano_referencia;
+
+        Lancamento::query()
+            ->where('cliente_id', $clienteId)
+            ->where('valor_planejado', '>', 0)
+            ->whereNotNull('mes_referencia')
+            ->whereNotNull('ano_referencia')
+            ->where(function (Builder $query) use ($anoPrincipal, $mesPrincipal): void {
+                $query->where('ano_referencia', '<', $anoPrincipal)
+                    ->orWhere(function (Builder $query) use ($anoPrincipal, $mesPrincipal): void {
+                        $query->where('ano_referencia', $anoPrincipal)
+                            ->where('mes_referencia', '<', $mesPrincipal);
+                    });
+            })
+            ->orderBy('ano_referencia')
+            ->orderBy('mes_referencia')
+            ->orderBy('id')
+            ->get()
+            ->each(function (Lancamento $lancamento) use (&$boletos): void {
+                if (! $this->numeroBoletoLytex($lancamento)) {
+                    return;
+                }
+
+                if ($this->valorEfetivadoReferencia((int) $lancamento->cliente_id, (int) $lancamento->mes_referencia, (int) $lancamento->ano_referencia) > 0) {
+                    return;
+                }
+
+                $invoice = $this->invoiceAtiva($lancamento);
+
+                if ($invoice === null || blank($invoice->hash_id)) {
+                    return;
+                }
+
+                $vencimento = $this->vencimentoDoLancamento($lancamento);
+
+                if ($vencimento === null || ! $vencimento->isPast()) {
+                    return;
+                }
+
+                $boletos[] = $this->boletoWhatsappPayload($lancamento, $invoice, $vencimento);
+            });
+
+        return $boletos;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function boletoWhatsappPayload(Lancamento $lancamento, Invoice $invoice, CarbonImmutable $vencimento): array
+    {
+        return [
+            'lancamento_id' => $lancamento->id,
+            'invoice_id' => $invoice->id,
+            'mes_referencia' => (int) $lancamento->mes_referencia,
+            'ano_referencia' => (int) $lancamento->ano_referencia,
+            'vencimento' => $vencimento->toDateString(),
+            'link_boleto' => $this->boletoUrl($invoice),
+        ];
     }
 
     private function gerarBoleto(Lancamento $lancamento, Cliente $cliente, CarbonImmutable $vencimento): Invoice
@@ -404,6 +483,7 @@ class CobrancaAutomaticaService
         ?string $linkBoleto = null,
         ?string $mensagem = null,
         ?string $erro = null,
+        ?array $whatsappPayload = null,
     ): CobrancaEnvio {
         $envio = CobrancaEnvio::query()->firstOrNew([
             'lancamento_id' => $lancamento->id,
@@ -426,6 +506,7 @@ class CobrancaAutomaticaService
             'link_boleto' => $linkBoleto,
             'mensagem' => $mensagem,
             'erro' => $erro,
+            'whatsapp_payload' => $whatsappPayload === null ? $envio->whatsapp_payload : json_encode($whatsappPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
         ]);
 
         $envio->save();

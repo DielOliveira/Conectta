@@ -4,6 +4,7 @@ namespace App\Services\Backup;
 
 use App\Models\Pais;
 use Carbon\Carbon;
+use Database\Seeders\CobrancaMensagemModeloSeeder;
 use Database\Seeders\PaisSeeder;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -47,6 +48,7 @@ class BackupRestoreService
             $summary['tabelas']['lancamentos'] = $this->importLancamentos($files['lancamentos']);
             $summary['tabelas']['invoices'] = $this->importInvoices($files['invoices']);
             $summary['tabelas']['faturamentos'] = $this->importFaturamentos($files['faturamentos']);
+            $summary['tabelas']['modelos_mensagem_cobranca'] = $this->garantirModelosMensagemCobranca();
 
             $this->ajustarAutoIncrement([
                 'vendedores', 'tecnicos', 'rastreadores', 'clientes', 'veiculos', 'chips', 'contratos', 'lancamentos', 'invoices', 'faturamentos',
@@ -88,6 +90,13 @@ class BackupRestoreService
         app(PaisSeeder::class)->run();
 
         return Pais::query()->count();
+    }
+
+    private function garantirModelosMensagemCobranca(): int
+    {
+        app(CobrancaMensagemModeloSeeder::class)->run();
+
+        return DB::table('cobranca_mensagem_modelos')->count();
     }
 
     private function importVendedores(string $path): int
