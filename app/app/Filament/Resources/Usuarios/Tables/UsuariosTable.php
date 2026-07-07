@@ -2,6 +2,8 @@
 
 namespace App\Filament\Resources\Usuarios\Tables;
 
+use App\Models\Permission;
+use App\Models\User;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -37,9 +39,11 @@ class UsuariosTable
             ])
             ->recordActions([
                 EditAction::make()
-                    ->label('Editar'),
+                    ->label('Editar')
+                    ->visible(fn (User $record): bool => self::podeOperarUsuario($record)),
                 DeleteAction::make()
                     ->label('Excluir')
+                    ->visible(fn (User $record): bool => self::podeOperarUsuario($record))
                     ->modalSubmitActionLabel('Excluir')
                     ->requiresConfirmation()
                     ->modalDescription('Deseja excluir este usuario?'),
@@ -47,6 +51,7 @@ class UsuariosTable
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
+                        ->visible(fn (): bool => auth()->user()?->isAdmin() ?? false)
                         ->label('Excluir selecionados')
                         ->modalSubmitActionLabel('Excluir')
                         ->requiresConfirmation()
@@ -54,5 +59,13 @@ class UsuariosTable
                 ]),
             ])
             ->defaultSort('name');
+    }
+
+    private static function podeOperarUsuario(User $record): bool
+    {
+        $user = auth()->user();
+
+        return ($user?->isAdmin() ?? false)
+            || (($user?->hasPermission(Permission::COORDENADOR) ?? false) && ! (bool) $record->is_admin);
     }
 }

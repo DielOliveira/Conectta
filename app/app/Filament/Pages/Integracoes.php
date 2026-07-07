@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Models\ConfiguracaoIntegracao;
+use App\Models\Permission;
 use App\Models\TokenLytex;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -27,7 +28,7 @@ class Integracoes extends Page
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->isAdmin() ?? false;
+        return auth()->user()?->hasPermission(Permission::TECNICO) ?? false;
     }
 
     public string $lytexAmbienteAtivo = 'producao';

@@ -4,6 +4,7 @@ namespace App\Filament\Resources\AuditLogs;
 
 use App\Filament\Resources\AuditLogs\Pages\ListAuditLogs;
 use App\Models\AuditLog;
+use App\Models\Permission;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Resources\Resource;
@@ -111,7 +112,7 @@ class AuditLogResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()?->isAdmin() ?? false;
+        return auth()->user()?->hasPermission(Permission::COORDENADOR) ?? false;
     }
 
     public static function canCreate(): bool

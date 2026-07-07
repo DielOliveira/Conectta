@@ -50,10 +50,14 @@ class PainelControleAtalhos extends Widget
             $links[] = ['label' => 'Faturamento', 'url' => '/admin/faturamento'];
         }
 
-        if ($user?->isAdmin()) {
+        if ($user?->hasPermission(Permission::TECNICO)) {
             $links[] = ['label' => 'Integracoes', 'url' => '/admin/integracoes'];
             $links[] = ['label' => 'Restore backup', 'url' => '/admin/restore-backup'];
+        }
+
+        if ($user?->hasPermission(Permission::COORDENADOR)) {
             $links[] = ['label' => 'Usuarios', 'url' => '/admin/usuarios'];
+            $links[] = ['label' => 'Auditoria', 'url' => '/admin/auditoria'];
         }
 
         return ['links' => $links];

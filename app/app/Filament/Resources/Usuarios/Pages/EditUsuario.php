@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Usuarios\Pages;
 use App\Filament\Resources\Usuarios\UsuarioResource;
 use App\Services\Audit\AuditLogger;
 use Filament\Actions\DeleteAction;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 
 class EditUsuario extends EditRecord
@@ -24,8 +25,32 @@ class EditUsuario extends EditRecord
     {
         return [
             DeleteAction::make()
-                ->label('Excluir'),
+                ->label('Excluir')
+                ->visible(fn (): bool => static::getResource()::canDelete($this->record)),
         ];
+    }
+
+    protected function beforeValidate(): void
+    {
+        if ((auth()->user()?->isAdmin() ?? false) || ! (bool) $this->record->is_admin) {
+            return;
+        }
+
+        Notification::make()
+            ->title('Coordenador nao pode alterar usuarios administradores.')
+            ->danger()
+            ->send();
+
+        $this->halt();
+    }
+
+    protected function mutateFormDataBeforeSave(array $data): array
+    {
+        if (! (auth()->user()?->isAdmin() ?? false)) {
+            $data['is_admin'] = false;
+        }
+
+        return $data;
     }
 
     protected function beforeSave(): void

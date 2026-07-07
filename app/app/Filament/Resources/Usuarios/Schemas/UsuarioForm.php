@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Usuarios\Schemas;
 
+use App\Models\User;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -43,6 +44,7 @@ class UsuarioForm
                             Toggle::make('is_admin')
                                 ->label('Administrador')
                                 ->helperText('Administrador acessa todas as telas e acoes, mesmo sem permissoes marcadas.')
+                                ->visible(fn (): bool => auth()->user()?->isAdmin() ?? false)
                                 ->columnSpan(6),
                         ]),
                     ])
@@ -52,6 +54,7 @@ class UsuarioForm
                         CheckboxList::make('permissions')
                             ->label('Permissoes')
                             ->relationship('permissions', 'label', fn ($query) => $query->orderBy('ordem')->orderBy('label'))
+                            ->disabled(fn (?User $record): bool => (bool) ($record?->is_admin ?? false) && ! (auth()->user()?->isAdmin() ?? false))
                             ->columns(2)
                             ->bulkToggleable()
                             ->helperText('Usuarios administradores ignoram esta lista. Para usuarios comuns, marque as permissoes desejadas.'),

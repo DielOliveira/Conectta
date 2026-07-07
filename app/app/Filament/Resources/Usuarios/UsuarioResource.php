@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Usuarios;
 use App\Filament\Resources\Usuarios\Pages\CreateUsuario;
 use App\Filament\Resources\Usuarios\Pages\EditUsuario;
 use App\Filament\Resources\Usuarios\Pages\ListUsuarios;
+use App\Models\Permission;
 use App\Models\User;
 use BackedEnum;
 use Filament\Resources\Resource;
@@ -43,22 +44,28 @@ class UsuarioResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()?->isAdmin() ?? false;
+        return auth()->user()?->hasPermission(Permission::COORDENADOR) ?? false;
     }
 
     public static function canCreate(): bool
     {
-        return auth()->user()?->isAdmin() ?? false;
+        return auth()->user()?->hasPermission(Permission::COORDENADOR) ?? false;
     }
 
     public static function canEdit($record): bool
     {
-        return auth()->user()?->isAdmin() ?? false;
+        $user = auth()->user();
+
+        return ($user?->isAdmin() ?? false)
+            || (($user?->hasPermission(Permission::COORDENADOR) ?? false) && ! (bool) $record->is_admin);
     }
 
     public static function canDelete($record): bool
     {
-        return auth()->user()?->isAdmin() ?? false;
+        $user = auth()->user();
+
+        return ($user?->isAdmin() ?? false)
+            || (($user?->hasPermission(Permission::COORDENADOR) ?? false) && ! (bool) $record->is_admin);
     }
 
     public static function canDeleteAny(): bool

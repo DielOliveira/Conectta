@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Models\Permission;
 use App\Services\Audit\AuditLogger;
 use App\Services\Backup\BackupRestoreService;
 use Filament\Notifications\Notification;
@@ -53,7 +54,7 @@ class RestoreBackup extends Page
 
     public static function canAccess(): bool
     {
-        return auth()->user()?->isAdmin() ?? false;
+        return auth()->user()?->hasPermission(Permission::TECNICO) ?? false;
     }
 
     public function restaurar(BackupRestoreService $service): void
@@ -61,7 +62,7 @@ class RestoreBackup extends Page
         @ini_set('max_execution_time', '0');
         @set_time_limit(0);
 
-        if (! auth()->user()?->isAdmin()) {
+        if (! auth()->user()?->hasPermission(Permission::TECNICO)) {
             Notification::make()->title('Voce nao tem permissao para esta acao.')->danger()->send();
 
             return;

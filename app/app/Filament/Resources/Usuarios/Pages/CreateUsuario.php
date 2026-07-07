@@ -10,6 +10,15 @@ class CreateUsuario extends CreateRecord
 {
     protected static string $resource = UsuarioResource::class;
 
+    protected function mutateFormDataBeforeCreate(array $data): array
+    {
+        if (! (auth()->user()?->isAdmin() ?? false)) {
+            $data['is_admin'] = false;
+        }
+
+        return $data;
+    }
+
     protected function getRedirectUrl(): string
     {
         return static::getResource()::getUrl('index');
