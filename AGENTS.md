@@ -297,6 +297,17 @@ Os textos principais ficam em `cobranca_mensagem_modelos`, pela tela `Rotinas > 
 
 O restore garante os modelos padrao de mensagens de cobranca ao final do processo. O seeder `CobrancaMensagemModeloSeeder` usa `firstOrCreate`, entao cria quando faltar, mas nao sobrescreve textos editados pela tela.
 
+## Financeiro
+
+- A tela `Financeiro > Historico Financeiro` usa a tabela `audit_logs` para exibir alteracoes de lancamentos e parcelamentos financeiros.
+- A tela considera as acoes:
+  - `financeiro.lancamento_criado`;
+  - `financeiro.lancamento_editado`;
+  - `financeiro.parcelamento_criado`;
+  - `financeiro.parcelamento_excluido`.
+- Os campos `Total Antes` e `Total Depois` sao gravados no `contexto` dos logs novos; logs antigos podem aparecer sem esses totais porque esse dado nao era persistido no momento da operacao.
+- O acesso ao historico financeiro usa a permissao `Financeiro_Leitura`.
+
 ## Rastreadores E Estoque
 
 - Existem duas telas com nomes parecidos:

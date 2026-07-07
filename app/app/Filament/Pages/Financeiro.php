@@ -560,6 +560,7 @@ class Financeiro extends Page
         ]);
 
         $antes = null;
+        $totalAntes = $this->totalEfetivadoReferencia($this->modalMes, $this->modalAno);
 
         if ($this->modalLancamentoId) {
             $lancamentoAtual = Lancamento::query()->find($this->modalLancamentoId);
@@ -582,6 +583,7 @@ class Financeiro extends Page
         );
 
         $this->modalLancamentoId = $lancamento->id;
+        $totalDepois = $this->totalEfetivadoReferencia($this->modalMes, $this->modalAno);
 
         AuditLogger::registrar(
             $antes ? 'financeiro.lancamento_editado' : 'financeiro.lancamento_criado',
@@ -593,6 +595,8 @@ class Financeiro extends Page
                 'cliente_id' => $this->modalClienteId,
                 'mes_referencia' => $this->modalMes,
                 'ano_referencia' => $this->modalAno,
+                'total_antes' => $totalAntes,
+                'total_depois' => $totalDepois,
             ],
         );
 
@@ -673,6 +677,8 @@ class Financeiro extends Page
             'parcelamentoValorEfetivado' => 'valor efetivado',
         ]);
 
+        $totalAntes = $this->totalEfetivadoReferencia($this->modalMes, $this->modalAno);
+
         $lancamento = Lancamento::query()->create([
             'cliente_id' => $this->modalClienteId,
             'data_lancamento' => $this->parcelamentoDataLancamento,
@@ -681,6 +687,7 @@ class Financeiro extends Page
             'ano_referencia' => $this->modalAno,
             'time_stamp' => now(),
         ]);
+        $totalDepois = $this->totalEfetivadoReferencia($this->modalMes, $this->modalAno);
 
         AuditLogger::registrar(
             'financeiro.parcelamento_criado',
@@ -692,6 +699,8 @@ class Financeiro extends Page
                 'cliente_id' => $this->modalClienteId,
                 'mes_referencia' => $this->modalMes,
                 'ano_referencia' => $this->modalAno,
+                'total_antes' => $totalAntes,
+                'total_depois' => $totalDepois,
             ],
         );
 
@@ -724,7 +733,11 @@ class Financeiro extends Page
         }
 
         $antes = AuditLogger::snapshot($lancamento);
+        $mesReferencia = (int) $lancamento->mes_referencia;
+        $anoReferencia = (int) $lancamento->ano_referencia;
+        $totalAntes = $this->totalEfetivadoReferencia($mesReferencia, $anoReferencia);
         $lancamento->delete();
+        $totalDepois = $this->totalEfetivadoReferencia($mesReferencia, $anoReferencia);
 
         AuditLogger::registrar(
             'financeiro.parcelamento_excluido',
@@ -735,6 +748,10 @@ class Financeiro extends Page
             contexto: [
                 'lancamento_principal_id' => $this->modalLancamentoId,
                 'cliente_id' => $this->modalClienteId,
+                'mes_referencia' => $mesReferencia,
+                'ano_referencia' => $anoReferencia,
+                'total_antes' => $totalAntes,
+                'total_depois' => $totalDepois,
             ],
         );
     }
@@ -1676,6 +1693,14 @@ class Financeiro extends Page
             ->groupBy('cliente_id')
             ->havingRaw('(SUM(valor_efetivado) IS NOT NULL AND SUM(valor_efetivado) <> 0)')
             ->pluck('cliente_id');
+    }
+
+    private function totalEfetivadoReferencia(int $mes, int $ano): float
+    {
+        return (float) Lancamento::query()
+            ->where('mes_referencia', $mes)
+            ->where('ano_referencia', $ano)
+            ->sum('valor_efetivado');
     }
 
     private function limparFiltrosMensais(): void

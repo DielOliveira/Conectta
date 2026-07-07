@@ -28,7 +28,7 @@
             align-items: end;
             display: grid;
             gap: 16px;
-            grid-template-columns: 265px 265px 116px 116px 116px 116px 116px 1fr;
+            grid-template-columns: 265px 265px 116px 116px 116px 116px 116px 116px 1fr;
         }
 
         .ct-fin-field {
@@ -970,6 +970,7 @@
             </label>
 
             <button type="button" wire:click="limparFiltros" class="ct-fin-btn">Limpar</button>
+            <a href="{{ \App\Filament\Pages\HistoricoFinanceiro::getUrl() }}" class="ct-fin-btn">Historico</a>
             <button type="button" wire:click="exportarCsv" class="ct-fin-btn ct-fin-btn-export"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M7.5 12 12 16.5m0 0 4.5-4.5M12 16.5V3" /></svg><span>Exportar</span></button>
             <div></div>
         </div>
