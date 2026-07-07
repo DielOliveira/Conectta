@@ -822,6 +822,12 @@
             color: #b45309;
         }
 
+        .ct-fin-boleto-action-loading {
+            align-items: center;
+            display: inline-flex;
+            gap: 6px;
+        }
+
         .ct-fin-boleto-status {
             border-radius: 999px;
             display: inline-flex;
@@ -1480,7 +1486,19 @@
                                                         Cancelar Boleto
                                                     </button>
                                                 @else
-                                                    <button type="button" wire:click="gerarBoleto" class="ct-fin-boleto-action ct-fin-boleto-action-primary">Gerar Boleto</button>
+                                                    <button
+                                                        type="button"
+                                                        wire:click="gerarBoleto"
+                                                        wire:loading.attr="disabled"
+                                                        wire:target="gerarBoleto"
+                                                        class="ct-fin-boleto-action ct-fin-boleto-action-primary"
+                                                    >
+                                                        <span wire:loading.remove wire:target="gerarBoleto">Gerar Boleto</span>
+                                                        <span wire:loading wire:target="gerarBoleto" class="ct-fin-boleto-action-loading">
+                                                            <span class="ct-fin-spinner" aria-hidden="true"></span>
+                                                            Gerando...
+                                                        </span>
+                                                    </button>
                                                 @endif
                                             </div>
                                         </div>

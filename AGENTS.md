@@ -28,6 +28,13 @@ cd ~/Conectta/app
 php artisan serve --host=127.0.0.1 --port=8000
 ```
 
+Expor local via ngrok:
+
+```bash
+/home/diel_/bin/ngrok http 8000
+curl -s http://127.0.0.1:4040/api/tunnels
+```
+
 Build frontend:
 
 ```bash
@@ -80,6 +87,21 @@ tail -n 100 /tmp/conectta-deploy.log
 grep -nEi "error|failed|fatal|exception|denied|timeout|not found" /tmp/conectta-deploy.log || true
 ```
 
+Script de commit local:
+
+```bash
+cd ~/Conectta/app
+./scripts/commit-local.sh
+```
+
+O deploy usa SSH para GitHub com `~/.ssh/id_ed25519`. Se falhar com `Permission denied (publickey)`, carregar a chave antes:
+
+```bash
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/id_ed25519
+ssh -T git@github.com
+```
+
 ## VPS Producao
 
 - IP: `191.252.200.172`.
@@ -106,6 +128,8 @@ Validacoes comuns na VPS:
 ssh -F /dev/null -i ~/.ssh/conectta_vps -o IdentitiesOnly=yes root@191.252.200.172 'cd /var/www/conectta/repo && git status --short --branch && git rev-parse --short HEAD && cd app && php artisan migrate:status --pending'
 curl -I https://sistemaconectta.com.br/admin/login
 ```
+
+Observacao: a VPS pode emitir `Deprecation Notice` do Composer por usar Composer antigo com PHP 8.4. Se o deploy concluir, isso nao bloqueia. Melhor melhoria futura: atualizar Composer global da VPS.
 
 ## Integracoes
 
@@ -215,7 +239,8 @@ Regras principais:
   - nao gera boleto;
   - exige `numero_boleto = Lytex`;
   - usa invoice existente;
-  - se faltar linha digitavel/PIX, tenta buscar por `detalhesFatura`.
+  - se houver outros boletos vencidos de meses anteriores do mesmo cliente, inclui tambem no mesmo envio;
+  - no atraso, o WhatsApp envia apenas mensagem principal e PDF(s) de boleto, sem linha digitavel, PIX ou finalizacao.
 
 Comando de processamento:
 
@@ -247,7 +272,7 @@ php artisan cobrancas:enviar-whatsapp --envio=ID --executar
 php artisan cobrancas:enviar-whatsapp --cliente=1470 --limit=1 --executar
 ```
 
-Fluxo WhatsApp com boleto:
+Fluxo WhatsApp de boleto 7 dias antes:
 
 1. mensagem principal;
 2. PDF do boleto;
@@ -260,6 +285,38 @@ Fluxo WhatsApp de lembrete de vencimento:
 
 1. mensagem principal apenas.
 
+Fluxo WhatsApp de atraso:
+
+1. mensagem principal;
+2. PDF do boleto principal;
+3. PDFs de outros boletos vencidos de meses anteriores do mesmo cliente, quando existirem.
+
+Os PDFs de boleto usam nome com mes/ano da referencia, por exemplo `BoletoConectta_Julho_2026.pdf`.
+
+Os textos principais ficam em `cobranca_mensagem_modelos`, pela tela `Rotinas > Mensagens de cobrança`. A ordem/tipo das etapas ainda fica fixa em `App\Services\Cobranca\CobrancaWhatsappService`.
+
+O restore garante os modelos padrao de mensagens de cobranca ao final do processo. O seeder `CobrancaMensagemModeloSeeder` usa `firstOrCreate`, entao cria quando faltar, mas nao sobrescreve textos editados pela tela.
+
+## Rastreadores E Estoque
+
+- Existem duas telas com nomes parecidos:
+  - `Cadastro > Rastreadores`: lista `veiculos` com rastreador vinculado/instalado.
+  - `Estoque > Rastreadores`: lista a tabela real `rastreadores`.
+- A combo `IMEI` em `Cadastro > Rastreadores` mostra apenas rastreadores com status `Disponivel`, alem do rastreador ja vinculado quando estiver editando um registro existente.
+- Ao criar rastreador em `Estoque > Rastreadores`, o status padrao deve ser `Disponivel`, para evitar criar estoque novo como `Ativo`.
+- A busca em `Cadastro > Rastreadores` pesquisa placa, veiculo e cliente. A busca por IMEI so deve entrar quando a parte numerica tiver pelo menos 6 digitos, para uma placa como `QDW-9C47` nao buscar IMEIs contendo `947`.
+- Nas listas `Clientes` e `Cadastro > Rastreadores`, a linha inteira nao deve abrir o detalhe. A navegacao deve ficar nos icones/botoes de acao, especialmente `Editar`.
+- Essas duas listas usam a classe `ct-selectable-table` e o CSS `public/css/conectta-admin.css` para permitir selecionar/copiar texto das celulas.
+
+## Menus E Permissoes
+
+- Grupo `Cadastro`: Clientes, Rastreadores, Contratos e Vendedores.
+- `Vendedores` usa permissoes de cadastro:
+  - leitura: `Cadastro_Leitura`;
+  - criar/editar: `Cadastro_Escrita`;
+  - excluir: `Cadastro_Exclusao`.
+- Usuarios admin continuam com acesso total porque `User::hasPermission()` libera tudo para `is_admin`.
+
 ## Cliente De Teste Usado
 
 - Cliente: `Diel Oliveira de Faria`.
@@ -269,8 +326,12 @@ Fluxo WhatsApp de lembrete de vencimento:
 
 ## Estado Atual Importante
 
+- Ultimo commit conhecido no app em producao/desenvolvimento: `6074e00 Melhora na navegação de Rastreadores e Clientes`.
+- Em 2026-07-07, `/home/diel_/Conectta/app` estava limpo e sincronizado com `origin/main`; o unico arquivo pendente era este `AGENTS.md`.
 - As rotinas de cobranca e WhatsApp foram implementadas localmente.
 - Foi validado envio real de WhatsApp para o cliente de teste, envio `11`, com sucesso.
 - Foi validada geracao de boleto em homologacao Lytex.
 - Foi validada recuperacao de linha digitavel/PIX via `transactions` do `detalhesFatura`.
-- Antes de ir para producao: revisar, commitar, subir para GitHub, rodar deploy e configurar envs da Z-API na VPS.
+- A producao ja esta em uso em `https://sistemaconectta.com.br`.
+- As rotinas de cobranca existem e o scheduler esta instalado na VPS, mas os agendamentos devem permanecer inativos ate autorizacao explicita.
+- Antes de ativar cobrancas em producao: configurar Z-API em `Integracoes`, rodar simulacoes/controladas e ativar os agendamentos desejados.
