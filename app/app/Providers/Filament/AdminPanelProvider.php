@@ -29,6 +29,7 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
             ->login()
             ->brandName('')
+            ->favicon(asset('favicon.svg'))
             ->brandLogo(asset('images/conectta-logo.png'))
             ->darkModeBrandLogo(asset('images/conectta-logo-invertida.png'))
             ->brandLogoHeight('3.35rem')

@@ -342,6 +342,10 @@ O restore garante os modelos padrao de mensagens de cobranca ao final do process
 - Usuarios com permissao `Coordenador` tambem podem manter `Vendedores` e `Tecnicos`, mesmo sem as permissoes de `Cadastro` ou `Estoque`.
 - Usuarios admin continuam com acesso total porque `User::hasPermission()` libera tudo para `is_admin`.
 
+## Identidade Visual
+
+- O favicon do painel Filament usa `public/favicon.svg`, um marcador de mapa cinza.
+
 ## Cliente De Teste Usado
 
 - Cliente: `Diel Oliveira de Faria`.
