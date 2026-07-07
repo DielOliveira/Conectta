@@ -10,7 +10,6 @@ use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\EditAction;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -46,10 +45,10 @@ class ClientesTable
             ])
             ->modifyQueryUsing(fn (Builder $query, ListClientes $livewire): Builder => $livewire->aplicarFiltrosClientes($query))
             ->recordActions([
-                EditAction::make()
-                    ->label('Editar')
-                    ->visible(fn (): bool => auth()->user()?->hasPermission(Permission::CADASTRO_ESCRITA) ?? false)
-                    ->icon(Heroicon::PencilSquare),
+                Action::make('ver')
+                    ->label(fn (): string => auth()->user()?->hasPermission(Permission::CADASTRO_ESCRITA) ? 'Editar' : 'Ver')
+                    ->icon(fn (): Heroicon => auth()->user()?->hasPermission(Permission::CADASTRO_ESCRITA) ? Heroicon::PencilSquare : Heroicon::OutlinedEye)
+                    ->url(fn (Cliente $record): string => \App\Filament\Resources\Clientes\ClienteResource::getUrl('edit', ['record' => $record])),
                 Action::make('veiculos')
                     ->label('Rastreadores')
                     ->icon(Heroicon::Truck)

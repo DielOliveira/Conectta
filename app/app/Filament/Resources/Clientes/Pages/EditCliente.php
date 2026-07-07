@@ -5,8 +5,11 @@ namespace App\Filament\Resources\Clientes\Pages;
 use App\Filament\Resources\Clientes\ClienteResource;
 use App\Models\Permission;
 use App\Services\Audit\AuditLogger;
+use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
+use Filament\Schemas\Schema;
 
 class EditCliente extends EditRecord
 {
@@ -27,8 +30,34 @@ class EditCliente extends EditRecord
         ];
     }
 
+    public function form(Schema $schema): Schema
+    {
+        return parent::form($schema)
+            ->disabled(! $this->podeEditar());
+    }
+
+    protected function getSaveFormAction(): Action
+    {
+        return parent::getSaveFormAction()
+            ->visible(fn (): bool => $this->podeEditar());
+    }
+
+    public function getTitle(): string
+    {
+        return $this->podeEditar() ? 'Editar Cliente' : 'Ver Cliente';
+    }
+
     protected function beforeSave(): void
     {
+        if (! $this->podeEditar()) {
+            Notification::make()
+                ->title('Voce nao tem permissao para alterar clientes.')
+                ->danger()
+                ->send();
+
+            $this->halt();
+        }
+
         $this->clienteAntes = AuditLogger::snapshot($this->record);
     }
 
@@ -48,5 +77,10 @@ class EditCliente extends EditRecord
                 'cliente_origem_id' => $this->record->cliente_origem_id,
             ],
         );
+    }
+
+    private function podeEditar(): bool
+    {
+        return auth()->user()?->hasPermission(Permission::CADASTRO_ESCRITA) ?? false;
     }
 }

@@ -65,7 +65,8 @@ class RastreadorResource extends Resource
 
     public static function canEdit($record): bool
     {
-        return auth()->user()?->hasPermission(Permission::CADASTRO_ESCRITA) ?? false;
+        return (auth()->user()?->hasPermission(Permission::CADASTRO_LEITURA) ?? false)
+            || (auth()->user()?->hasPermission(Permission::CADASTRO_ESCRITA) ?? false);
     }
 
     public static function canDelete($record): bool

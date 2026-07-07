@@ -3,11 +3,14 @@
 namespace App\Filament\Resources\Rastreadores\Tables;
 
 use App\Filament\Resources\Rastreadores\Pages\ListRastreadores;
+use App\Filament\Resources\Rastreadores\RastreadorResource;
 use App\Models\Permission;
+use App\Models\Veiculo;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
-use Filament\Actions\EditAction;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -54,9 +57,10 @@ class RastreadoresTable
             ])
             ->modifyQueryUsing(fn (Builder $query, ListRastreadores $livewire): Builder => $livewire->aplicarFiltrosRastreadores($query))
             ->recordActions([
-                EditAction::make()
-                    ->label('Editar')
-                    ->visible(fn (): bool => auth()->user()?->hasPermission(Permission::CADASTRO_ESCRITA) ?? false),
+                Action::make('ver')
+                    ->label(fn (): string => auth()->user()?->hasPermission(Permission::CADASTRO_ESCRITA) ? 'Editar' : 'Ver')
+                    ->icon(fn (): Heroicon => auth()->user()?->hasPermission(Permission::CADASTRO_ESCRITA) ? Heroicon::PencilSquare : Heroicon::OutlinedEye)
+                    ->url(fn (Veiculo $record): string => RastreadorResource::getUrl('edit', ['record' => $record])),
                 DeleteAction::make()
                     ->label('Excluir')
                     ->visible(fn (): bool => auth()->user()?->hasPermission(Permission::CADASTRO_EXCLUSAO) ?? false)

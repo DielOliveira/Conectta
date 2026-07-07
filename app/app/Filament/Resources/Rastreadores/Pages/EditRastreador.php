@@ -5,8 +5,11 @@ namespace App\Filament\Resources\Rastreadores\Pages;
 use App\Filament\Resources\Rastreadores\RastreadorResource;
 use App\Models\Permission;
 use App\Services\Audit\AuditLogger;
+use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
+use Filament\Schemas\Schema;
 
 class EditRastreador extends EditRecord
 {
@@ -28,8 +31,34 @@ class EditRastreador extends EditRecord
         ];
     }
 
+    public function form(Schema $schema): Schema
+    {
+        return parent::form($schema)
+            ->disabled(! $this->podeEditar());
+    }
+
+    protected function getSaveFormAction(): Action
+    {
+        return parent::getSaveFormAction()
+            ->visible(fn (): bool => $this->podeEditar());
+    }
+
+    public function getTitle(): string
+    {
+        return $this->podeEditar() ? 'Editar Rastreador' : 'Ver Rastreador';
+    }
+
     protected function beforeSave(): void
     {
+        if (! $this->podeEditar()) {
+            Notification::make()
+                ->title('Voce nao tem permissao para alterar rastreadores.')
+                ->danger()
+                ->send();
+
+            $this->halt();
+        }
+
         $this->rastreadorAntes = AuditLogger::snapshot($this->record);
     }
 
@@ -49,5 +78,10 @@ class EditRastreador extends EditRecord
                 'is_estoque' => $this->record->is_estoque,
             ],
         );
+    }
+
+    private function podeEditar(): bool
+    {
+        return auth()->user()?->hasPermission(Permission::CADASTRO_ESCRITA) ?? false;
     }
 }
