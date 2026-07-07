@@ -94,7 +94,7 @@ class EstoqueRastreadores extends Page
     {
         $this->ativacao = (int) now()->year;
         $this->status_rastreador_id = StatusRastreador::query()
-            ->where('label', 'Ativo')
+            ->where('label', 'Disponivel')
             ->value('id');
     }
 
@@ -216,7 +216,7 @@ class EstoqueRastreadores extends Page
         $this->reset(['editingId', 'modelo', 'ativacao', 'imei', 'tecnico_id']);
         $this->ativacao = (int) now()->year;
         $this->status_rastreador_id = StatusRastreador::query()
-            ->where('label', 'Ativo')
+            ->where('label', 'Disponivel')
             ->value('id');
     }
 
