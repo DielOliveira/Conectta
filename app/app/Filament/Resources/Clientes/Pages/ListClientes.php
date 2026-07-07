@@ -91,7 +91,7 @@ class ListClientes extends ListRecords
         $clientes = $this->aplicarFiltrosClientes(
             Cliente::query()
                 ->whereNull('data_exclusao')
-                ->with('statusCliente')
+                ->with(['origem', 'statusCliente', 'vendedor'])
                 ->withCount('veiculosAtivos')
         )
             ->orderBy('nome')
@@ -104,15 +104,35 @@ class ListClientes extends ListRecords
             $handle = fopen('php://output', 'w');
 
             fwrite($handle, "\xEF\xBB\xBF");
-            fputcsv($handle, ['Nome', 'CPF ou CNPJ', 'Data de Adesao', 'Status', 'Qtd.'], ';');
+            fputcsv($handle, [
+                'Data Adesao',
+                'Nome',
+                'RG',
+                'CPF CNPJ',
+                'Telefone',
+                'DN',
+                'Email',
+                'Status',
+                'Empresa',
+                'Qtd Veiculos',
+                'Origem',
+                'Vendedor',
+            ], ';');
 
             foreach ($clientes as $cliente) {
                 fputcsv($handle, [
+                    $cliente->data_adesao?->format('d-m-Y'),
                     $cliente->nome,
+                    $cliente->rg,
                     $cliente->cpf_cnpj_formatado,
-                    $cliente->data_adesao?->format('d/m/Y'),
+                    $cliente->telefone1,
+                    $cliente->nascimento?->format('d-m-Y'),
+                    $cliente->email,
                     $cliente->statusCliente?->label,
+                    $cliente->empresa,
                     $cliente->veiculos_ativos_count,
+                    $cliente->origem?->label,
+                    $cliente->vendedor?->nome,
                 ], ';');
             }
 

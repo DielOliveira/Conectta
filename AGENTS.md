@@ -324,6 +324,7 @@ O restore garante os modelos padrao de mensagens de cobranca ao final do process
 - A busca digitavel principal e compartilhada via sessao entre `Financeiro`, `Cadastro > Clientes` e `Cadastro > Rastreadores`; ao digitar em uma dessas telas, o mesmo termo deve ser reaplicado ao navegar para as outras. O botao `Limpar` dessas telas tambem limpa a busca compartilhada.
 - O filtro de status do cliente e compartilhado via sessao somente entre `Financeiro` e `Cadastro > Clientes`; `Cadastro > Rastreadores` nao participa desse status compartilhado.
 - Em `Cadastro > Rastreadores`, a busca tambem deve encontrar pelo CPF/CNPJ do cliente vinculado.
+- O export CSV de `Cadastro > Clientes` deve conter: Data Adesao, Nome, RG, CPF CNPJ, Telefone, DN, Email, Status, Empresa, Qtd Veiculos, Origem e Vendedor.
 - Nas listas `Clientes` e `Cadastro > Rastreadores`, a linha inteira nao deve abrir o detalhe. A navegacao deve ficar nos icones/botoes de acao, especialmente `Editar`.
 - Usuarios com `Cadastro_Leitura` podem abrir `Clientes` e `Cadastro > Rastreadores` pelo botao `Ver`, que reaproveita a tela de edicao com formulario desabilitado e sem botao de salvar; `Cadastro_Escrita` ve a mesma acao como `Editar`.
 - Essas duas listas usam a classe `ct-selectable-table` e o CSS `public/css/conectta-admin.css` para permitir selecionar/copiar texto das celulas.
