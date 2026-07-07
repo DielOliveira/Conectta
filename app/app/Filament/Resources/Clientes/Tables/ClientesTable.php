@@ -21,6 +21,9 @@ class ClientesTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->extraAttributes(['class' => 'ct-selectable-table'], merge: true)
+            ->recordAction(null)
+            ->recordUrl(null)
             ->header(view('filament.resources.clientes.table-toolbar-filters'))
             ->columns([
                 TextColumn::make('nome')

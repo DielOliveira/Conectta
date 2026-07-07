@@ -1,0 +1,12 @@
+.ct-selectable-table .fi-ta-cell,
+.ct-selectable-table .fi-ta-cell *,
+.ct-selectable-table .fi-ta-text,
+.ct-selectable-table .fi-ta-text * {
+    -webkit-user-select: text !important;
+    user-select: text !important;
+}
+
+.ct-selectable-table .fi-ta-cell *,
+.ct-selectable-table .fi-ta-text * {
+    -webkit-user-drag: none;
+}

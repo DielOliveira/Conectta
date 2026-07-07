@@ -34,6 +34,7 @@ class AdminPanelProvider extends PanelProvider
             ->brandLogoHeight('3.35rem')
             ->assets([
                 Css::make('conectta-login')->relativePublicPath('css/conectta-login.css'),
+                Css::make('conectta-admin')->relativePublicPath('css/conectta-admin.css'),
             ])
             ->topNavigation()
             ->navigationGroups([

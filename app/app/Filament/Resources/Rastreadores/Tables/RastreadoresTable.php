@@ -17,6 +17,9 @@ class RastreadoresTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->extraAttributes(['class' => 'ct-selectable-table'], merge: true)
+            ->recordAction(null)
+            ->recordUrl(null)
             ->header(view('filament.resources.rastreadores.table-toolbar-filters'))
             ->columns([
                 TextColumn::make('rastreador.imei')
