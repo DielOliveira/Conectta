@@ -22,7 +22,8 @@ class EditVendedor extends EditRecord
     {
         return [
             DeleteAction::make()
-                ->label('Excluir'),
+                ->label('Excluir')
+                ->visible(fn (): bool => static::getResource()::canDelete($this->record)),
         ];
     }
 

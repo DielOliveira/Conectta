@@ -318,6 +318,7 @@ O restore garante os modelos padrao de mensagens de cobranca ao final do process
 - As telas administrativas `Integracoes` e `Restore Backup` ficam visiveis apenas para usuarios com a permissao `Tecnico`; admin continua acessando porque `User::hasPermission()` libera tudo para `is_admin`.
 - As telas administrativas `Usuarios` e `Auditoria` ficam visiveis para usuarios com a permissao `Coordenador`; em `Usuarios`, essa permissao permite criar, editar e excluir usuarios.
 - Usuarios com permissao `Coordenador` nao podem criar/promover administradores, editar/excluir usuarios admin nem alterar permissoes de usuarios admin; somente admin pode mexer em admin.
+- Usuarios com permissao `Coordenador` tambem podem manter `Vendedores` e `Tecnicos`, mesmo sem as permissoes de `Cadastro` ou `Estoque`.
 - Usuarios admin continuam com acesso total porque `User::hasPermission()` libera tudo para `is_admin`.
 
 ## Cliente De Teste Usado

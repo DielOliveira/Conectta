@@ -333,6 +333,35 @@
             text-align: center;
         }
 
+        .ct-fin-sort {
+            align-items: center;
+            background: transparent;
+            border: 0;
+            color: inherit;
+            cursor: pointer;
+            display: inline-flex;
+            font: inherit;
+            font-weight: 800;
+            gap: 4px;
+            justify-content: flex-start;
+            padding: 0;
+            width: 100%;
+        }
+
+        .ct-fin-number .ct-fin-sort {
+            justify-content: center;
+        }
+
+        .ct-fin-sort:hover {
+            color: var(--ct-primary-strong);
+        }
+
+        .ct-fin-sort-icon {
+            color: #64748b;
+            font-size: 11px;
+            line-height: 1;
+        }
+
         .ct-fin-pencil {
             background: transparent;
             border: 0;
@@ -965,18 +994,38 @@
                     </div>
                     <table class="ct-fin-table">
                         <colgroup>
-                            <col style="width: 60px" />
-                            <col style="width: 118px" />
-                            <col style="width: 128px" />
-                            <col style="width: 78px" />
-                            <col style="width: 116px" />
+                            <col style="width: 10%" />
+                            <col style="width: 15%" />
+                            <col style="width: 25%" />
+                            <col style="width: 12%" />
+                            <col style="width: 38%" />
                         </colgroup>
                         <thead>
                             <tr>
-                                <th class="ct-fin-number">Qtd</th>
-                                <th>Vendedor</th>
-                                <th>Cliente</th>
-                                <th>Venc.</th>
+                                <th class="ct-fin-number">
+                                    <button type="button" wire:click="ordenarClientesPor('qtd')" class="ct-fin-sort">
+                                        <span>Qtd</span>
+                                        <span class="ct-fin-sort-icon">{{ $this->ordenacaoClientesIcone('qtd') }}</span>
+                                    </button>
+                                </th>
+                                <th>
+                                    <button type="button" wire:click="ordenarClientesPor('vendedor')" class="ct-fin-sort">
+                                        <span>Vendedor</span>
+                                        <span class="ct-fin-sort-icon">{{ $this->ordenacaoClientesIcone('vendedor') }}</span>
+                                    </button>
+                                </th>
+                                <th>
+                                    <button type="button" wire:click="ordenarClientesPor('cliente')" class="ct-fin-sort">
+                                        <span>Cliente</span>
+                                        <span class="ct-fin-sort-icon">{{ $this->ordenacaoClientesIcone('cliente') }}</span>
+                                    </button>
+                                </th>
+                                <th>
+                                    <button type="button" wire:click="ordenarClientesPor('vencimento')" class="ct-fin-sort">
+                                        <span>Venc.</span>
+                                        <span class="ct-fin-sort-icon">{{ $this->ordenacaoClientesIcone('vencimento') }}</span>
+                                    </button>
+                                </th>
                                 <th>Anotacoes</th>
                             </tr>
                         </thead>
@@ -1264,6 +1313,7 @@
                                     <input
                                         type="date"
                                         wire:model="modalDataLancamento"
+                                        wire:keydown.enter.prevent="salvarLancamentoModal"
                                         class="ct-fin-modal-input"
                                     />
                                     @error('modalDataLancamento') <span class="ct-error">{{ $message }}</span> @enderror
@@ -1274,6 +1324,7 @@
                                     <input
                                         type="text"
                                         wire:model="modalNumeroBoleto"
+                                        wire:keydown.enter.prevent="salvarLancamentoModal"
                                         class="ct-fin-modal-input"
                                     />
                                     @error('modalNumeroBoleto') <span class="ct-error">{{ $message }}</span> @enderror
@@ -1299,7 +1350,8 @@
                                         type="text"
                                         inputmode="decimal"
                                         autocomplete="off"
-                                        wire:model.blur="modalValorPlanejado"
+                                        wire:model.live="modalValorPlanejado"
+                                        wire:keydown.enter.prevent="salvarLancamentoModal"
                                         oninput="this.value = window.conecttaMaskMoney(this.value)"
                                         class="ct-fin-modal-input"
                                     />
@@ -1312,7 +1364,8 @@
                                         type="text"
                                         inputmode="decimal"
                                         autocomplete="off"
-                                        wire:model.blur="modalValorEfetivado"
+                                        wire:model.live="modalValorEfetivado"
+                                        wire:keydown.enter.prevent="salvarLancamentoModal"
                                         oninput="this.value = window.conecttaMaskMoney(this.value)"
                                         class="ct-fin-modal-input"
                                     />
@@ -1324,6 +1377,7 @@
                                     <input
                                         type="text"
                                         wire:model="modalObservacao"
+                                        wire:keydown.enter.prevent="salvarLancamentoModal"
                                         class="ct-fin-modal-input"
                                     />
                                     @error('modalObservacao') <span class="ct-error">{{ $message }}</span> @enderror

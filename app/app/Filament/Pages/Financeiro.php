@@ -60,6 +60,10 @@ class Financeiro extends Page
 
     public int $pagina = 1;
 
+    public string $ordenarPor = 'cliente';
+
+    public string $ordenarDirecao = 'asc';
+
     public string $consultaMes1 = '';
 
     public string $consultaMes2 = '';
@@ -208,6 +212,31 @@ class Financeiro extends Page
     public function irParaPagina(int $pagina): void
     {
         $this->pagina = max(1, min($pagina, $this->totalPaginas()));
+    }
+
+    public function ordenarClientesPor(string $campo): void
+    {
+        if (! in_array($campo, ['qtd', 'vendedor', 'cliente', 'vencimento'], true)) {
+            return;
+        }
+
+        if ($this->ordenarPor === $campo) {
+            $this->ordenarDirecao = $this->ordenarDirecao === 'asc' ? 'desc' : 'asc';
+        } else {
+            $this->ordenarPor = $campo;
+            $this->ordenarDirecao = 'asc';
+        }
+
+        $this->pagina = 1;
+    }
+
+    public function ordenacaoClientesIcone(string $campo): string
+    {
+        if ($this->ordenarPor !== $campo) {
+            return '↕';
+        }
+
+        return $this->ordenarDirecao === 'asc' ? '↑' : '↓';
     }
 
     public function alternarNumeroBoletoMes1(): void
@@ -1332,6 +1361,7 @@ class Financeiro extends Page
         $clientes = $this->clientesQuery()
             ->with('vendedor')
             ->withCount(['veiculosAtivos as qtd_rastreadores'])
+            ->tap(fn (Builder $query): Builder => $this->aplicarOrdenacaoClientes($query))
             ->offset(($this->pagina - 1) * $perPage)
             ->limit($perPage)
             ->get();
@@ -1365,7 +1395,13 @@ class Financeiro extends Page
             return '';
         }
 
-        return number_format((float) $valor, 2, ',', '.');
+        $valor = (float) $valor;
+
+        if (abs($valor) < 0.005) {
+            return '';
+        }
+
+        return number_format($valor, 2, ',', '.');
     }
 
     public function totalClientes(): int
@@ -1442,8 +1478,31 @@ class Financeiro extends Page
                     }
                 });
             })
-            ->tap(fn ($query) => $this->aplicarFiltrosMensais($query, $mes1, $mes2))
-            ->orderBy('nome');
+            ->tap(fn ($query) => $this->aplicarFiltrosMensais($query, $mes1, $mes2));
+    }
+
+    private function aplicarOrdenacaoClientes(Builder $query): Builder
+    {
+        $direcao = $this->ordenarDirecao === 'desc' ? 'desc' : 'asc';
+
+        return match ($this->ordenarPor) {
+            'qtd' => $query
+                ->orderBy('qtd_rastreadores', $direcao)
+                ->orderBy('nome'),
+            'vendedor' => $query
+                ->orderBy(
+                    \App\Models\Vendedor::query()
+                        ->select('nome')
+                        ->whereColumn('vendedores.id', 'clientes.vendedor_id')
+                        ->limit(1),
+                    $direcao,
+                )
+                ->orderBy('nome'),
+            'vencimento' => $query
+                ->orderBy('dia_pagamento', $direcao)
+                ->orderBy('nome'),
+            default => $query->orderBy('nome', $direcao),
+        };
     }
 
     private function aplicarFiltrosMensais(Builder $query, array $mes1, array $mes2): void
@@ -1519,9 +1578,7 @@ class Financeiro extends Page
             ->first();
 
         $this->modalLancamentoId = $lancamento?->id;
-        $this->modalDataLancamento = $lancamento?->valor_efetivado
-            ? $lancamento->data_lancamento?->toDateString()
-            : now()->toDateString();
+        $this->modalDataLancamento = now()->toDateString();
         $this->modalNumeroBoleto = (string) ($lancamento?->numero_boleto ?? '');
         $this->modalValorPlanejado = $lancamento?->valor_planejado !== null ? $this->moeda($lancamento->valor_planejado) : '';
         $this->modalValorEfetivado = $lancamento?->valor_efetivado !== null ? $this->moeda($lancamento->valor_efetivado) : '';

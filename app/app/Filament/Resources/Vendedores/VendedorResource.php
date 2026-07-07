@@ -46,27 +46,36 @@ class VendedorResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()?->hasPermission(Permission::CADASTRO_LEITURA) ?? false;
+        return self::podeManter()
+            || (auth()->user()?->hasPermission(Permission::CADASTRO_LEITURA) ?? false);
     }
 
     public static function canCreate(): bool
     {
-        return auth()->user()?->hasPermission(Permission::CADASTRO_ESCRITA) ?? false;
+        return self::podeManter();
     }
 
     public static function canEdit($record): bool
     {
-        return auth()->user()?->hasPermission(Permission::CADASTRO_ESCRITA) ?? false;
+        return self::podeManter();
     }
 
     public static function canDelete($record): bool
     {
-        return auth()->user()?->hasPermission(Permission::CADASTRO_EXCLUSAO) ?? false;
+        return self::podeManter()
+            || (auth()->user()?->hasPermission(Permission::CADASTRO_EXCLUSAO) ?? false);
     }
 
     public static function canDeleteAny(): bool
     {
-        return auth()->user()?->hasPermission(Permission::CADASTRO_EXCLUSAO) ?? false;
+        return self::podeManter()
+            || (auth()->user()?->hasPermission(Permission::CADASTRO_EXCLUSAO) ?? false);
+    }
+
+    public static function podeManter(): bool
+    {
+        return (auth()->user()?->hasPermission(Permission::COORDENADOR) ?? false)
+            || (auth()->user()?->hasPermission(Permission::CADASTRO_ESCRITA) ?? false);
     }
 
     public static function getPages(): array

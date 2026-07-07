@@ -3,7 +3,7 @@
 namespace App\Filament\Resources\Tecnicos\Tables;
 
 use App\Filament\Resources\Tecnicos\Pages\ListTecnicos;
-use App\Models\Permission;
+use App\Filament\Resources\Tecnicos\TecnicoResource;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -37,10 +37,10 @@ class TecnicosTable
             ->recordActions([
                 EditAction::make()
                     ->label('Editar')
-                    ->visible(fn (): bool => auth()->user()?->hasPermission(Permission::ESTOQUE_ESCRITA) ?? false),
+                    ->visible(fn (): bool => TecnicoResource::podeManter()),
                 DeleteAction::make()
                     ->label('Excluir')
-                    ->visible(fn (): bool => auth()->user()?->hasPermission(Permission::ESTOQUE_ESCRITA) ?? false)
+                    ->visible(fn (): bool => TecnicoResource::podeManter())
                     ->modalSubmitActionLabel('Excluir')
                     ->requiresConfirmation()
                     ->modalDescription('Deseja excluir este tecnico?'),
@@ -48,7 +48,7 @@ class TecnicosTable
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
-                        ->visible(fn (): bool => auth()->user()?->hasPermission(Permission::ESTOQUE_ESCRITA) ?? false)
+                        ->visible(fn (): bool => TecnicoResource::podeManter())
                         ->label('Excluir selecionados')
                         ->modalSubmitActionLabel('Excluir')
                         ->requiresConfirmation()

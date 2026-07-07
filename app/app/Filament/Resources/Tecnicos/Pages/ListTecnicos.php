@@ -3,7 +3,6 @@
 namespace App\Filament\Resources\Tecnicos\Pages;
 
 use App\Filament\Resources\Tecnicos\TecnicoResource;
-use App\Models\Permission;
 use App\Models\Tecnico;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
@@ -100,7 +99,7 @@ class ListTecnicos extends ListRecords
                 ->action('exportarCsv'),
             CreateAction::make()
                 ->label('Adicionar')
-                ->visible(fn (): bool => auth()->user()?->hasPermission(Permission::ESTOQUE_ESCRITA) ?? false),
+                ->visible(fn (): bool => static::getResource()::podeManter()),
         ];
     }
 }

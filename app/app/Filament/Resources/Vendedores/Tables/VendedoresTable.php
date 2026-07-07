@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Vendedores\Tables;
 
+use App\Filament\Resources\Vendedores\VendedorResource;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -27,9 +28,11 @@ class VendedoresTable
             ])
             ->recordActions([
                 EditAction::make()
-                    ->label('Editar'),
+                    ->label('Editar')
+                    ->visible(fn (): bool => VendedorResource::podeManter()),
                 DeleteAction::make()
                     ->label('Excluir')
+                    ->visible(fn (): bool => VendedorResource::canDeleteAny())
                     ->modalSubmitActionLabel('Excluir')
                     ->requiresConfirmation()
                     ->modalDescription('Deseja excluir este vendedor?'),
@@ -37,6 +40,7 @@ class VendedoresTable
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
+                        ->visible(fn (): bool => VendedorResource::canDeleteAny())
                         ->label('Excluir selecionados')
                         ->modalSubmitActionLabel('Excluir')
                         ->requiresConfirmation()
