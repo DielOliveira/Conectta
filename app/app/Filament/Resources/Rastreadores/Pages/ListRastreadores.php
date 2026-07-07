@@ -15,6 +15,8 @@ use Illuminate\Database\Eloquent\Builder;
 
 class ListRastreadores extends ListRecords
 {
+    private const BUSCA_COMPARTILHADA_SESSION = 'conectta.busca_cadastros';
+
     protected static string $resource = RastreadorResource::class;
 
     public ?int $rastreadorClienteFiltro = null;
@@ -36,12 +38,17 @@ class ListRastreadores extends ListRecords
         parent::mount();
 
         $this->rastreadorClienteFiltro = request()->integer('cliente_id') ?: null;
+        $this->rastreadorPesquisa = (string) session(self::BUSCA_COMPARTILHADA_SESSION, '');
     }
 
     public function updated(string $property): void
     {
         if (str_starts_with($property, 'rastreador') && method_exists($this, 'resetPage')) {
             $this->resetPage();
+        }
+
+        if ($property === 'rastreadorPesquisa') {
+            $this->sincronizarBuscaCompartilhada($this->rastreadorPesquisa);
         }
     }
 
@@ -54,6 +61,7 @@ class ListRastreadores extends ListRecords
         $this->rastreadorRemocaoInicio = null;
         $this->rastreadorRemocaoFinal = null;
         $this->rastreadorPesquisa = '';
+        session()->forget(self::BUSCA_COMPARTILHADA_SESSION);
 
         if (method_exists($this, 'resetPage')) {
             $this->resetPage();
@@ -78,7 +86,11 @@ class ListRastreadores extends ListRecords
                     $query
                         ->where('veiculo', 'like', '%' . $search . '%')
                         ->orWhere('placa', 'like', '%' . $search . '%')
-                        ->orWhereHas('cliente', fn (Builder $query): Builder => $query->where('nome', 'like', '%' . $search . '%'));
+                        ->orWhereHas('cliente', function (Builder $query) use ($search, $digits): Builder {
+                            return $query
+                                ->where('nome', 'like', '%' . $search . '%')
+                                ->when($digits !== '', fn (Builder $query): Builder => $query->orWhere('cpf_cnpj', 'like', '%' . $digits . '%'));
+                        });
 
                     if ($buscarImei) {
                         $query->orWhereHas('rastreador', fn (Builder $query): Builder => $query->where('imei', 'like', '%' . $digits . '%'));
@@ -136,5 +148,18 @@ class ListRastreadores extends ListRecords
                 ->label('Adicionar')
                 ->visible(fn (): bool => auth()->user()?->hasPermission(Permission::CADASTRO_ESCRITA) ?? false),
         ];
+    }
+
+    private function sincronizarBuscaCompartilhada(string $busca): void
+    {
+        $busca = trim($busca);
+
+        if ($busca === '') {
+            session()->forget(self::BUSCA_COMPARTILHADA_SESSION);
+
+            return;
+        }
+
+        session()->put(self::BUSCA_COMPARTILHADA_SESSION, $busca);
     }
 }

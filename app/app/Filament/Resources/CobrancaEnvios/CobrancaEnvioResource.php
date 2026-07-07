@@ -21,7 +21,7 @@ class CobrancaEnvioResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedPaperAirplane;
 
-    protected static string|UnitEnum|null $navigationGroup = 'Financeiro';
+    protected static string|UnitEnum|null $navigationGroup = 'Rotinas';
 
     protected static ?int $navigationSort = 5;
 
@@ -80,7 +80,7 @@ class CobrancaEnvioResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()?->hasPermission(Permission::FINANCEIRO_LEITURA) ?? false;
+        return auth()->user()?->hasPermission(Permission::TECNICO) ?? false;
     }
 
     public static function canCreate(): bool

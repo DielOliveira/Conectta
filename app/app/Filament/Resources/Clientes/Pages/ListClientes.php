@@ -15,6 +15,10 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ListClientes extends ListRecords
 {
+    private const BUSCA_COMPARTILHADA_SESSION = 'conectta.busca_cadastros';
+
+    private const STATUS_CLIENTE_COMPARTILHADO_SESSION = 'conectta.status_cliente';
+
     protected static string $resource = ClienteResource::class;
 
     public ?int $clienteStatusFiltro = null;
@@ -29,9 +33,8 @@ class ListClientes extends ListRecords
     {
         parent::mount();
 
-        $this->clienteStatusFiltro = StatusCliente::query()
-            ->where('label', 'Ativo')
-            ->value('id');
+        $this->clienteStatusFiltro = $this->statusClienteCompartilhado();
+        $this->clientePesquisa = (string) session(self::BUSCA_COMPARTILHADA_SESSION, '');
     }
 
     public function updated(string $property): void
@@ -39,16 +42,24 @@ class ListClientes extends ListRecords
         if (str_starts_with($property, 'cliente') && method_exists($this, 'resetPage')) {
             $this->resetPage();
         }
+
+        if ($property === 'clientePesquisa') {
+            $this->sincronizarBuscaCompartilhada($this->clientePesquisa);
+        }
+
+        if ($property === 'clienteStatusFiltro') {
+            $this->sincronizarStatusClienteCompartilhado($this->clienteStatusFiltro);
+        }
     }
 
     public function limparFiltrosClientes(): void
     {
-        $this->clienteStatusFiltro = StatusCliente::query()
-            ->where('label', 'Ativo')
-            ->value('id');
+        $this->clienteStatusFiltro = $this->statusAtivoId();
         $this->clienteCadastroInicio = null;
         $this->clienteCadastroFinal = null;
         $this->clientePesquisa = '';
+        session()->forget(self::BUSCA_COMPARTILHADA_SESSION);
+        $this->sincronizarStatusClienteCompartilhado($this->clienteStatusFiltro);
 
         if (method_exists($this, 'resetPage')) {
             $this->resetPage();
@@ -122,5 +133,41 @@ class ListClientes extends ListRecords
             CreateAction::make()
                 ->visible(fn (): bool => auth()->user()?->hasPermission(Permission::CADASTRO_ESCRITA) ?? false),
         ];
+    }
+
+    private function sincronizarBuscaCompartilhada(string $busca): void
+    {
+        $busca = trim($busca);
+
+        if ($busca === '') {
+            session()->forget(self::BUSCA_COMPARTILHADA_SESSION);
+
+            return;
+        }
+
+        session()->put(self::BUSCA_COMPARTILHADA_SESSION, $busca);
+    }
+
+    private function statusClienteCompartilhado(): ?int
+    {
+        if (session()->exists(self::STATUS_CLIENTE_COMPARTILHADO_SESSION)) {
+            $statusId = session(self::STATUS_CLIENTE_COMPARTILHADO_SESSION);
+
+            return $statusId ? (int) $statusId : null;
+        }
+
+        return $this->statusAtivoId();
+    }
+
+    private function sincronizarStatusClienteCompartilhado(?int $statusId): void
+    {
+        session()->put(self::STATUS_CLIENTE_COMPARTILHADO_SESSION, $statusId ?: null);
+    }
+
+    private function statusAtivoId(): ?int
+    {
+        return StatusCliente::query()
+            ->where('label', 'Ativo')
+            ->value('id');
     }
 }

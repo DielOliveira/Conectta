@@ -26,6 +26,10 @@ use UnitEnum;
 
 class Financeiro extends Page
 {
+    private const BUSCA_COMPARTILHADA_SESSION = 'conectta.busca_cadastros';
+
+    private const STATUS_CLIENTE_COMPARTILHADO_SESSION = 'conectta.status_cliente';
+
     protected static ?string $slug = 'financeiro';
 
     protected static string|UnitEnum|null $navigationGroup = 'Financeiro';
@@ -118,7 +122,8 @@ class Financeiro extends Page
 
     public function mount(): void
     {
-        $this->statusClienteId = $this->statusAtivoId();
+        $this->statusClienteId = $this->statusClienteCompartilhado();
+        $this->clienteSearch = (string) session(self::BUSCA_COMPARTILHADA_SESSION, '');
         $this->mesBase = (int) now()->month;
         $this->anoBase = (int) now()->year;
     }
@@ -141,6 +146,8 @@ class Financeiro extends Page
     {
         $this->statusClienteId = $this->statusAtivoId();
         $this->clienteSearch = '';
+        session()->forget(self::BUSCA_COMPARTILHADA_SESSION);
+        $this->sincronizarStatusClienteCompartilhado($this->statusClienteId);
         $this->diaVencimento = null;
         $this->linhas = 15;
         $this->pagina = 1;
@@ -168,6 +175,14 @@ class Financeiro extends Page
         if (in_array($property, ['statusClienteId', 'clienteSearch', 'diaVencimento', 'linhas'], true)) {
             $this->pagina = 1;
             $this->linhas = max(1, min((int) $this->linhas, 200));
+
+            if ($property === 'clienteSearch') {
+                $this->sincronizarBuscaCompartilhada($this->clienteSearch);
+            }
+
+            if ($property === 'statusClienteId') {
+                $this->sincronizarStatusClienteCompartilhado($this->statusClienteId);
+            }
 
             return;
         }
@@ -1701,6 +1716,35 @@ class Financeiro extends Page
             ->where('mes_referencia', $mes)
             ->where('ano_referencia', $ano)
             ->sum('valor_efetivado');
+    }
+
+    private function sincronizarBuscaCompartilhada(string $busca): void
+    {
+        $busca = trim($busca);
+
+        if ($busca === '') {
+            session()->forget(self::BUSCA_COMPARTILHADA_SESSION);
+
+            return;
+        }
+
+        session()->put(self::BUSCA_COMPARTILHADA_SESSION, $busca);
+    }
+
+    private function statusClienteCompartilhado(): ?int
+    {
+        if (session()->exists(self::STATUS_CLIENTE_COMPARTILHADO_SESSION)) {
+            $statusId = session(self::STATUS_CLIENTE_COMPARTILHADO_SESSION);
+
+            return $statusId ? (int) $statusId : null;
+        }
+
+        return $this->statusAtivoId();
+    }
+
+    private function sincronizarStatusClienteCompartilhado(?int $statusId): void
+    {
+        session()->put(self::STATUS_CLIENTE_COMPARTILHADO_SESSION, $statusId ?: null);
     }
 
     private function limparFiltrosMensais(): void

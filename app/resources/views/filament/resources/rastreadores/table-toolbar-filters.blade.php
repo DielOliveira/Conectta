@@ -108,7 +108,7 @@
             <input
                 type="search"
                 wire:model.live.debounce.500ms="rastreadorPesquisa"
-                placeholder="IMEI, cliente, veiculo ou placa"
+                placeholder="IMEI, cliente, CPF/CNPJ, veiculo ou placa"
             />
         </label>
 

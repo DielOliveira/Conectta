@@ -95,7 +95,7 @@ class CobrancaExecucaoResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()?->hasPermission(Permission::FINANCEIRO_LEITURA) ?? false;
+        return auth()->user()?->hasPermission(Permission::TECNICO) ?? false;
     }
 
     public static function canCreate(): bool
@@ -110,7 +110,7 @@ class CobrancaExecucaoResource extends Resource
 
     public static function canView($record): bool
     {
-        return auth()->user()?->hasPermission(Permission::FINANCEIRO_LEITURA) ?? false;
+        return auth()->user()?->hasPermission(Permission::TECNICO) ?? false;
     }
 
     public static function canDelete($record): bool

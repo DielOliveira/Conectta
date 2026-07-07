@@ -190,6 +190,10 @@ Metodos usados:
 
 Menu principal: `Rotinas`.
 
+No menu superior, `Rotinas` deve ficar entre `Estoque` e `Administrativo`.
+
+O acesso, visualizacao e manipulacao das telas de `Rotinas` deve ser restrito a usuarios com permissao `Tecnico`; admin continua acessando porque `User::hasPermission()` libera tudo para `is_admin`.
+
 Telas:
 
 - `Cobranças automáticas`
@@ -317,6 +321,9 @@ O restore garante os modelos padrao de mensagens de cobranca ao final do process
 - A combo `IMEI` em `Cadastro > Rastreadores` mostra apenas rastreadores com status `Disponivel`, alem do rastreador ja vinculado quando estiver editando um registro existente.
 - Ao criar rastreador em `Estoque > Rastreadores`, o status padrao deve ser `Disponivel`, para evitar criar estoque novo como `Ativo`.
 - A busca em `Cadastro > Rastreadores` pesquisa placa, veiculo e cliente. A busca por IMEI so deve entrar quando a parte numerica tiver pelo menos 6 digitos, para uma placa como `QDW-9C47` nao buscar IMEIs contendo `947`.
+- A busca digitavel principal e compartilhada via sessao entre `Financeiro`, `Cadastro > Clientes` e `Cadastro > Rastreadores`; ao digitar em uma dessas telas, o mesmo termo deve ser reaplicado ao navegar para as outras. O botao `Limpar` dessas telas tambem limpa a busca compartilhada.
+- O filtro de status do cliente e compartilhado via sessao somente entre `Financeiro` e `Cadastro > Clientes`; `Cadastro > Rastreadores` nao participa desse status compartilhado.
+- Em `Cadastro > Rastreadores`, a busca tambem deve encontrar pelo CPF/CNPJ do cliente vinculado.
 - Nas listas `Clientes` e `Cadastro > Rastreadores`, a linha inteira nao deve abrir o detalhe. A navegacao deve ficar nos icones/botoes de acao, especialmente `Editar`.
 - Usuarios com `Cadastro_Leitura` podem abrir `Clientes` e `Cadastro > Rastreadores` pelo botao `Ver`, que reaproveita a tela de edicao com formulario desabilitado e sem botao de salvar; `Cadastro_Escrita` ve a mesma acao como `Editar`.
 - Essas duas listas usam a classe `ct-selectable-table` e o CSS `public/css/conectta-admin.css` para permitir selecionar/copiar texto das celulas.
