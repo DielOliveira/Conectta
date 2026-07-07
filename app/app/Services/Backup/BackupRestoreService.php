@@ -313,8 +313,8 @@ class BackupRestoreService
                 'data_lancamento' => $this->date($row['Data Lancamento'] ?? null),
                 'valor_planejado' => $this->decimal($row['Valor Planejado'] ?? null),
                 'valor_efetivado' => $valorEfetivado,
-                'numero_boleto' => $this->text($row['Numero Boleto'] ?? null, 500),
-                'observacao' => $this->text($row['Observacao'] ?? null, 65535),
+                'numero_boleto' => $this->textLancamento($row['Numero Boleto'] ?? null, 500),
+                'observacao' => $this->textLancamento($row['Observacao'] ?? null, 65535),
                 'is_baixado' => $this->bool($row['is Baixado'] ?? false),
                 'mes_referencia' => $mesReferencia,
                 'ano_referencia' => $anoReferencia,
@@ -481,6 +481,17 @@ class BackupRestoreService
         $text = trim((string) $value);
 
         return mb_substr($text, 0, $limit);
+    }
+
+    private function textLancamento(mixed $value, int $limit): ?string
+    {
+        $text = trim((string) $value);
+
+        if (in_array($text, ['-', "'-"], true)) {
+            return '-';
+        }
+
+        return $this->text($value, $limit);
     }
 
     private function digits(mixed $value): string

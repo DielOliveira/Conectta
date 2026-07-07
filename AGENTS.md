@@ -94,6 +94,24 @@ cd ~/Conectta/app
 ./scripts/commit-local.sh
 ```
 
+Backup manual/instalacao de rotina do banco em producao:
+
+```bash
+cd ~/Conectta/app
+./scripts/backup-production-db.sh
+```
+
+O script instala/atualiza `/usr/local/sbin/conectta-db-backup` na VPS, configura o cron diario `15 2 * * *` em `/etc/cron.d/conectta-db-backup`, cria dump MySQL com `mysqldump | gzip`, guarda os backups remotos em `/var/backups/conectta/mysql` e baixa o backup gerado para `storage/app/private/backups/production-db/`.
+
+Outras acoes:
+
+```bash
+./scripts/backup-production-db.sh install
+./scripts/backup-production-db.sh run
+./scripts/backup-production-db.sh download-latest
+./scripts/list-production-backups.sh
+```
+
 O deploy usa SSH para GitHub com `~/.ssh/id_ed25519`. Se falhar com `Permission denied (publickey)`, carregar a chave antes:
 
 ```bash
@@ -312,6 +330,7 @@ O restore garante os modelos padrao de mensagens de cobranca ao final do process
   - `financeiro.parcelamento_excluido`.
 - Os campos `Total Antes` e `Total Depois` sao gravados no `contexto` dos logs novos; logs antigos podem aparecer sem esses totais porque esse dado nao era persistido no momento da operacao.
 - O acesso ao historico financeiro usa a permissao `Financeiro_Leitura`.
+- No restore, somente para `lancamentos.numero_boleto` e `lancamentos.observacao`, os marcadores `-` e `'-` devem ser preservados como `-`; nas demais tabelas o marcador de importacao continua sendo tratado como vazio quando aplicavel.
 
 ## Rastreadores E Estoque
 
