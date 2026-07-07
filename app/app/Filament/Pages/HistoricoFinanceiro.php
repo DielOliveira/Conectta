@@ -79,18 +79,14 @@ class HistoricoFinanceiro extends Page
 
     public function registros(): Collection
     {
-        $logs = $this->logsQuery()
-            ->with('user')
-            ->offset(($this->pagina - 1) * $this->porPagina)
-            ->limit($this->porPagina)
-            ->get();
-
-        return $this->mapearLogs($logs);
+        return $this->registrosFiltrados()
+            ->forPage($this->pagina, $this->porPagina)
+            ->values();
     }
 
     public function totalRegistros(): int
     {
-        return (clone $this->logsQuery())->toBase()->getCountForPagination();
+        return $this->registrosFiltrados()->count();
     }
 
     public function totalPaginas(): int
@@ -191,6 +187,13 @@ class HistoricoFinanceiro extends Page
             ->latest('id');
     }
 
+    private function registrosFiltrados(): Collection
+    {
+        return $this->mapearLogs($this->logsQuery()->with('user')->get())
+            ->filter(fn (array $registro): bool => $registro['alterou_valor_efetivado'] || $registro['alterou_data_lancamento'])
+            ->values();
+    }
+
     private function mapearLogs(EloquentCollection $logs): Collection
     {
         $clienteIds = $logs
@@ -218,15 +221,51 @@ class HistoricoFinanceiro extends Page
             return [
                 'cliente' => $clienteId ? (string) ($clientes[$clienteId] ?? 'Cliente #'.$clienteId) : '',
                 'referencia' => $mes && $ano ? ((int) $mes).'/'.((int) $ano) : '',
-                'valor_anterior' => data_get($antes, 'valor_efetivado') ?? data_get($antes, 'valor_planejado'),
-                'valor_modificado' => data_get($depois, 'valor_efetivado') ?? data_get($depois, 'valor_planejado'),
+                'valor_anterior' => data_get($antes, 'valor_efetivado'),
+                'valor_modificado' => data_get($depois, 'valor_efetivado'),
                 'data_anterior' => data_get($antes, 'data_lancamento'),
                 'data_modificada' => data_get($depois, 'data_lancamento'),
                 'total_antes' => data_get($contexto, 'total_antes'),
                 'total_depois' => data_get($contexto, 'total_depois'),
                 'data_transacao' => $log->created_at,
                 'operador' => $log->user?->name ?? 'Sistema',
+                'alterou_valor_efetivado' => $this->alterouValorEfetivado($antes, $depois),
+                'alterou_data_lancamento' => $this->alterouDataLancamento($antes, $depois),
             ];
         });
+    }
+
+    private function alterouValorEfetivado(array $antes, array $depois): bool
+    {
+        return $this->normalizarDecimal(data_get($antes, 'valor_efetivado'))
+            !== $this->normalizarDecimal(data_get($depois, 'valor_efetivado'));
+    }
+
+    private function alterouDataLancamento(array $antes, array $depois): bool
+    {
+        return $this->normalizarData(data_get($antes, 'data_lancamento'))
+            !== $this->normalizarData(data_get($depois, 'data_lancamento'));
+    }
+
+    private function normalizarDecimal(mixed $valor): ?string
+    {
+        if ($valor === null || $valor === '') {
+            return null;
+        }
+
+        return number_format((float) $valor, 2, '.', '');
+    }
+
+    private function normalizarData(mixed $valor): ?string
+    {
+        if ($valor === null || $valor === '') {
+            return null;
+        }
+
+        try {
+            return \Carbon\CarbonImmutable::parse($valor)->format('Y-m-d');
+        } catch (\Throwable) {
+            return (string) $valor;
+        }
     }
 }

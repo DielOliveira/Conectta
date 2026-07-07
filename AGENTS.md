@@ -300,6 +300,7 @@ O restore garante os modelos padrao de mensagens de cobranca ao final do process
 ## Financeiro
 
 - A tela `Financeiro > Historico Financeiro` usa a tabela `audit_logs` para exibir alteracoes de lancamentos e parcelamentos financeiros.
+- O historico financeiro deve exibir somente logs em que houve alteracao de `valor_efetivado` ou `data_lancamento`; alteracoes de observacao, numero de boleto, valor planejado ou outros campos nao devem aparecer nessa tela.
 - A tela considera as acoes:
   - `financeiro.lancamento_criado`;
   - `financeiro.lancamento_editado`;
