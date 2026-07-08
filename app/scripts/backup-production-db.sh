@@ -46,13 +46,13 @@ DB_HOST="$(env_value DB_HOST)"
 DB_PORT="$(env_value DB_PORT)"
 DB_DATABASE="$(env_value DB_DATABASE)"
 DB_USERNAME="$(env_value DB_USERNAME)"
-DB_PASSWORD="$(env_value DB_PASSWORD)"
+db_password_value="$(env_value DB_PASSWORD)"
 
 DB_HOST="${DB_HOST:-127.0.0.1}"
 DB_PORT="${DB_PORT:-3306}"
 
-if [[ -z "${DB_PASSWORD}" && -r /root/conectta-db-password ]]; then
-    DB_PASSWORD="$(cat /root/conectta-db-password)"
+if [[ -z "${db_password_value}" && -r /root/conectta-db-password ]]; then
+    db_password_value="$(cat /root/conectta-db-password)"
 fi
 
 if [[ -z "${DB_DATABASE}" || -z "${DB_USERNAME}" ]]; then
@@ -64,10 +64,23 @@ TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
 BACKUP_FILE="${DAILY_DIR}/conectta-${DB_DATABASE}-${TIMESTAMP}.sql.gz"
 TMP_FILE="${BACKUP_FILE}.tmp"
 
-MYSQL_PWD="${DB_PASSWORD}" mysqldump \
-    --host="${DB_HOST}" \
-    --port="${DB_PORT}" \
-    --user="${DB_USERNAME}" \
+MYSQL_CNF="$(mktemp)"
+cleanup() {
+    rm -f "${MYSQL_CNF}"
+}
+trap cleanup EXIT
+
+chmod 600 "${MYSQL_CNF}"
+{
+    printf '[client]\n'
+    printf 'host=%s\n' "${DB_HOST}"
+    printf 'port=%s\n' "${DB_PORT}"
+    printf 'user=%s\n' "${DB_USERNAME}"
+    printf 'password=%s\n' "${db_password_value}"
+} > "${MYSQL_CNF}"
+
+mysqldump \
+    --defaults-extra-file="${MYSQL_CNF}" \
     --single-transaction \
     --quick \
     --routines \

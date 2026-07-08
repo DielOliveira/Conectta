@@ -8,16 +8,27 @@
 - Trabalhe normalmente dentro de `/home/diel_/Conectta/app`.
 - Stack local: Laravel 13, Filament, MySQL, Vite/NPM.
 - Idioma da interface: portugues do Brasil.
+- Painel Filament em `/admin`; a rota raiz redireciona para `/admin/login`.
+- Navegacao superior do Filament, nesta ordem: `Cadastro`, `Financeiro`, `Estoque`, `Rotinas`, `Administrativo`.
+- Principais pastas:
+  - `app/Filament/Pages`: telas customizadas como Financeiro, Boletos, Faturamento, Integracoes e Restore.
+  - `app/Filament/Resources`: CRUDs Filament de Clientes, Rastreadores, Contratos, Vendedores, Tecnicos, Usuarios, Auditoria e Rotinas.
+  - `app/Services`: integracoes Lytex/ZapSign/WhatsApp, cobrancas, auditoria e restore.
+  - `routes/api.php`: webhooks externos.
+  - `routes/console.php`: comandos artisan e scheduler.
+  - `scripts/`: automacoes locais de deploy, ngrok e backups.
 
 ## Cuidados Gerais
 
 - Nao commitar `.env`, tokens, senhas, payloads de API ou arquivos de backup.
 - A pasta `payloads-whatsapp/` deve ficar ignorada no git porque contem traces e tokens.
+- `.env` e `storage/app/private` estao ignorados; dumps `.sql.gz` de producao nao devem entrar no Git.
 - Antes de alterar algo, preferir ler o padrao existente do projeto.
 - Usar `rg` para buscas.
 - Usar `apply_patch` para edicoes manuais.
 - Nao reverter mudancas do usuario sem pedido explicito.
 - Evitar comandos destrutivos como `git reset --hard` ou `git checkout --` sem autorizacao clara.
+- Em alertas GitGuardian, conferir o commit e procurar valor real de segredo. Em 2026-07-07 houve alerta de `Generic Database Assignment` por causa do script de backup com nomes `DB_PASSWORD`/MySQL; nao havia senha real versionada.
 
 ## Comandos Locais Uteis
 
@@ -57,6 +68,13 @@ cd ~/Conectta/app
 php artisan optimize:clear
 ```
 
+Testes e lint simples:
+
+```bash
+php -l app/Services/Backup/BackupRestoreService.php
+php artisan test
+```
+
 Seeders usados com frequencia:
 
 ```bash
@@ -67,6 +85,7 @@ php artisan db:seed --class=CobrancaMensagemModeloSeeder
 ## Git E Deploy
 
 - Branch principal: `main`.
+- O script de deploy exige worktree limpo antes de publicar.
 - Script de deploy criado:
 
 ```bash
@@ -102,6 +121,8 @@ cd ~/Conectta/app
 ```
 
 O script instala/atualiza `/usr/local/sbin/conectta-db-backup` na VPS, configura o cron diario `15 2 * * *` em `/etc/cron.d/conectta-db-backup`, cria dump MySQL com `mysqldump | gzip`, guarda os backups remotos em `/var/backups/conectta/mysql` e baixa o backup gerado para `storage/app/private/backups/production-db/`.
+
+Observacao do script de backup: apos alerta GitGuardian em 2026-07-07, a versao local pendente passou a evitar `MYSQL_PWD` e usa arquivo temporario MySQL com permissao `600`.
 
 Outras acoes:
 
@@ -151,6 +172,20 @@ Observacao: a VPS pode emitir `Deprecation Notice` do Composer por usar Composer
 
 ## Integracoes
 
+Endpoints de producao para webhooks:
+
+```text
+Lytex:   https://sistemaconectta.com.br/api/webhooks/lytex
+ZapSign: https://sistemaconectta.com.br/api/webhooks/zapsign
+```
+
+Endpoints locais quando usar ngrok:
+
+```text
+Lytex:   {NGROK_URL}/api/webhooks/lytex
+ZapSign: {NGROK_URL}/api/webhooks/zapsign
+```
+
 ### Lytex
 
 - Configuracoes ficam na tela `Integracoes`.
@@ -158,6 +193,8 @@ Observacao: a VPS pode emitir `Deprecation Notice` do Composer por usar Composer
 - Ambiente local pode estar apontado para homologacao.
 - Servico principal: `App\Services\Lytex\LytexInvoiceService`.
 - Helper de campos da invoice: `App\Services\Lytex\LytexInvoiceData`.
+- Webhook: `App\Http\Controllers\LytexWebhookController`.
+- Logs de webhook: `lytex_webhook_logs`.
 - Invoices ficam em `invoices`.
 - Campos importantes:
   - `fatura_id`
@@ -203,6 +240,33 @@ Metodos usados:
 - `send-text`
 - `send-document/PDF`
 - `send-button-pix` configuravel por env.
+
+### ZapSign
+
+- Servico: `App\Services\ZapSign\ZapSignService`.
+- Webhook: `App\Http\Controllers\ZapSignWebhookController`.
+- Logs de webhook: `zapsign_webhook_logs`.
+- Contratos usam rota autenticada para documento em `/admin/contratos/{contrato}/documento`.
+
+## Restore E Dados Legados
+
+- Tela `Administrativo > Restore Backup` existe e deve ficar disponivel para `Tecnico`/admin; nao remover porque ajuda investigar bugs de importacao.
+- Servico principal: `App\Services\Backup\BackupRestoreService`.
+- Leitor XLSX: `App\Services\Backup\XlsxTableReader`.
+- Arquivos esperados pelo restore incluem: `Cliente.xlsx`, `Veiculo.xlsx`, `Lancamento.xlsx`, `Contrato.xlsx`, `Rastreador.xlsx`, `Chip.xlsx`, `Vendedor.xlsx`, `Tecnico.xlsx`.
+- O restore trunca/importa tabelas controladas e depois garante dados padrao via seeders quando aplicavel.
+- O restore corrige relacoes por criterio/label em alguns pontos; cuidado com tabelas legadas de tipo/status porque IDs antigos podem nao bater com IDs atuais.
+- No restore, somente para `lancamentos.numero_boleto` e `lancamentos.observacao`, os marcadores `-` e `'-` devem ser preservados como `-`; nas demais tabelas o marcador de importacao continua sendo tratado como vazio quando aplicavel.
+
+Correcoes de dados ja aplicadas em producao em 2026-07-07:
+
+- `tipo_veiculo_id`: corrigido por mapa legado; 9.230 veiculos atualizados. Caso validado: Juscelon Ferreira de Jesus voltou para `Carro`.
+- `cliente_origem_id`: 793 clientes corrigidos.
+- `status_contrato_id`: 2.202 clientes e 457 contratos corrigidos.
+- `status_rastreador_id`: 1 rastreador corrigido para `Lixo`.
+- `lancamentos.numero_boleto`: 6.756 registros corrigidos para `-`, com base nos arquivos iniciais do restore.
+- `lancamentos.observacao`: 6.637 registros corrigidos para `-`; registros com conteudo real foram preservados.
+- Backup antes da correcao dos hifens: `storage/app/private/backups/production-db/conectta-conectta-20260707-195453.sql.gz`, SHA256 `c4eb88e94e21298db005d194ea15614e8858d94a125edd02d501737847e41945`.
 
 ## Rotinas De Cobranca
 
@@ -321,6 +385,22 @@ O restore garante os modelos padrao de mensagens de cobranca ao final do process
 
 ## Financeiro
 
+- Tela principal: `App\Filament\Pages\Financeiro` + `resources/views/filament/pages/financeiro.blade.php`.
+- Acesso: `Financeiro_Leitura`; alteracoes usam `Financeiro_Escrita`.
+- Busca digitavel principal usa sessao `conectta.busca_cadastros` e sincroniza com `Cadastro > Clientes` e `Cadastro > Rastreadores`.
+- Filtro de status do cliente usa sessao `conectta.status_cliente` e sincroniza somente entre `Financeiro` e `Cadastro > Clientes`.
+- Ao limpar filtros no Financeiro, a busca compartilhada e o status compartilhado tambem sao atualizados.
+- Ordenacao permitida no bloco de clientes: `qtd`, `vendedor`, `cliente`, `vencimento`. Nao ordenar pelos blocos de meses.
+- Layout atual do bloco de clientes prioriza espaco para `Cliente` e `Anotacoes`; vendedor deve ficar mais compacto.
+- Valores `0,00` nos blocos dos meses devem aparecer em branco.
+- O botao `Historico` fica dentro da tela Financeiro, entre `Limpar` e `Exportar`; a tela de historico nao aparece no menu.
+- Export CSV do Financeiro usa os filtros/linhas atuais e inclui dados dos dois meses exibidos.
+- Modal de lancamento:
+  - aba `Lancamento` salva tambem ao apertar Enter nos campos da aba;
+  - campo `Data Lancamento` sempre abre preenchido com a data do dia, independentemente do valor salvo antes;
+  - gerar boleto mostra estado de loading no botao/link `Gerar Boleto` ate a resposta da Lytex;
+  - boleto gerado pela Lytex grava `numero_boleto = Lytex` no lancamento da referencia.
+- Modal de boleto usa vencimento padrao calculado pelo dia de pagamento do cliente; dia 30/31 em mes menor cai no ultimo dia do mes.
 - A tela `Financeiro > Historico Financeiro` usa a tabela `audit_logs` para exibir alteracoes de lancamentos e parcelamentos financeiros.
 - O historico financeiro deve exibir somente logs em que houve alteracao de `valor_efetivado` ou `data_lancamento`; alteracoes de observacao, numero de boleto, valor planejado ou outros campos nao devem aparecer nessa tela.
 - A tela considera as acoes:
@@ -330,7 +410,6 @@ O restore garante os modelos padrao de mensagens de cobranca ao final do process
   - `financeiro.parcelamento_excluido`.
 - Os campos `Total Antes` e `Total Depois` sao gravados no `contexto` dos logs novos; logs antigos podem aparecer sem esses totais porque esse dado nao era persistido no momento da operacao.
 - O acesso ao historico financeiro usa a permissao `Financeiro_Leitura`.
-- No restore, somente para `lancamentos.numero_boleto` e `lancamentos.observacao`, os marcadores `-` e `'-` devem ser preservados como `-`; nas demais tabelas o marcador de importacao continua sendo tratado como vazio quando aplicavel.
 
 ## Rastreadores E Estoque
 
@@ -351,6 +430,10 @@ O restore garante os modelos padrao de mensagens de cobranca ao final do process
 ## Menus E Permissoes
 
 - Grupo `Cadastro`: Clientes, Rastreadores, Contratos e Vendedores.
+- Grupo `Financeiro`: Financeiro, Relatorio Geral, Boletos, Faturamento; Historico Financeiro existe por botao interno e nao registra menu.
+- Grupo `Estoque`: Rastreadores, Chips e Tecnicos.
+- Grupo `Rotinas`: Cobrancas automaticas e Mensagens de cobranca; Envios/Execucoes podem existir como resources internos.
+- Grupo `Administrativo`: Integracoes, Usuarios, Auditoria e Restore Backup, conforme permissoes abaixo.
 - `Vendedores` usa permissoes de cadastro:
   - leitura: `Cadastro_Leitura`;
   - criar/editar: `Cadastro_Escrita`;
@@ -360,6 +443,8 @@ O restore garante os modelos padrao de mensagens de cobranca ao final do process
 - Usuarios com permissao `Coordenador` nao podem criar/promover administradores, editar/excluir usuarios admin nem alterar permissoes de usuarios admin; somente admin pode mexer em admin.
 - Usuarios com permissao `Coordenador` tambem podem manter `Vendedores` e `Tecnicos`, mesmo sem as permissoes de `Cadastro` ou `Estoque`.
 - Usuarios admin continuam com acesso total porque `User::hasPermission()` libera tudo para `is_admin`.
+- `canAccessPanel()` retorna true para usuarios autenticados; o controle real fica em `canAccess`, `canCreate`, `canEdit`, `canDelete` e visibilidade de actions/resources.
+- Catalogo central de permissoes: `App\Models\Permission::catalogo()`. Seeders/migrations recentes garantem `Tecnico` e `Coordenador`.
 
 ## Identidade Visual
 
@@ -374,8 +459,10 @@ O restore garante os modelos padrao de mensagens de cobranca ao final do process
 
 ## Estado Atual Importante
 
-- Ultimo commit conhecido no app em producao/desenvolvimento: `6074e00 Melhora na navegação de Rastreadores e Clientes`.
-- Em 2026-07-07, `/home/diel_/Conectta/app` estava limpo e sincronizado com `origin/main`; o unico arquivo pendente era este `AGENTS.md`.
+- Ultimo commit conhecido em `main`/`origin/main`: `62644c6 Correção de traços`.
+- Em 2026-07-07, producao estava no commit `62644c6`.
+- Alteracao local pendente apos o alerta GitGuardian: `scripts/backup-production-db.sh` foi ajustado para evitar `MYSQL_PWD` e usar arquivo temporario MySQL com permissao `600`; precisa commit/deploy se quiser atualizar a rotina versionada.
+- Este `AGENTS.md` foi atualizado no fim do dia 2026-07-07 para economizar contexto na proxima sessao.
 - As rotinas de cobranca e WhatsApp foram implementadas localmente.
 - Foi validado envio real de WhatsApp para o cliente de teste, envio `11`, com sucesso.
 - Foi validada geracao de boleto em homologacao Lytex.
@@ -383,3 +470,4 @@ O restore garante os modelos padrao de mensagens de cobranca ao final do process
 - A producao ja esta em uso em `https://sistemaconectta.com.br`.
 - As rotinas de cobranca existem e o scheduler esta instalado na VPS, mas os agendamentos devem permanecer inativos ate autorizacao explicita.
 - Antes de ativar cobrancas em producao: configurar Z-API em `Integracoes`, rodar simulacoes/controladas e ativar os agendamentos desejados.
+- GitGuardian em 2026-07-07: alerta de `Generic Database Assignment` no commit `62644c6`; varredura local nao encontrou senha real, `.env` e backups estao ignorados, e o alerta pode ser tratado como falso positivo salvo se o GitGuardian mostrar valor real de segredo.
