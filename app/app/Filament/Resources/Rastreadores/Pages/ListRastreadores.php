@@ -72,7 +72,7 @@ class ListRastreadores extends ListRecords
     {
         $search = trim($this->rastreadorPesquisa);
         $digits = preg_replace('/\D+/', '', $search);
-        $buscarImei = strlen($digits) >= 6;
+        $buscarDocumentoOuImei = strlen($digits) >= 6;
 
         return $query
             ->when($this->rastreadorClienteFiltro, fn (Builder $query, int $clienteId): Builder => $query->where('cliente_id', $clienteId))
@@ -81,18 +81,18 @@ class ListRastreadores extends ListRecords
             ->when($this->rastreadorInstalacaoFinal, fn (Builder $query, string $date): Builder => $query->whereDate('data_instalacao', '<=', $date))
             ->when($this->rastreadorRemocaoInicio, fn (Builder $query, string $date): Builder => $query->whereDate('data_retirada', '>=', $date))
             ->when($this->rastreadorRemocaoFinal, fn (Builder $query, string $date): Builder => $query->whereDate('data_retirada', '<=', $date))
-            ->when($search !== '', function (Builder $query) use ($search, $digits, $buscarImei): Builder {
-                return $query->where(function (Builder $query) use ($search, $digits, $buscarImei): void {
+            ->when($search !== '', function (Builder $query) use ($search, $digits, $buscarDocumentoOuImei): Builder {
+                return $query->where(function (Builder $query) use ($search, $digits, $buscarDocumentoOuImei): void {
                     $query
                         ->where('veiculo', 'like', '%' . $search . '%')
                         ->orWhere('placa', 'like', '%' . $search . '%')
-                        ->orWhereHas('cliente', function (Builder $query) use ($search, $digits): Builder {
+                        ->orWhereHas('cliente', function (Builder $query) use ($search, $digits, $buscarDocumentoOuImei): Builder {
                             return $query
                                 ->where('nome', 'like', '%' . $search . '%')
-                                ->when($digits !== '', fn (Builder $query): Builder => $query->orWhere('cpf_cnpj', 'like', '%' . $digits . '%'));
+                                ->when($buscarDocumentoOuImei, fn (Builder $query): Builder => $query->orWhere('cpf_cnpj', 'like', '%' . $digits . '%'));
                         });
 
-                    if ($buscarImei) {
+                    if ($buscarDocumentoOuImei) {
                         $query->orWhereHas('rastreador', fn (Builder $query): Builder => $query->where('imei', 'like', '%' . $digits . '%'));
                     }
                 });
