@@ -12,7 +12,7 @@
             align-items: end;
             display: grid;
             gap: 14px;
-            grid-template-columns: minmax(220px, 360px) auto 1fr;
+            grid-template-columns: minmax(160px, 220px) minmax(220px, 320px) minmax(160px, 220px) 1fr;
         }
 
         .ct-billing-field { display: grid; gap: 6px; }
@@ -154,6 +154,7 @@
         .ct-billing-chart-grid { stroke: #e2e8f0; stroke-width: 1; }
         .ct-billing-chart-axis-label { fill: #64748b; font-size: 11px; font-weight: 700; }
 
+        .ct-billing-chart-line-planned,
         .ct-billing-chart-line-launched,
         .ct-billing-chart-line-received {
             fill: none;
@@ -162,8 +163,10 @@
             stroke-width: 3;
         }
 
+        .ct-billing-chart-line-planned { stroke: #2563eb; }
         .ct-billing-chart-line-launched { stroke: #f59e0b; }
         .ct-billing-chart-line-received { stroke: #16a34a; }
+        .ct-billing-chart-point-planned { fill: #2563eb; }
         .ct-billing-chart-point-launched { fill: #f59e0b; }
         .ct-billing-chart-point-received { fill: #16a34a; }
 
@@ -171,7 +174,7 @@
             border-top: 1px solid #e2e8f0;
             display: grid;
             gap: 8px;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr 1fr 1fr;
             padding-top: 12px;
         }
 
@@ -183,7 +186,7 @@
         @media (max-width: 760px) {
             .ct-billing-toolbar { grid-template-columns: 1fr; }
             .ct-billing-table-wrap { overflow-x: auto; }
-            .ct-billing-table { min-width: 560px; }
+            .ct-billing-table { min-width: 700px; }
             .ct-billing-chart-head { display: grid; }
             .ct-billing-legend { justify-content: flex-start; }
         }
@@ -207,14 +210,17 @@
         $plotWidth = $chartWidth - $chartLeft - $chartRight;
         $plotHeight = $chartHeight - $chartTop - $chartBottom;
         $monthlySteps = max(1, $linhasGrafico->count() - 1);
-        $maxValor = max(1, (float) $linhasGrafico->max('total_lancado'), (float) $linhasGrafico->max('total_recebido'));
+        $maxValor = max(1, (float) $linhasGrafico->max('total_planejado'), (float) $linhasGrafico->max('total_lancado'), (float) $linhasGrafico->max('total_recebido'));
+        $pontosPlanejado = [];
         $pontosLancado = [];
         $pontosRecebido = [];
 
         foreach ($linhasGrafico as $index => $linha) {
             $x = $chartLeft + (($plotWidth / $monthlySteps) * $index);
+            $yPlanejado = $chartTop + $plotHeight - (((float) $linha['total_planejado'] / $maxValor) * $plotHeight);
             $yLancado = $chartTop + $plotHeight - (((float) $linha['total_lancado'] / $maxValor) * $plotHeight);
             $yRecebido = $chartTop + $plotHeight - (((float) $linha['total_recebido'] / $maxValor) * $plotHeight);
+            $pontosPlanejado[] = round($x, 2) . ',' . round($yPlanejado, 2);
             $pontosLancado[] = round($x, 2) . ',' . round($yLancado, 2);
             $pontosRecebido[] = round($x, 2) . ',' . round($yRecebido, 2);
         }
@@ -228,7 +234,8 @@
         $annualPlotWidth = $annualWidth - $annualLeft - $annualRight;
         $annualPlotHeight = $annualHeight - $annualTop - $annualBottom;
         $annualSteps = max(1, $panoramaAnual->count() - 1);
-        $maxAnual = max(1, (float) $panoramaAnual->max('total_lancado'), (float) $panoramaAnual->max('total_recebido'));
+        $maxAnual = max(1, (float) $panoramaAnual->max('total_planejado'), (float) $panoramaAnual->max('total_lancado'), (float) $panoramaAnual->max('total_recebido'));
+        $pontosAnualPlanejado = [];
         $pontosAnualLancado = [];
         $pontosAnualRecebido = [];
 
@@ -237,10 +244,34 @@
             if ($panoramaAnual->count() === 1) {
                 $x = $annualLeft + ($annualPlotWidth / 2);
             }
+            $yPlanejado = $annualTop + $annualPlotHeight - (((float) $linhaAnual['total_planejado'] / $maxAnual) * $annualPlotHeight);
             $yLancado = $annualTop + $annualPlotHeight - (((float) $linhaAnual['total_lancado'] / $maxAnual) * $annualPlotHeight);
             $yRecebido = $annualTop + $annualPlotHeight - (((float) $linhaAnual['total_recebido'] / $maxAnual) * $annualPlotHeight);
+            $pontosAnualPlanejado[] = round($x, 2) . ',' . round($yPlanejado, 2);
             $pontosAnualLancado[] = round($x, 2) . ',' . round($yLancado, 2);
             $pontosAnualRecebido[] = round($x, 2) . ',' . round($yRecebido, 2);
+        }
+
+        $comparativoMensal = $this->comparativoMensal();
+        $comparisonWidth = 620;
+        $comparisonHeight = 300;
+        $comparisonLeft = 42;
+        $comparisonRight = 18;
+        $comparisonTop = 18;
+        $comparisonBottom = 42;
+        $comparisonPlotWidth = $comparisonWidth - $comparisonLeft - $comparisonRight;
+        $comparisonPlotHeight = $comparisonHeight - $comparisonTop - $comparisonBottom;
+        $comparisonSteps = max(1, $comparativoMensal->count() - 1);
+        $maxComparativo = max(1, (float) $comparativoMensal->max('total_recebido'));
+        $pontosComparativo = [];
+
+        foreach ($comparativoMensal as $index => $linhaComparativa) {
+            $x = $comparisonLeft + (($comparisonPlotWidth / $comparisonSteps) * $index);
+            if ($comparativoMensal->count() === 1) {
+                $x = $comparisonLeft + ($comparisonPlotWidth / 2);
+            }
+            $yRecebido = $comparisonTop + $comparisonPlotHeight - (((float) $linhaComparativa['total_recebido'] / $maxComparativo) * $comparisonPlotHeight);
+            $pontosComparativo[] = round($x, 2) . ',' . round($yRecebido, 2);
         }
     @endphp
 
@@ -255,7 +286,28 @@
                 </select>
             </label>
 
-            <button type="button" wire:click="atualizar" class="ct-billing-btn">Atualizar</button>
+            <label class="ct-billing-field">
+                <span class="ct-billing-label">Grafico</span>
+                <select wire:model.live="graficoSelecionado" class="ct-billing-select">
+                    @foreach ($this->graficosDisponiveis() as $valorGrafico => $labelGrafico)
+                        <option value="{{ $valorGrafico }}">{{ $labelGrafico }}</option>
+                    @endforeach
+                </select>
+            </label>
+
+            @if ($graficoSelecionado === 'comparativo_mes')
+                <label class="ct-billing-field">
+                    <span class="ct-billing-label">Mes</span>
+                    <select wire:model.live="mesComparativo" class="ct-billing-select">
+                        @foreach (range(1, 12) as $mesOpcao)
+                            <option value="{{ $mesOpcao }}">{{ $this->mesNome($mesOpcao) }}</option>
+                        @endforeach
+                    </select>
+                </label>
+            @else
+                <div></div>
+            @endif
+
             <div></div>
         </div>
 
@@ -266,6 +318,7 @@
                         <tr>
                             <th style="width: 58px;"></th>
                             <th>Mes</th>
+                            <th>Total Planejado</th>
                             <th>Total Lancado</th>
                             <th>Total Recebido</th>
                         </tr>
@@ -282,6 +335,7 @@
                                         <span class="ct-billing-open-dot" title="Mes aberto"></span>
                                     @endif
                                 </td>
+                                <td class="ct-billing-number">{{ $this->moeda($linha['total_planejado']) }}</td>
                                 <td class="ct-billing-number">{{ $this->moeda($linha['total_lancado']) }}</td>
                                 <td class="ct-billing-number">{{ $this->moeda($linha['total_recebido']) }}</td>
                             </tr>
@@ -291,6 +345,7 @@
                         <tr class="ct-billing-total">
                             <td></td>
                             <td>Total</td>
+                            <td class="ct-billing-number">{{ $this->moeda($this->totalPlanejadoAno()) }}</td>
                             <td class="ct-billing-number">{{ $this->moeda($this->totalLancadoAno()) }}</td>
                             <td class="ct-billing-number">{{ $this->moeda($this->totalRecebidoAno()) }}</td>
                         </tr>
@@ -299,6 +354,7 @@
             </div>
 
             <div class="ct-billing-chart-stack">
+                @if ($graficoSelecionado === 'mensal')
                 <section class="ct-billing-chart-card" aria-label="Grafico de faturamento mensal">
                 <div class="ct-billing-chart-head">
                     <div>
@@ -308,6 +364,7 @@
                         </div>
                     </div>
                     <div class="ct-billing-legend">
+                        <span class="ct-billing-legend-item"><span class="ct-billing-legend-dot" style="background: #2563eb;"></span>Planejado</span>
                         <span class="ct-billing-legend-item"><span class="ct-billing-legend-dot" style="background: #f59e0b;"></span>Lancado</span>
                         <span class="ct-billing-legend-item"><span class="ct-billing-legend-dot" style="background: #16a34a;"></span>Recebido</span>
                     </div>
@@ -323,15 +380,18 @@
                         <text class="ct-billing-chart-axis-label" x="0" y="{{ $y + 4 }}">{{ number_format($valorGrade / 1000, 0, ',', '.') }}k</text>
                     @endfor
 
+                    <polyline class="ct-billing-chart-line-planned" points="{{ implode(' ', $pontosPlanejado) }}" />
                     <polyline class="ct-billing-chart-line-launched" points="{{ implode(' ', $pontosLancado) }}" />
                     <polyline class="ct-billing-chart-line-received" points="{{ implode(' ', $pontosRecebido) }}" />
 
                     @foreach ($linhasGrafico as $index => $linha)
                         @php
                             $x = $chartLeft + (($plotWidth / $monthlySteps) * $index);
+                            $yPlanejado = $chartTop + $plotHeight - (((float) $linha['total_planejado'] / $maxValor) * $plotHeight);
                             $yLancado = $chartTop + $plotHeight - (((float) $linha['total_lancado'] / $maxValor) * $plotHeight);
                             $yRecebido = $chartTop + $plotHeight - (((float) $linha['total_recebido'] / $maxValor) * $plotHeight);
                         @endphp
+                        <circle class="ct-billing-chart-point-planned" cx="{{ $x }}" cy="{{ $yPlanejado }}" r="4" />
                         <circle class="ct-billing-chart-point-launched" cx="{{ $x }}" cy="{{ $yLancado }}" r="4" />
                         <circle class="ct-billing-chart-point-received" cx="{{ $x }}" cy="{{ $yRecebido }}" r="4" />
                         <text class="ct-billing-chart-axis-label" x="{{ $x }}" y="{{ $chartHeight - 12 }}" text-anchor="middle">{{ substr($linha['nome'], 0, 3) }}</text>
@@ -339,6 +399,10 @@
                 </svg>
 
                 <div class="ct-billing-chart-totals">
+                    <div>
+                        <div class="ct-billing-total-label">Planejado no ano</div>
+                        <div class="ct-billing-total-value">{{ $this->moeda($this->totalPlanejadoAno()) }}</div>
+                    </div>
                     <div>
                         <div class="ct-billing-total-label">Lancado no ano</div>
                         <div class="ct-billing-total-value">{{ $this->moeda($this->totalLancadoAno()) }}</div>
@@ -350,6 +414,7 @@
                 </div>
                 </section>
 
+                @elseif ($graficoSelecionado === 'panorama')
                 <section class="ct-billing-chart-card" aria-label="Panorama anual de faturamento">
             <div class="ct-billing-chart-head">
                 <div>
@@ -357,6 +422,7 @@
                     <div class="ct-billing-chart-subtitle">Todos os anos disponiveis na base</div>
                 </div>
                 <div class="ct-billing-legend">
+                    <span class="ct-billing-legend-item"><span class="ct-billing-legend-dot" style="background: #2563eb;"></span>Planejado</span>
                     <span class="ct-billing-legend-item"><span class="ct-billing-legend-dot" style="background: #f59e0b;"></span>Lancado</span>
                     <span class="ct-billing-legend-item"><span class="ct-billing-legend-dot" style="background: #16a34a;"></span>Recebido</span>
                 </div>
@@ -372,6 +438,7 @@
                     <text class="ct-billing-chart-axis-label" x="0" y="{{ $y + 4 }}">{{ number_format($valorGrade / 1000, 0, ',', '.') }}k</text>
                 @endfor
 
+                <polyline class="ct-billing-chart-line-planned" points="{{ implode(' ', $pontosAnualPlanejado) }}" />
                 <polyline class="ct-billing-chart-line-launched" points="{{ implode(' ', $pontosAnualLancado) }}" />
                 <polyline class="ct-billing-chart-line-received" points="{{ implode(' ', $pontosAnualRecebido) }}" />
 
@@ -381,15 +448,64 @@
                         if ($panoramaAnual->count() === 1) {
                             $x = $annualLeft + ($annualPlotWidth / 2);
                         }
+                        $yPlanejado = $annualTop + $annualPlotHeight - (((float) $linhaAnual['total_planejado'] / $maxAnual) * $annualPlotHeight);
                         $yLancado = $annualTop + $annualPlotHeight - (((float) $linhaAnual['total_lancado'] / $maxAnual) * $annualPlotHeight);
                         $yRecebido = $annualTop + $annualPlotHeight - (((float) $linhaAnual['total_recebido'] / $maxAnual) * $annualPlotHeight);
                     @endphp
+                    <circle class="ct-billing-chart-point-planned" cx="{{ $x }}" cy="{{ $yPlanejado }}" r="4" />
                     <circle class="ct-billing-chart-point-launched" cx="{{ $x }}" cy="{{ $yLancado }}" r="4" />
                     <circle class="ct-billing-chart-point-received" cx="{{ $x }}" cy="{{ $yRecebido }}" r="4" />
                     <text class="ct-billing-chart-axis-label" x="{{ $x }}" y="{{ $annualHeight - 12 }}" text-anchor="middle">{{ $linhaAnual['ano'] }}</text>
                 @endforeach
             </svg>
                 </section>
+                @else
+                <section class="ct-billing-chart-card" aria-label="Comparativo mensal de faturamento">
+                    <div class="ct-billing-chart-head">
+                        <div>
+                            <div class="ct-billing-chart-title">Comparativo de {{ $this->mesNome($mesComparativo) }}</div>
+                            <div class="ct-billing-chart-subtitle">Total recebido no mes em cada ano</div>
+                        </div>
+                        <div class="ct-billing-legend">
+                            <span class="ct-billing-legend-item"><span class="ct-billing-legend-dot" style="background: #16a34a;"></span>Recebido</span>
+                        </div>
+                    </div>
+
+                    <svg class="ct-billing-chart-svg" viewBox="0 0 {{ $comparisonWidth }} {{ $comparisonHeight }}" role="img" aria-label="Grafico comparativo do recebido no mes por ano">
+                        @for ($i = 0; $i <= 4; $i++)
+                            @php
+                                $y = $comparisonTop + (($comparisonPlotHeight / 4) * $i);
+                                $valorGrade = $maxComparativo - (($maxComparativo / 4) * $i);
+                            @endphp
+                            <line class="ct-billing-chart-grid" x1="{{ $comparisonLeft }}" y1="{{ $y }}" x2="{{ $comparisonWidth - $comparisonRight }}" y2="{{ $y }}" />
+                            <text class="ct-billing-chart-axis-label" x="0" y="{{ $y + 4 }}">{{ number_format($valorGrade / 1000, 0, ',', '.') }}k</text>
+                        @endfor
+
+                        <polyline class="ct-billing-chart-line-received" points="{{ implode(' ', $pontosComparativo) }}" />
+
+                        @foreach ($comparativoMensal as $index => $linhaComparativa)
+                            @php
+                                $x = $comparisonLeft + (($comparisonPlotWidth / $comparisonSteps) * $index);
+                                if ($comparativoMensal->count() === 1) {
+                                    $x = $comparisonLeft + ($comparisonPlotWidth / 2);
+                                }
+                                $yRecebido = $comparisonTop + $comparisonPlotHeight - (((float) $linhaComparativa['total_recebido'] / $maxComparativo) * $comparisonPlotHeight);
+                            @endphp
+                            <circle class="ct-billing-chart-point-received" cx="{{ $x }}" cy="{{ $yRecebido }}" r="4" />
+                            <text class="ct-billing-chart-axis-label" x="{{ $x }}" y="{{ $comparisonHeight - 12 }}" text-anchor="middle">{{ $linhaComparativa['ano'] }}</text>
+                        @endforeach
+                    </svg>
+
+                    <div class="ct-billing-chart-totals">
+                        @foreach ($comparativoMensal as $linhaComparativa)
+                            <div>
+                                <div class="ct-billing-total-label">{{ $linhaComparativa['ano'] }}</div>
+                                <div class="ct-billing-total-value">{{ $this->moeda($linhaComparativa['total_recebido']) }}</div>
+                            </div>
+                        @endforeach
+                    </div>
+                </section>
+                @endif
             </div>
         </div>
     </div>

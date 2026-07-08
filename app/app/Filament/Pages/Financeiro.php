@@ -1391,7 +1391,7 @@ class Financeiro extends Page
         $perPage = $this->linhasPorPagina();
 
         $clientes = $this->clientesQuery()
-            ->with('vendedor')
+            ->with(['vendedor', 'statusCliente'])
             ->withCount(['veiculosAtivos as qtd_rastreadores'])
             ->tap(fn (Builder $query): Builder => $this->aplicarOrdenacaoClientes($query))
             ->offset(($this->pagina - 1) * $perPage)
@@ -1610,7 +1610,7 @@ class Financeiro extends Page
             ->first();
 
         $this->modalLancamentoId = $lancamento?->id;
-        $this->modalDataLancamento = now()->toDateString();
+        $this->modalDataLancamento = $lancamento?->data_lancamento?->toDateString() ?? now()->toDateString();
         $this->modalNumeroBoleto = (string) ($lancamento?->numero_boleto ?? '');
         $this->modalValorPlanejado = $lancamento?->valor_planejado !== null ? $this->moeda($lancamento->valor_planejado) : '';
         $this->modalValorEfetivado = $lancamento?->valor_efetivado !== null ? $this->moeda($lancamento->valor_efetivado) : '';

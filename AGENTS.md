@@ -397,7 +397,7 @@ O restore garante os modelos padrao de mensagens de cobranca ao final do process
 - Export CSV do Financeiro usa os filtros/linhas atuais e inclui dados dos dois meses exibidos.
 - Modal de lancamento:
   - aba `Lancamento` salva tambem ao apertar Enter nos campos da aba;
-  - campo `Data Lancamento` sempre abre preenchido com a data do dia, independentemente do valor salvo antes;
+  - campo `Data Lancamento` abre com a data salva quando existir; se estiver vazio, abre preenchido com a data do dia;
   - gerar boleto mostra estado de loading no botao/link `Gerar Boleto` ate a resposta da Lytex;
   - boleto gerado pela Lytex grava `numero_boleto = Lytex` no lancamento da referencia.
 - Modal de boleto usa vencimento padrao calculado pelo dia de pagamento do cliente; dia 30/31 em mes menor cai no ultimo dia do mes.
@@ -418,7 +418,16 @@ O restore garante os modelos padrao de mensagens de cobranca ao final do process
   - `Estoque > Rastreadores`: lista a tabela real `rastreadores`.
 - A combo `IMEI` em `Cadastro > Rastreadores` mostra apenas rastreadores com status `Disponivel`, alem do rastreador ja vinculado quando estiver editando um registro existente.
 - Ao criar rastreador em `Estoque > Rastreadores`, o status padrao deve ser `Disponivel`, para evitar criar estoque novo como `Ativo`.
+- Chips sao vinculados ao rastreador, nao ao veiculo. A tabela `rastreadores` possui `chip_id`; o campo legado `veiculos.chip_id` nao deve ser usado em novas regras/telas.
+- Em `Estoque > Chips`, o formulario usa schema Filament e o campo `IMEI` e um `Select` pesquisavel por busca remota, sem preload da tabela inteira. Pode haver chip sem rastreador vinculado.
+- Em `Estoque > Chips`, `Numero Chip` e `ICCID` sao campos separados: `numero_chip` contem o numero telefonico/numero atual do chip; `iccid` contem o ICCID real, deve ser unico quando preenchido e ter exatamente 20 digitos no formulario.
+- Em `Cadastro > Rastreadores`, o chip nao e selecionado manualmente. O campo `Numero Chip` e somente leitura e exibe o chip vinculado ao IMEI/rastreador escolhido.
+- Em `Cadastro > Rastreadores`, se o IMEI escolhido nao tiver chip vinculado, o campo `Numero Chip` mostra aviso amarelo: `O rastreador selecionado nao possui chip vinculado.`
+- Regra de integridade: um mesmo IMEI/rastreador nao pode estar vinculado a outro veiculo ativo. Clientes com frota podem ter varios rastreadores ativos; nao bloquear por cliente nem por placa duplicada.
+- Regra de integridade: um chip deve ficar vinculado a no maximo um rastreador. Na migracao de dados legados, quando um chip aparecia em mais de um rastreador ativo, foi mantido no registro mais recente por `data_instalacao`, depois `updated_at`, depois `id`; os demais ficaram sem chip para verificacao manual.
+- O restore cria/encontra chips por `numero_chip` e vincula o chip ao `rastreador_id` importado, deixando `veiculos.chip_id` nulo.
 - A busca em `Cadastro > Rastreadores` pesquisa placa, veiculo e cliente. A busca por IMEI so deve entrar quando a parte numerica tiver pelo menos 6 digitos, para uma placa como `QDW-9C47` nao buscar IMEIs contendo `947`.
+- A busca em `Cadastro > Rastreadores` tambem pesquisa CPF/CNPJ do cliente apenas quando a parte numerica tiver pelo menos 6 digitos, para placas Mercosul como `RBO-6G53` nao buscarem CPFs/CNPJs contendo poucos digitos.
 - A busca digitavel principal e compartilhada via sessao entre `Financeiro`, `Cadastro > Clientes` e `Cadastro > Rastreadores`; ao digitar em uma dessas telas, o mesmo termo deve ser reaplicado ao navegar para as outras. O botao `Limpar` dessas telas tambem limpa a busca compartilhada.
 - O filtro de status do cliente e compartilhado via sessao somente entre `Financeiro` e `Cadastro > Clientes`; `Cadastro > Rastreadores` nao participa desse status compartilhado.
 - Em `Cadastro > Rastreadores`, a busca tambem deve encontrar pelo CPF/CNPJ do cliente vinculado.
@@ -459,8 +468,23 @@ O restore garante os modelos padrao de mensagens de cobranca ao final do process
 
 ## Estado Atual Importante
 
-- Ultimo commit conhecido em `main`/`origin/main`: `62644c6 Correção de traços`.
-- Em 2026-07-07, producao estava no commit `62644c6`.
+- Ultimo commit conhecido em `main`/`origin/main`: `58cc7e1 Vincula chips aos rastreadores`.
+- Em 2026-07-08, producao estava no commit `58cc7e1`; deploy validado com `/admin/login` HTTP 200 e `php artisan migrate:status --pending` sem pendencias.
+- Em 2026-07-08, a migracao de chips para rastreadores foi aplicada em producao. Validacao: `rastreadores.chip_id` existe, 4.259 rastreadores ficaram com chip migrado, e nao restaram chips compartilhados entre rastreadores ativos.
+- Em 2026-07-08, antes da migracao em producao, 12 chips ainda estavam compartilhados. Foi mantido o vinculo no registro mais recente e 12 rastreadores ficaram sem chip para verificacao manual:
+  - veiculo `19942`, rastreador `23138`, IMEI `865209075229493`, cliente `Bacana Veículos LTDA`, placa `BBZ-2H06`;
+  - veiculo `19952`, rastreador `20724`, IMEI `869731052574415`, cliente `SPEED Proteção Veicular`, placa `RBM-3F20`;
+  - veiculo `20222`, rastreador `19937`, IMEI `865209074809212`, cliente `Rejane Ribeiro e Silva`, placa `PQR-9271`;
+  - veiculo `20468`, rastreador `21205`, IMEI `861768073280786`, cliente `Jorge Alberto Vaz da Silva Junior`, placa `JHS-1A11`;
+  - veiculo `21456`, rastreador `18807`, IMEI `869412079536501`, cliente `Patrícia Monica da Costa Baldez`, placa `TDZ-4C68`;
+  - veiculo `22071`, rastreador `31176`, IMEI `862667083497381`, cliente `Maxientregas Servicos de Entregas LTDA`, placa `PRB-8035`;
+  - veiculo `22207`, rastreador `18741`, IMEI `865209070405411`, cliente `Paulo Cesar Silva Coelho`, placa `PRO-4D30`;
+  - veiculo `23323`, rastreador `31833`, IMEI `863767071751630`, cliente `Nayane Maria da Silva`, placa `QCU-0J36`;
+  - veiculo `23329`, rastreador `31868`, IMEI `863767071642953`, cliente `Matias Loaiza`, placa `RBY-3C78`;
+  - veiculo `23533`, rastreador `22974`, IMEI `868018073761341`, cliente `José Carlos Flausino`, placa `IJB-1J99`;
+  - veiculo `23799`, rastreador `31957`, IMEI `863767071680847`, cliente `Conectta INVESTIDORES`, placa `TGM-4J46`;
+  - veiculo `23918`, rastreador `21106`, IMEI `861768071902563`, cliente `Juliano Cezar Montelo da Silva`, placa `TFD-5G56`.
+- Arquivos locais auxiliares gerados em 2026-07-08 ficam em `/home/diel_/Conectta/tmp/`: `conflitos-veiculos-rastreadores-ativos.xlsx`, `chips-vinculados-a-mais-de-um-rastreador-ativo.txt` e `rastreadores-sem-chip-apos-migracao.txt`.
 - Alteracao local pendente apos o alerta GitGuardian: `scripts/backup-production-db.sh` foi ajustado para evitar `MYSQL_PWD` e usar arquivo temporario MySQL com permissao `600`; precisa commit/deploy se quiser atualizar a rotina versionada.
 - Este `AGENTS.md` foi atualizado no fim do dia 2026-07-07 para economizar contexto na proxima sessao.
 - As rotinas de cobranca e WhatsApp foram implementadas localmente.

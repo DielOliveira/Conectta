@@ -146,7 +146,7 @@
         .ct-fin-grid {
             display: grid;
             column-gap: 2px;
-            grid-template-columns: minmax(500px, 38%) minmax(0, 31%) minmax(0, 31%);
+            grid-template-columns: minmax(500px, calc(42% + 6px)) minmax(0, calc(29% - 3px)) minmax(0, calc(29% - 3px));
             width: 100%;
         }
 
@@ -173,7 +173,7 @@
 
         .ct-fin-month-filters {
             display: grid;
-            grid-template-columns: 21% 24% 22% 33%;
+            grid-template-columns: 21% 25% 18% 36%;
         }
 
         .ct-fin-filter-cell {
@@ -250,13 +250,22 @@
             white-space: nowrap;
         }
 
+        .ct-fin-row-inactive td {
+            background: #fff1f2;
+        }
+
+        .ct-fin-row-inactive .ct-fin-text-input {
+            background: #fff7f7;
+            border-color: #fecdd3;
+        }
+
         .ct-fin-total-row {
             align-items: center;
             display: grid;
             font-size: 12px;
             font-weight: 700;
             gap: 6px;
-            grid-template-columns: 21% 24% 22% 33%;
+            grid-template-columns: 21% 25% 18% 36%;
             min-height: 30px;
             padding: 0 6px;
         }
@@ -902,8 +911,8 @@
             }
 
             .ct-fin-grid {
-                grid-template-columns: 500px 455px 455px;
-                min-width: 1410px;
+                grid-template-columns: 500px 422px 422px;
+                min-width: 1344px;
             }
         }
 
@@ -997,9 +1006,9 @@
                         <colgroup>
                             <col style="width: 10%" />
                             <col style="width: 15%" />
-                            <col style="width: 25%" />
+                            <col style="width: calc(25% + 6px)" />
                             <col style="width: 12%" />
-                            <col style="width: 38%" />
+                            <col style="width: calc(38% - 6px)" />
                         </colgroup>
                         <thead>
                             <tr>
@@ -1032,7 +1041,8 @@
                         </thead>
                         <tbody>
                             @forelse ($linhas as $linha)
-                                <tr wire:key="cliente-financeiro-{{ $linha['cliente']->id }}">
+                                @php($clienteInativo = $linha['cliente']->statusCliente?->label === 'Inativo')
+                                <tr wire:key="cliente-financeiro-{{ $linha['cliente']->id }}" class="{{ $clienteInativo ? 'ct-fin-row-inactive' : '' }}">
                                     <td class="ct-fin-number">{{ $linha['qtd'] }}</td>
                                     <td title="{{ $linha['vendedor'] }}">{{ $linha['vendedor'] }}</td>
                                     <td title="{{ $linha['cliente']->nome }}">{{ $linha['cliente']->nome }}</td>
@@ -1145,9 +1155,9 @@
                         <table class="ct-fin-table">
                             <colgroup>
                                 <col style="width: 21%" />
-                                <col style="width: 24%" />
-                                <col style="width: 22%" />
-                                <col style="width: 33%" />
+                                <col style="width: 25%" />
+                                <col style="width: 18%" />
+                                <col style="width: 36%" />
                             </colgroup>
                             <thead>
                                 <tr>
@@ -1183,7 +1193,8 @@
                             <tbody>
                                 @forelse ($linhas as $linha)
                                     @php($lancamento = $linha[$month['key']])
-                                    <tr wire:key="{{ $month['key'] }}-{{ $linha['cliente']->id }}">
+                                    @php($clienteInativo = $linha['cliente']->statusCliente?->label === 'Inativo')
+                                    <tr wire:key="{{ $month['key'] }}-{{ $linha['cliente']->id }}" class="{{ $clienteInativo ? 'ct-fin-row-inactive' : '' }}">
                                         <td>
                                             <button
                                                 type="button"

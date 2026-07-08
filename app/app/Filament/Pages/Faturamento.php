@@ -6,7 +6,6 @@ use App\Models\Faturamento as FaturamentoModel;
 use App\Models\Lancamento;
 use App\Models\Permission;
 use App\Services\Audit\AuditLogger;
-use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Collection;
@@ -46,23 +45,20 @@ class Faturamento extends Page
 
     public int $ano;
 
+    public string $graficoSelecionado = 'mensal';
+
+    public int $mesComparativo;
+
     public function mount(): void
     {
         $this->ano = (int) now()->year;
-    }
-
-    public function atualizar(): void
-    {
-        Notification::make()
-            ->title('Faturamento atualizado.')
-            ->success()
-            ->send();
+        $this->mesComparativo = (int) now()->month;
     }
 
     public function alternarAberto(int $mes): void
     {
         if (! auth()->user()?->hasPermission(Permission::FATURAMENTO_ESCRITA)) {
-            Notification::make()->title('Voce nao tem permissao para esta acao.')->danger()->send();
+            \Filament\Notifications\Notification::make()->title('Voce nao tem permissao para esta acao.')->danger()->send();
 
             return;
         }
@@ -99,7 +95,7 @@ class Faturamento extends Page
             ],
         );
 
-        Notification::make()
+        \Filament\Notifications\Notification::make()
             ->title($novoStatus ? 'Mes marcado como aberto.' : 'Mes fechado.')
             ->success()
             ->send();
@@ -110,8 +106,18 @@ class Faturamento extends Page
         return self::ANOS_PERMITIDOS;
     }
 
+    public function graficosDisponiveis(): array
+    {
+        return [
+            'mensal' => 'Faturamento mensal',
+            'panorama' => 'Panorama anual',
+            'comparativo_mes' => 'Comparativo por mes',
+        ];
+    }
+
     public function linhasFaturamento(): Collection
     {
+        $totaisPlanejados = $this->totaisPlanejados();
         $totaisLancados = $this->totaisLancados();
         $totaisRecebidos = $this->totaisRecebidos();
         $abertos = FaturamentoModel::query()
@@ -123,9 +129,15 @@ class Faturamento extends Page
                 'mes' => $mes,
                 'nome' => $this->mesNome($mes),
                 'is_aberto' => (bool) ($abertos[$mes] ?? false),
+                'total_planejado' => (float) ($totaisPlanejados[$mes] ?? 0),
                 'total_lancado' => (float) ($totaisLancados[$mes] ?? 0),
                 'total_recebido' => (float) ($totaisRecebidos[$mes] ?? 0),
             ]);
+    }
+
+    public function totalPlanejadoAno(): float
+    {
+        return (float) $this->linhasFaturamento()->sum('total_planejado');
     }
 
     public function totalLancadoAno(): float
@@ -140,6 +152,13 @@ class Faturamento extends Page
 
     public function panoramaAnual(): Collection
     {
+        $totaisPlanejados = Lancamento::query()
+            ->select('ano_referencia', DB::raw('sum(valor_planejado) as total'))
+            ->whereIn('ano_referencia', self::ANOS_PERMITIDOS)
+            ->whereNotNull('cliente_id')
+            ->groupBy('ano_referencia')
+            ->pluck('total', 'ano_referencia');
+
         $totaisLancados = Lancamento::query()
             ->select('ano_referencia', DB::raw('sum(valor_efetivado) as total'))
             ->whereIn('ano_referencia', self::ANOS_PERMITIDOS)
@@ -158,7 +177,27 @@ class Faturamento extends Page
             ->values()
             ->map(fn (int $ano): array => [
                 'ano' => $ano,
+                'total_planejado' => (float) ($totaisPlanejados[$ano] ?? 0),
                 'total_lancado' => (float) ($totaisLancados[$ano] ?? 0),
+                'total_recebido' => (float) ($totaisRecebidos[$ano] ?? 0),
+            ]);
+    }
+
+    public function comparativoMensal(): Collection
+    {
+        $totaisRecebidos = Lancamento::query()
+            ->selectRaw('year(data_lancamento) as ano, sum(valor_efetivado) as total')
+            ->whereNotNull('data_lancamento')
+            ->whereMonth('data_lancamento', $this->mesComparativo)
+            ->whereIn(DB::raw('year(data_lancamento)'), self::ANOS_PERMITIDOS)
+            ->groupByRaw('year(data_lancamento)')
+            ->pluck('total', 'ano');
+
+        return collect($this->anosDisponiveis())
+            ->sort()
+            ->values()
+            ->map(fn (int $ano): array => [
+                'ano' => $ano,
                 'total_recebido' => (float) ($totaisRecebidos[$ano] ?? 0),
             ]);
     }
@@ -190,6 +229,16 @@ class Faturamento extends Page
     {
         return Lancamento::query()
             ->select('mes_referencia', DB::raw('sum(valor_efetivado) as total'))
+            ->where('ano_referencia', $this->ano)
+            ->whereNotNull('cliente_id')
+            ->groupBy('mes_referencia')
+            ->pluck('total', 'mes_referencia');
+    }
+
+    private function totaisPlanejados(): Collection
+    {
+        return Lancamento::query()
+            ->select('mes_referencia', DB::raw('sum(valor_planejado) as total'))
             ->where('ano_referencia', $this->ano)
             ->whereNotNull('cliente_id')
             ->groupBy('mes_referencia')
