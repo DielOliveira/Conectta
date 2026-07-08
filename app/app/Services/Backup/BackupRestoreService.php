@@ -217,8 +217,15 @@ class BackupRestoreService
     private function importVeiculos(string $path): int
     {
         $rows = [];
+        $rastreadorChips = [];
+
         foreach ($this->reader->rows($path) as $row) {
             $chipId = $this->chipId($row['Numero Chip'] ?? null, $row['Instalador'] ?? null);
+            $rastreadorId = $this->fk('rastreadores', $row['Rastreador'] ?? null);
+
+            if ($chipId !== null && $rastreadorId !== null) {
+                $rastreadorChips[$rastreadorId] = $chipId;
+            }
 
             $rows[] = [
                 'id' => $this->int($row['Id'] ?? null),
@@ -231,8 +238,8 @@ class BackupRestoreService
                 'data_retirada' => $this->date($row['Data Retirada'] ?? null),
                 'data_exclusao' => $this->dateTime($row['Data Exclusao'] ?? null),
                 'tipo_veiculo_id' => $this->fk('tipo_veiculos', $row['Tipo Veiculo'] ?? null),
-                'rastreador_id' => $this->fk('rastreadores', $row['Rastreador'] ?? null),
-                'chip_id' => $chipId,
+                'rastreador_id' => $rastreadorId,
+                'chip_id' => null,
                 'tecnico_instala_id' => $this->tecnicoIdPorNome($row['Instalador'] ?? null),
                 'tecnico_remocao_id' => $this->fk('tecnicos', $row['Tecnico Remocao(2)'] ?? null),
                 'cor' => $this->text($row['Cor'] ?? null, 50),
@@ -250,7 +257,15 @@ class BackupRestoreService
             ];
         }
 
-        return $this->insertChunked('veiculos', $rows);
+        $count = $this->insertChunked('veiculos', $rows);
+
+        foreach ($rastreadorChips as $rastreadorId => $chipId) {
+            DB::table('rastreadores')
+                ->where('id', $rastreadorId)
+                ->update(['chip_id' => $chipId]);
+        }
+
+        return $count;
     }
 
     private function importContratos(string $path): int

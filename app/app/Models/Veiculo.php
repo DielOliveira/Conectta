@@ -15,7 +15,6 @@ use Illuminate\Validation\ValidationException;
     'status_rastreador_id',
     'tipo_veiculo_id',
     'rastreador_id',
-    'chip_id',
     'tecnico_instala_id',
     'tecnico_remocao_id',
     'veiculo',
@@ -146,9 +145,6 @@ class Veiculo extends Model
                 $errors['rastreador_id'] = 'Este IMEI ja esta vinculado a outro veiculo ativo.';
             }
 
-            if ($this->chip_id !== null && $this->hasAnotherActiveWith('chip_id', $this->chip_id)) {
-                $errors['chip_id'] = 'Este chip ja esta vinculado a outro veiculo ativo.';
-            }
         }
 
         if ($errors !== []) {

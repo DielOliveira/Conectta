@@ -16,6 +16,7 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\HtmlString;
 
 class RastreadorForm
 {
@@ -80,13 +81,18 @@ class RastreadorForm
 
                                     $set('tecnico_instala_id', $rastreador?->tecnico_id);
                                     $set('instalador', $rastreador?->tecnico?->nome);
+                                    $set('chip_numero', self::chipLabel($state));
                                 })
                                 ->columnSpan(6),
-                            Select::make('chip_id')
+                            TextInput::make('chip_numero')
                                 ->label('Numero Chip')
-                                ->relationship('chip', 'numero_chip')
-                                ->searchable()
-                                ->preload()
+                                ->disabled()
+                                ->dehydrated(false)
+                                ->default(fn (?Veiculo $record): string => self::chipLabel($record?->rastreador_id))
+                                ->formatStateUsing(fn (mixed $state, ?Veiculo $record): string => filled($state) ? (string) $state : self::chipLabel($record?->rastreador_id))
+                                ->helperText(fn (Get $get): ?HtmlString => filled($get('rastreador_id')) && self::chipLabel($get('rastreador_id')) === ''
+                                    ? new HtmlString('<span class="font-medium text-warning-600 dark:text-warning-400">O rastreador selecionado nao possui chip vinculado.</span>')
+                                    : null)
                                 ->columnSpan(4),
                             TextInput::make('login')
                                 ->label('Login')
@@ -179,5 +185,18 @@ class RastreadorForm
     private static function isStatusCancelado(mixed $statusId): bool
     {
         return (int) $statusId === (int) Veiculo::statusId('Cancelado');
+    }
+
+    private static function chipLabel(mixed $rastreadorId): string
+    {
+        if (blank($rastreadorId)) {
+            return '';
+        }
+
+        return (string) (Rastreador::query()
+            ->with('chip:id,numero_chip')
+            ->find((int) $rastreadorId)
+            ?->chip
+            ?->numero_chip ?? '');
     }
 }

@@ -4,16 +4,22 @@ namespace App\Filament\Pages;
 
 use App\Models\Chip;
 use App\Models\Permission;
+use App\Models\Rastreador;
 use App\Models\StatusRastreador;
 use App\Models\Tecnico;
 use App\Services\Audit\AuditLogger;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use UnitEnum;
 
@@ -70,17 +76,10 @@ class EstoqueChips extends Page
 
     public ?int $editingId = null;
 
-    public string $fornecedor = '';
-
-    public string $operadora = '';
-
-    public string $numero_chip = '';
-
-    public string $iccid = '';
-
-    public ?int $tecnico_id = null;
-
-    public ?int $status_rastreador_id = null;
+    /**
+     * @var array<string, mixed>
+     */
+    public array $formData = [];
 
     public string $search = '';
 
@@ -94,9 +93,80 @@ class EstoqueChips extends Page
 
     public function mount(): void
     {
-        $this->status_rastreador_id = StatusRastreador::query()
-            ->where('label', 'Disponivel')
-            ->value('id');
+        $this->form->fill($this->formDataPadrao());
+    }
+
+    public function form(Schema $schema): Schema
+    {
+        return $schema
+            ->statePath('formData')
+            ->components([
+                Grid::make(12)->schema([
+                    TextInput::make('fornecedor')
+                        ->label('Fornecedor')
+                        ->maxLength(50)
+                        ->columnSpan(3),
+                    TextInput::make('operadora')
+                        ->label('Operadora')
+                        ->maxLength(50)
+                        ->columnSpan(3),
+                    TextInput::make('numero_chip')
+                        ->label('Numero Chip')
+                        ->required()
+                        ->maxLength(50)
+                        ->rules(fn (): array => [
+                            Rule::unique('chips', 'numero_chip')->ignore($this->editingId),
+                        ])
+                        ->columnSpan(4),
+                    TextInput::make('iccid')
+                        ->label('ICCID')
+                        ->required()
+                        ->regex('/^\d{20}$/')
+                        ->validationMessages([
+                            'regex' => 'O ICCID deve conter exatamente 20 digitos.',
+                        ])
+                        ->rules(fn (): array => [
+                            Rule::unique('chips', 'iccid')->ignore($this->editingId),
+                        ])
+                        ->maxLength(20)
+                        ->extraInputAttributes([
+                            'inputmode' => 'numeric',
+                            'pattern' => '[0-9]{20}',
+                        ])
+                        ->columnSpan(2),
+                    Select::make('rastreador_id')
+                        ->label('IMEI')
+                        ->searchable()
+                        ->native(false)
+                        ->searchDebounce(500)
+                        ->optionsLimit(20)
+                        ->getSearchResultsUsing(fn (string $search): array => $this->rastreadorSearchResults($search))
+                        ->getOptionLabelUsing(fn (mixed $value): ?string => $this->rastreadorOptionLabel($value))
+                        ->placeholder('Pesquisar IMEI')
+                        ->searchPrompt('Digite o IMEI para pesquisar')
+                        ->noSearchResultsMessage('Nenhum IMEI disponivel.')
+                        ->columnSpan(4),
+                    Select::make('status_rastreador_id')
+                        ->label('Status Estoque')
+                        ->options(fn (): array => StatusRastreador::query()
+                            ->orderBy('order')
+                            ->orderBy('label')
+                            ->pluck('label', 'id')
+                            ->all())
+                        ->native(false)
+                        ->columnSpan(3),
+                    Select::make('tecnico_id')
+                        ->label('Tecnico')
+                        ->options(fn (): array => Tecnico::query()
+                            ->orderBy('nome')
+                            ->pluck('nome', 'id')
+                            ->all())
+                        ->searchable()
+                        ->preload()
+                        ->native(false)
+                        ->columnSpan(3),
+                ]),
+            ]);
     }
 
     public function salvar(): void
@@ -108,40 +178,20 @@ class EstoqueChips extends Page
         }
 
         $isEditing = $this->editingId !== null;
-        $fornecedorAtual = $this->fornecedor;
-        $operadoraAtual = $this->operadora;
+        $data = $this->form->getState();
+        $fornecedorAtual = (string) ($data['fornecedor'] ?? '');
+        $operadoraAtual = (string) ($data['operadora'] ?? '');
 
-        $data = $this->validate([
-            'fornecedor' => ['nullable', 'string', 'max:50'],
-            'operadora' => ['nullable', 'string', 'max:50'],
-            'numero_chip' => [
-                'required',
-                'string',
-                'max:50',
-                Rule::unique('chips', 'numero_chip')->ignore($this->editingId),
-            ],
-            'iccid' => [
-                'required',
-                'regex:/^\d{20}$/',
-                Rule::unique('chips', 'iccid')->ignore($this->editingId),
-            ],
-            'tecnico_id' => ['nullable', 'exists:tecnicos,id'],
-            'status_rastreador_id' => ['nullable', 'exists:status_rastreadores,id'],
-        ], [
-            'iccid.regex' => 'O ICCID deve conter exatamente 20 digitos.',
-        ], [
-            'fornecedor' => 'fornecedor',
-            'operadora' => 'operadora',
-            'numero_chip' => 'numero chip',
-            'iccid' => 'ICCID',
-            'tecnico_id' => 'tecnico',
-            'status_rastreador_id' => 'status estoque',
-        ]);
+        $rastreadorId = $data['rastreador_id'] ?? null;
+        unset($data['rastreador_id']);
+
+        $this->validarRastreadorDisponivelParaChip($rastreadorId);
 
         if ($this->editingId) {
             $chip = Chip::query()->findOrFail($this->editingId);
             $antes = AuditLogger::snapshot($chip);
             $chip->update($data);
+            $this->sincronizarRastreador($chip->id, $rastreadorId);
             $chip->refresh();
 
             AuditLogger::registrar(
@@ -153,6 +203,8 @@ class EstoqueChips extends Page
             );
         } else {
             $chip = Chip::query()->create($data);
+            $this->sincronizarRastreador($chip->id, $rastreadorId);
+            $chip->refresh();
 
             AuditLogger::registrar(
                 'chip.criado',
@@ -171,8 +223,11 @@ class EstoqueChips extends Page
         $this->pagina = 1;
 
         if (! $isEditing) {
-            $this->fornecedor = $fornecedorAtual;
-            $this->operadora = $operadoraAtual;
+            $this->form->fill([
+                ...$this->formDataPadrao(),
+                'fornecedor' => $fornecedorAtual,
+                'operadora' => $operadoraAtual,
+            ]);
         }
     }
 
@@ -184,15 +239,20 @@ class EstoqueChips extends Page
             return;
         }
 
-        $chip = Chip::query()->findOrFail($id);
+        $chip = Chip::query()
+            ->with('rastreador')
+            ->findOrFail($id);
 
         $this->editingId = $chip->id;
-        $this->fornecedor = (string) $chip->fornecedor;
-        $this->operadora = (string) $chip->operadora;
-        $this->numero_chip = (string) $chip->numero_chip;
-        $this->iccid = (string) $chip->iccid;
-        $this->tecnico_id = $chip->tecnico_id;
-        $this->status_rastreador_id = $chip->status_rastreador_id;
+        $this->form->fill([
+            'fornecedor' => (string) $chip->fornecedor,
+            'operadora' => (string) $chip->operadora,
+            'numero_chip' => (string) $chip->numero_chip,
+            'iccid' => (string) $chip->iccid,
+            'tecnico_id' => $chip->tecnico_id,
+            'rastreador_id' => $chip->rastreador?->id,
+            'status_rastreador_id' => $chip->status_rastreador_id,
+        ]);
     }
 
     public function excluir(int $id): void
@@ -219,10 +279,8 @@ class EstoqueChips extends Page
 
     public function limparFormulario(): void
     {
-        $this->reset(['editingId', 'fornecedor', 'operadora', 'numero_chip', 'iccid', 'tecnico_id']);
-        $this->status_rastreador_id = StatusRastreador::query()
-            ->where('label', 'Disponivel')
-            ->value('id');
+        $this->editingId = null;
+        $this->form->fill($this->formDataPadrao());
     }
 
     public function limparFiltros(): void
@@ -262,12 +320,13 @@ class EstoqueChips extends Page
             $handle = fopen('php://output', 'w');
 
             fwrite($handle, "\xEF\xBB\xBF");
-            fputcsv($handle, ['Numero Chip', 'ICCID', 'Fornecedor', 'Operadora', 'Status Estoque', 'Tecnico'], ';');
+            fputcsv($handle, ['Numero Chip', 'ICCID', 'IMEI', 'Fornecedor', 'Operadora', 'Status Estoque', 'Tecnico'], ';');
 
             foreach ($chips as $chip) {
                 fputcsv($handle, [
                     $chip->numero_chip,
                     $chip->iccid,
+                    $chip->rastreador?->imei,
                     $chip->fornecedor,
                     $chip->operadora,
                     $chip->statusRastreador?->label,
@@ -360,7 +419,7 @@ class EstoqueChips extends Page
     private function chipsQuery(): Builder
     {
         return Chip::query()
-            ->with(['statusRastreador', 'tecnico'])
+            ->with(['statusRastreador', 'tecnico', 'rastreador'])
             ->when($this->filtroTecnicoId, fn ($query): mixed => $query->where('tecnico_id', $this->filtroTecnicoId))
             ->when($this->filtroStatusId, fn ($query): mixed => $query->where('status_rastreador_id', $this->filtroStatusId))
             ->when($this->search !== '', function ($query): void {
@@ -372,6 +431,7 @@ class EstoqueChips extends Page
                         ->orWhere('iccid', 'like', $search)
                         ->orWhere('fornecedor', 'like', $search)
                         ->orWhere('operadora', 'like', $search)
+                        ->orWhereHas('rastreador', fn ($query): mixed => $query->where('imei', 'like', $search))
                         ->orWhereHas('statusRastreador', fn ($query): mixed => $query->where('label', 'like', $search))
                         ->orWhereHas('tecnico', fn ($query): mixed => $query->where('nome', 'like', $search));
                 });
@@ -379,5 +439,92 @@ class EstoqueChips extends Page
             ->latest('updated_at')
             ->latest('id')
             ->orderBy('numero_chip');
+    }
+
+    private function validarRastreadorDisponivelParaChip(?int $rastreadorId): void
+    {
+        if ($rastreadorId === null) {
+            return;
+        }
+
+        $vinculado = Rastreador::query()
+            ->whereKey($rastreadorId)
+            ->whereNotNull('chip_id')
+            ->when($this->editingId !== null, fn (Builder $query): Builder => $query->where('chip_id', '!=', $this->editingId))
+            ->exists();
+
+        if ($vinculado) {
+            throw ValidationException::withMessages([
+                'formData.rastreador_id' => 'Este IMEI ja possui chip vinculado.',
+            ]);
+        }
+    }
+
+    private function sincronizarRastreador(int $chipId, ?int $rastreadorId): void
+    {
+        Rastreador::query()
+            ->where('chip_id', $chipId)
+            ->update(['chip_id' => null]);
+
+        if ($rastreadorId !== null) {
+            Rastreador::query()
+                ->whereKey($rastreadorId)
+                ->update(['chip_id' => $chipId]);
+        }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function formDataPadrao(): array
+    {
+        return [
+            'fornecedor' => '',
+            'operadora' => '',
+            'numero_chip' => '',
+            'iccid' => '',
+            'tecnico_id' => null,
+            'rastreador_id' => null,
+            'status_rastreador_id' => StatusRastreador::query()
+                ->where('label', 'Disponivel')
+                ->value('id'),
+        ];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function rastreadorSearchResults(string $search): array
+    {
+        $search = trim($search);
+
+        if ($search === '') {
+            return [];
+        }
+
+        return Rastreador::query()
+            ->where(function (Builder $query): void {
+                $query->whereNull('chip_id');
+
+                if ($this->editingId !== null) {
+                    $query->orWhere('chip_id', $this->editingId);
+                }
+            })
+            ->where('imei', 'like', '%'.$search.'%')
+            ->orderBy('imei')
+            ->limit(20)
+            ->pluck('imei', 'id')
+            ->all();
+    }
+
+    private function rastreadorOptionLabel(mixed $value): ?string
+    {
+        if (blank($value)) {
+            return null;
+        }
+
+        return Rastreador::query()
+            ->whereKey((int) $value)
+            ->value('imei');
     }
 }

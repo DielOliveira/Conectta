@@ -27,16 +27,25 @@
             padding: 22px;
         }
 
-        .ct-form-grid {
-            align-items: end;
+        .ct-form-stack {
             display: grid;
-            gap: 18px;
-            grid-template-columns: 1fr 1fr 1.4fr 1.8fr 1fr 1.35fr auto;
+            gap: 16px;
+            position: relative;
         }
 
         .ct-field {
             display: grid;
             gap: 6px;
+            min-width: 0;
+        }
+
+        .ct-actions {
+            bottom: 0;
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            position: absolute;
+            right: 0;
         }
 
         .ct-label {
@@ -62,11 +71,6 @@
         .ct-select:focus {
             border-color: var(--ct-primary);
             box-shadow: 0 0 0 3px var(--ct-primary-soft);
-        }
-
-        .ct-actions {
-            display: flex;
-            gap: 8px;
         }
 
         .ct-btn {
@@ -230,15 +234,18 @@
         }
 
         @media (max-width: 1100px) {
-            .ct-toolbar,
-            .ct-form-grid {
+            .ct-toolbar {
                 grid-template-columns: 1fr 1fr;
             }
+
+            .ct-actions {
+                position: static;
+            }
+
         }
 
         @media (max-width: 700px) {
-            .ct-toolbar,
-            .ct-form-grid {
+            .ct-toolbar {
                 grid-template-columns: 1fr;
             }
         }
@@ -292,57 +299,12 @@
         </div>
 
         <div class="ct-card">
-            <div class="ct-form-grid">
-                <label class="ct-field">
-                    <span class="ct-label">Fornecedor</span>
-                    <input wire:model="fornecedor" type="text" class="ct-input" />
-                    @error('fornecedor') <span class="ct-error">{{ $message }}</span> @enderror
-                </label>
-
-                <label class="ct-field">
-                    <span class="ct-label">Operadora</span>
-                    <input wire:model="operadora" type="text" class="ct-input" />
-                    @error('operadora') <span class="ct-error">{{ $message }}</span> @enderror
-                </label>
-
-                <label class="ct-field">
-                    <span class="ct-label">Numero Chip *</span>
-                    <input wire:model="numero_chip" type="text" class="ct-input" />
-                    @error('numero_chip') <span class="ct-error">{{ $message }}</span> @enderror
-                </label>
-
-                <label class="ct-field">
-                    <span class="ct-label">ICCID *</span>
-                    <input wire:model="iccid" type="text" inputmode="numeric" pattern="[0-9]{20}" maxlength="20" class="ct-input" />
-                    @error('iccid') <span class="ct-error">{{ $message }}</span> @enderror
-                </label>
-
-                <label class="ct-field">
-                    <span class="ct-label">Status Estoque</span>
-                    <select wire:model="status_rastreador_id" class="ct-select">
-                        <option value="">--</option>
-                        @foreach ($this->statusOptions() as $status)
-                            <option value="{{ $status->id }}">{{ $status->label }}</option>
-                        @endforeach
-                    </select>
-                    @error('status_rastreador_id') <span class="ct-error">{{ $message }}</span> @enderror
-                </label>
-
-                <label class="ct-field">
-                    <span class="ct-label">Tecnico</span>
-                    <select wire:model="tecnico_id" class="ct-select">
-                        <option value="">--</option>
-                        @foreach ($this->tecnicos() as $tecnico)
-                            <option value="{{ $tecnico->id }}">{{ $tecnico->nome }}</option>
-                        @endforeach
-                    </select>
-                    @error('tecnico_id') <span class="ct-error">{{ $message }}</span> @enderror
-                </label>
+            <form wire:submit.prevent="salvar" class="ct-form-stack">
+                {{ $this->form }}
 
                 <div class="ct-actions">
                     <button
-                        type="button"
-                        wire:click="salvar"
+                        type="submit"
                         class="ct-btn ct-icon-btn ct-save"
                         title="{{ $editingId ? 'Salvar' : 'Adicionar' }}"
                     >
@@ -359,7 +321,7 @@
                         </button>
                     @endif
                 </div>
-            </div>
+            </form>
         </div>
 
         <div class="ct-table-wrap">
@@ -368,6 +330,7 @@
                     <tr>
                         <th>Numero Chip</th>
                         <th>ICCID</th>
+                        <th>IMEI</th>
                         <th>Fornecedor</th>
                         <th>Operadora</th>
                         <th>Status Estoque</th>
@@ -384,6 +347,7 @@
                                 </button>
                             </td>
                             <td>{{ $chip->iccid }}</td>
+                            <td>{{ $chip->rastreador?->imei }}</td>
                             <td>{{ $chip->fornecedor }}</td>
                             <td>{{ $chip->operadora }}</td>
                             <td>{{ $chip->statusRastreador?->label }}</td>
@@ -403,7 +367,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="ct-empty">Nenhum chip encontrado.</td>
+                            <td colspan="8" class="ct-empty">Nenhum chip encontrado.</td>
                         </tr>
                     @endforelse
                 </tbody>
