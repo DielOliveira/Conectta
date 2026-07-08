@@ -84,7 +84,7 @@ class RastreadorForm
                                 ->columnSpan(6),
                             Select::make('chip_id')
                                 ->label('Numero Chip')
-                                ->relationship('chip', 'iccid')
+                                ->relationship('chip', 'numero_chip')
                                 ->searchable()
                                 ->preload()
                                 ->columnSpan(4),

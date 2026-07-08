@@ -31,7 +31,7 @@
             align-items: end;
             display: grid;
             gap: 18px;
-            grid-template-columns: 1fr 1fr 1.6fr 1fr 1.35fr auto;
+            grid-template-columns: 1fr 1fr 1.4fr 1.8fr 1fr 1.35fr auto;
         }
 
         .ct-field {
@@ -114,7 +114,7 @@
             background: #ffffff;
             border: 1px solid #d9dee7;
             border-radius: 8px;
-            overflow: hidden;
+            overflow-x: auto;
         }
 
         .ct-table {
@@ -307,7 +307,13 @@
 
                 <label class="ct-field">
                     <span class="ct-label">Numero Chip *</span>
-                    <input wire:model="iccid" type="text" class="ct-input" />
+                    <input wire:model="numero_chip" type="text" class="ct-input" />
+                    @error('numero_chip') <span class="ct-error">{{ $message }}</span> @enderror
+                </label>
+
+                <label class="ct-field">
+                    <span class="ct-label">ICCID *</span>
+                    <input wire:model="iccid" type="text" inputmode="numeric" pattern="[0-9]{20}" maxlength="20" class="ct-input" />
                     @error('iccid') <span class="ct-error">{{ $message }}</span> @enderror
                 </label>
 
@@ -361,6 +367,7 @@
                 <thead>
                     <tr>
                         <th>Numero Chip</th>
+                        <th>ICCID</th>
                         <th>Fornecedor</th>
                         <th>Operadora</th>
                         <th>Status Estoque</th>
@@ -373,9 +380,10 @@
                         <tr wire:key="chip-{{ $chip->id }}">
                             <td>
                                 <button type="button" wire:click="editar({{ $chip->id }})" class="ct-link">
-                                    {{ $chip->iccid }}
+                                    {{ $chip->numero_chip }}
                                 </button>
                             </td>
+                            <td>{{ $chip->iccid }}</td>
                             <td>{{ $chip->fornecedor }}</td>
                             <td>{{ $chip->operadora }}</td>
                             <td>{{ $chip->statusRastreador?->label }}</td>
@@ -395,7 +403,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="ct-empty">Nenhum chip encontrado.</td>
+                            <td colspan="7" class="ct-empty">Nenhum chip encontrado.</td>
                         </tr>
                     @endforelse
                 </tbody>

@@ -402,12 +402,12 @@ class BackupRestoreService
 
     private function chipId(mixed $numeroChip, mixed $instalador): ?int
     {
-        $iccid = $this->text($numeroChip, 50);
-        if (blank($iccid)) {
+        $numeroChip = $this->text($numeroChip, 50);
+        if (blank($numeroChip)) {
             return null;
         }
 
-        $existing = DB::table('chips')->where('iccid', $iccid)->value('id');
+        $existing = DB::table('chips')->where('numero_chip', $numeroChip)->value('id');
         if ($existing) {
             return (int) $existing;
         }
@@ -415,7 +415,8 @@ class BackupRestoreService
         return (int) DB::table('chips')->insertGetId([
             'fornecedor' => 'Importacao',
             'operadora' => null,
-            'iccid' => $iccid,
+            'numero_chip' => $numeroChip,
+            'iccid' => null,
             'tecnico_id' => $this->tecnicoIdPorNome($instalador),
             'status_rastreador_id' => DB::table('status_rastreadores')->where('label', 'Disponivel')->value('id') ?: null,
             'created_at' => now(),

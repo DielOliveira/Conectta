@@ -74,6 +74,8 @@ class EstoqueChips extends Page
 
     public string $operadora = '';
 
+    public string $numero_chip = '';
+
     public string $iccid = '';
 
     public ?int $tecnico_id = null;
@@ -112,18 +114,26 @@ class EstoqueChips extends Page
         $data = $this->validate([
             'fornecedor' => ['nullable', 'string', 'max:50'],
             'operadora' => ['nullable', 'string', 'max:50'],
-            'iccid' => [
+            'numero_chip' => [
                 'required',
                 'string',
                 'max:50',
+                Rule::unique('chips', 'numero_chip')->ignore($this->editingId),
+            ],
+            'iccid' => [
+                'required',
+                'regex:/^\d{20}$/',
                 Rule::unique('chips', 'iccid')->ignore($this->editingId),
             ],
             'tecnico_id' => ['nullable', 'exists:tecnicos,id'],
             'status_rastreador_id' => ['nullable', 'exists:status_rastreadores,id'],
-        ], [], [
+        ], [
+            'iccid.regex' => 'O ICCID deve conter exatamente 20 digitos.',
+        ], [
             'fornecedor' => 'fornecedor',
             'operadora' => 'operadora',
-            'iccid' => 'numero chip',
+            'numero_chip' => 'numero chip',
+            'iccid' => 'ICCID',
             'tecnico_id' => 'tecnico',
             'status_rastreador_id' => 'status estoque',
         ]);
@@ -179,6 +189,7 @@ class EstoqueChips extends Page
         $this->editingId = $chip->id;
         $this->fornecedor = (string) $chip->fornecedor;
         $this->operadora = (string) $chip->operadora;
+        $this->numero_chip = (string) $chip->numero_chip;
         $this->iccid = (string) $chip->iccid;
         $this->tecnico_id = $chip->tecnico_id;
         $this->status_rastreador_id = $chip->status_rastreador_id;
@@ -208,7 +219,7 @@ class EstoqueChips extends Page
 
     public function limparFormulario(): void
     {
-        $this->reset(['editingId', 'fornecedor', 'operadora', 'iccid', 'tecnico_id']);
+        $this->reset(['editingId', 'fornecedor', 'operadora', 'numero_chip', 'iccid', 'tecnico_id']);
         $this->status_rastreador_id = StatusRastreador::query()
             ->where('label', 'Disponivel')
             ->value('id');
@@ -251,10 +262,11 @@ class EstoqueChips extends Page
             $handle = fopen('php://output', 'w');
 
             fwrite($handle, "\xEF\xBB\xBF");
-            fputcsv($handle, ['Numero Chip', 'Fornecedor', 'Operadora', 'Status Estoque', 'Tecnico'], ';');
+            fputcsv($handle, ['Numero Chip', 'ICCID', 'Fornecedor', 'Operadora', 'Status Estoque', 'Tecnico'], ';');
 
             foreach ($chips as $chip) {
                 fputcsv($handle, [
+                    $chip->numero_chip,
                     $chip->iccid,
                     $chip->fornecedor,
                     $chip->operadora,
@@ -356,7 +368,8 @@ class EstoqueChips extends Page
 
                 $query->where(function ($query) use ($search): void {
                     $query
-                        ->where('iccid', 'like', $search)
+                        ->where('numero_chip', 'like', $search)
+                        ->orWhere('iccid', 'like', $search)
                         ->orWhere('fornecedor', 'like', $search)
                         ->orWhere('operadora', 'like', $search)
                         ->orWhereHas('statusRastreador', fn ($query): mixed => $query->where('label', 'like', $search))
@@ -365,6 +378,6 @@ class EstoqueChips extends Page
             })
             ->latest('updated_at')
             ->latest('id')
-            ->orderBy('iccid');
+            ->orderBy('numero_chip');
     }
 }
