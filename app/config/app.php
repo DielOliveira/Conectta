@@ -15,6 +15,8 @@ return [
 
     'name' => env('APP_NAME', 'Conectta'),
 
+    'version' => env('APP_VERSION', '1.0.0'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Environment
