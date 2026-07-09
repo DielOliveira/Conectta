@@ -71,8 +71,8 @@ fi
 REMOTE
 
 echo
-echo "Backups baixados localmente"
-echo "==========================="
+echo "Ultimos 2 backups baixados localmente"
+echo "====================================="
 
 if [[ ! -d "${LOCAL_BACKUP_DIR}" ]]; then
     echo "Pasta local nao encontrada: ${LOCAL_BACKUP_DIR}"
@@ -86,6 +86,7 @@ fi
 
 find "${LOCAL_BACKUP_DIR}" -type f -name '*.sql.gz' -printf '%T@ %p\n' \
     | sort -nr \
+    | head -n 2 \
     | cut -d' ' -f2- \
     | while IFS= read -r file; do
         size="$(du -h "${file}" | awk '{print $1}')"
