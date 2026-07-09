@@ -68,6 +68,56 @@ if [[ -f /var/log/conectta-db-backup.log ]]; then
 else
     echo "  log ainda nao existe"
 fi
+
+echo
+echo "Google Drive / rclone:"
+ENV_FILE="/etc/default/conectta-db-backup"
+
+if ! command -v rclone >/dev/null 2>&1; then
+    echo "  rclone nao instalado"
+elif [[ ! -f "${ENV_FILE}" ]]; then
+    echo "  rclone instalado, mas ${ENV_FILE} nao existe"
+else
+    set -a
+    # shellcheck source=/dev/null
+    source "${ENV_FILE}"
+    set +a
+
+    RCLONE_REMOTE="${RCLONE_REMOTE:-}"
+    RCLONE_DESTINATION="${RCLONE_DESTINATION:-Conectta/backups/mysql}"
+
+    if [[ -z "${RCLONE_REMOTE}" ]]; then
+        echo "  rclone instalado, mas RCLONE_REMOTE esta vazio em ${ENV_FILE}"
+    else
+        echo "  destino: ${RCLONE_REMOTE}:${RCLONE_DESTINATION}"
+
+        for dir in daily weekly; do
+            echo
+            echo "  ${dir}:"
+
+            output="$(rclone lsf "${RCLONE_REMOTE}:${RCLONE_DESTINATION}/${dir}" --files-only --format 'tsp' 2>&1)" || {
+                if grep -qi 'directory not found' <<<"${output}"; then
+                    echo "    nenhum backup encontrado"
+                else
+                    sed 's/^/    erro: /' <<<"${output}"
+                fi
+                continue
+            }
+
+            if [[ -z "${output}" ]]; then
+                echo "    nenhum backup encontrado"
+                continue
+            fi
+
+            sort -r <<<"${output}" \
+                | head -n 10 \
+                | while IFS=';' read -r date size file; do
+                    [[ -n "${file}" ]] || continue
+                    printf '    %s | %s bytes | %s\n' "${date}" "${size}" "${file}"
+                done
+        done
+    fi
+fi
 REMOTE
 
 echo
