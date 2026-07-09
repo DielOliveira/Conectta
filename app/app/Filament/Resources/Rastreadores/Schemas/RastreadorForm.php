@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Rastreadores\Schemas;
 
+use App\Models\Chip;
 use App\Models\Rastreador;
 use App\Models\StatusRastreador;
 use App\Models\Tecnico;
@@ -81,16 +82,24 @@ class RastreadorForm
 
                                     $set('tecnico_instala_id', $rastreador?->tecnico_id);
                                     $set('instalador', $rastreador?->tecnico?->nome);
-                                    $set('chip_numero', self::chipLabel($state));
+                                    $set('chip_id_form', $rastreador?->chip_id);
                                 })
                                 ->columnSpan(6),
-                            TextInput::make('chip_numero')
+                            Select::make('chip_id_form')
                                 ->label('Numero Chip')
-                                ->disabled()
-                                ->dehydrated(false)
-                                ->default(fn (?Veiculo $record): string => self::chipLabel($record?->rastreador_id))
-                                ->formatStateUsing(fn (mixed $state, ?Veiculo $record): string => filled($state) ? (string) $state : self::chipLabel($record?->rastreador_id))
-                                ->helperText(fn (Get $get): ?HtmlString => filled($get('rastreador_id')) && self::chipLabel($get('rastreador_id')) === ''
+                                ->default(fn (?Veiculo $record): ?int => self::chipId($record?->rastreador_id))
+                                ->formatStateUsing(fn (mixed $state, ?Veiculo $record): ?int => filled($state) ? (int) $state : self::chipId($record?->rastreador_id))
+                                ->searchable()
+                                ->native(false)
+                                ->searchDebounce(500)
+                                ->optionsLimit(20)
+                                ->rules(['nullable', 'exists:chips,id'])
+                                ->getSearchResultsUsing(fn (string $search): array => self::chipSearchResults($search))
+                                ->getOptionLabelUsing(fn (mixed $value): ?string => self::chipOptionLabel($value))
+                                ->placeholder('Pesquisar numero do chip')
+                                ->searchPrompt('Digite o numero do chip para pesquisar')
+                                ->noSearchResultsMessage('Nenhum chip encontrado.')
+                                ->helperText(fn (Get $get): ?HtmlString => filled($get('rastreador_id')) && blank($get('chip_id_form'))
                                     ? new HtmlString('<span class="font-medium text-warning-600 dark:text-warning-400">O rastreador selecionado nao possui chip vinculado.</span>')
                                     : null)
                                 ->columnSpan(4),
@@ -187,16 +196,67 @@ class RastreadorForm
         return (int) $statusId === (int) Veiculo::statusId('Cancelado');
     }
 
-    private static function chipLabel(mixed $rastreadorId): string
+    private static function chipId(mixed $rastreadorId): ?int
     {
         if (blank($rastreadorId)) {
-            return '';
+            return null;
         }
 
-        return (string) (Rastreador::query()
-            ->with('chip:id,numero_chip')
+        $chipId = Rastreador::query()
             ->find((int) $rastreadorId)
-            ?->chip
-            ?->numero_chip ?? '');
+            ?->chip_id;
+
+        return $chipId === null ? null : (int) $chipId;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private static function chipSearchResults(string $search): array
+    {
+        $search = trim($search);
+
+        if ($search === '') {
+            return [];
+        }
+
+        return Chip::query()
+            ->with('rastreador:id,imei,chip_id')
+            ->where(function (Builder $query) use ($search): void {
+                $query->where('numero_chip', 'like', '%'.$search.'%')
+                    ->orWhere('iccid', 'like', '%'.$search.'%')
+                    ->orWhereHas('rastreador', fn (Builder $query): Builder => $query->where('imei', 'like', '%'.$search.'%'));
+            })
+            ->orderBy('numero_chip')
+            ->limit(20)
+            ->get(['id', 'numero_chip', 'iccid'])
+            ->mapWithKeys(fn (Chip $chip): array => [
+                $chip->id => self::chipLabel($chip),
+            ])
+            ->all();
+    }
+
+    private static function chipOptionLabel(mixed $value): ?string
+    {
+        if (blank($value)) {
+            return null;
+        }
+
+        $chip = Chip::query()
+            ->with('rastreador:id,imei,chip_id')
+            ->find((int) $value);
+
+        return $chip ? self::chipLabel($chip) : null;
+    }
+
+    private static function chipLabel(Chip $chip): string
+    {
+        $label = (string) $chip->numero_chip;
+
+        if (filled($chip->iccid)) {
+            $label .= ' - '.$chip->iccid;
+        }
+
+        return $label;
     }
 }
