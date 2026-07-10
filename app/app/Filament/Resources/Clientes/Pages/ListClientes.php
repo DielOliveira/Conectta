@@ -88,13 +88,16 @@ class ListClientes extends ListRecords
 
     public function exportarCsv(): StreamedResponse
     {
-        $clientes = $this->aplicarFiltrosClientes(
+        $query = $this->aplicarFiltrosClientes(
             Cliente::query()
                 ->whereNull('data_exclusao')
                 ->with(['origem', 'statusCliente', 'vendedor'])
                 ->withCount('veiculosAtivos')
-        )
-            ->orderBy('nome')
+        );
+
+        $this->applySortingToTableQuery($query);
+
+        $clientes = $query
             ->limit(10000)
             ->get();
 

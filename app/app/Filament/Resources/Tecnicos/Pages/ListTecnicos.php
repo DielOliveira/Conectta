@@ -62,8 +62,11 @@ class ListTecnicos extends ListRecords
 
     public function exportarCsv(): StreamedResponse
     {
-        $tecnicos = $this->aplicarFiltrosTecnicos(Tecnico::query())
-            ->orderBy('nome')
+        $query = $this->aplicarFiltrosTecnicos(Tecnico::query());
+
+        $this->applySortingToTableQuery($query);
+
+        $tecnicos = $query
             ->limit(10000)
             ->get();
 

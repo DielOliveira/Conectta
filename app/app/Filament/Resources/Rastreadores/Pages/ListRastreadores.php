@@ -101,7 +101,7 @@ class ListRastreadores extends ListRecords
 
     public function exportarCsv(): StreamedResponse
     {
-        $rastreadores = $this->aplicarFiltrosRastreadores(
+        $query = $this->aplicarFiltrosRastreadores(
             Veiculo::query()
                 ->whereNull('data_exclusao')
                 ->with([
@@ -112,8 +112,11 @@ class ListRastreadores extends ListRecords
                     'tipoVeiculo',
                     'statusRastreador',
                 ])
-        )
-            ->orderByDesc('updated_at')
+        );
+
+        $this->applySortingToTableQuery($query);
+
+        $rastreadores = $query
             ->limit(10000)
             ->get();
 

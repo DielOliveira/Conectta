@@ -69,8 +69,11 @@ class ListContratos extends ListRecords
 
     public function exportarCsv(): StreamedResponse
     {
-        $contratos = $this->aplicarFiltrosContratos(Contrato::query())
-            ->orderByDesc('updated_at')
+        $query = $this->aplicarFiltrosContratos(Contrato::query());
+
+        $this->applySortingToTableQuery($query);
+
+        $contratos = $query
             ->limit(10000)
             ->get();
 
