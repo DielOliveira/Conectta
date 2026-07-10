@@ -251,12 +251,12 @@
         }
 
         .ct-fin-row-inactive td {
-            background: #fff1f2;
+            background: #fecaca;
         }
 
         .ct-fin-row-inactive .ct-fin-text-input {
-            background: #fff7f7;
-            border-color: #fecdd3;
+            background: #fee2e2;
+            border-color: #f87171;
         }
 
         .ct-fin-total-row {
