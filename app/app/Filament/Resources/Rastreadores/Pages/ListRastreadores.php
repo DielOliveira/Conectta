@@ -104,7 +104,14 @@ class ListRastreadores extends ListRecords
         $rastreadores = $this->aplicarFiltrosRastreadores(
             Veiculo::query()
                 ->whereNull('data_exclusao')
-                ->with(['cliente', 'rastreador', 'tipoVeiculo', 'statusRastreador'])
+                ->with([
+                    'cliente.vendedor',
+                    'rastreador.chip',
+                    'tecnicoInstala',
+                    'tecnicoRemocao',
+                    'tipoVeiculo',
+                    'statusRastreador',
+                ])
         )
             ->orderByDesc('updated_at')
             ->limit(10000)
@@ -115,17 +122,46 @@ class ListRastreadores extends ListRecords
         return response()->streamDownload(function () use ($rastreadores): void {
             $handle = fopen('php://output', 'w');
             fwrite($handle, "\xEF\xBB\xBF");
-            fputcsv($handle, ['Rastreador', 'Cliente', 'Veiculo', 'Tipo', 'Placa', 'Status', 'Instalacao', 'Remocao'], ';');
+            fputcsv($handle, [
+                'Data De Instalacao',
+                'Nome',
+                'Veiculo',
+                'Placa',
+                'Cor',
+                'Ano',
+                'Imei',
+                'Chip',
+                'Status',
+                'Login',
+                'Senha',
+                'Instalador',
+                'Tecnico Remocao',
+                'Vendedor',
+                'Valor Instalacao',
+                'Tipo De Veiculo',
+                'Observacao',
+                'Data Retirada',
+            ], ';');
 
             foreach ($rastreadores as $rastreador) {
                 fputcsv($handle, [
-                    $rastreador->rastreador?->imei,
+                    $rastreador->data_instalacao?->format('d/m/Y'),
                     $rastreador->cliente?->nome,
                     $rastreador->veiculo,
-                    $rastreador->tipoVeiculo?->label,
                     $rastreador->placa,
+                    $rastreador->cor,
+                    $rastreador->ano,
+                    $this->textoCsvExcel($rastreador->rastreador?->imei),
+                    $rastreador->rastreador?->chip?->numero_chip,
                     $rastreador->statusRastreador?->label,
-                    $rastreador->data_instalacao?->format('d/m/Y'),
+                    $rastreador->login,
+                    $rastreador->senha,
+                    $rastreador->tecnicoInstala?->nome ?? $rastreador->instalador,
+                    $rastreador->tecnicoRemocao?->nome ?? $rastreador->tecnico_remocao,
+                    $rastreador->cliente?->vendedor?->nome,
+                    $rastreador->valor_instalacao,
+                    $rastreador->tipoVeiculo?->label,
+                    $rastreador->observacao,
                     $rastreador->data_retirada?->format('d/m/Y'),
                 ], ';');
             }
@@ -148,6 +184,17 @@ class ListRastreadores extends ListRecords
                 ->label('Adicionar')
                 ->visible(fn (): bool => auth()->user()?->hasPermission(Permission::CADASTRO_ESCRITA) ?? false),
         ];
+    }
+
+    private function textoCsvExcel(mixed $valor): ?string
+    {
+        if (blank($valor)) {
+            return null;
+        }
+
+        $valor = str_replace('"', '""', (string) $valor);
+
+        return '="'.$valor.'"';
     }
 
     private function sincronizarBuscaCompartilhada(string $busca): void
