@@ -52,7 +52,6 @@ class PainelControleAtalhos extends Widget
 
         if ($user?->hasPermission(Permission::TECNICO)) {
             $links[] = ['label' => 'Integracoes', 'url' => '/admin/integracoes'];
-            $links[] = ['label' => 'Restore backup', 'url' => '/admin/restore-backup'];
         }
 
         if ($user?->hasPermission(Permission::COORDENADOR)) {
