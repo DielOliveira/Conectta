@@ -43,6 +43,33 @@ class FinanceiroLancamentoModalTest extends TestCase
         $this->assertNull($lancamento->valor_efetivado);
     }
 
+    public function test_does_not_require_lancamento_date_when_valor_efetivado_is_zero(): void
+    {
+        $cliente = $this->cliente('Cliente Zero', '39053344705');
+
+        $this->actingAs(User::query()->create([
+            'name' => 'Admin',
+            'email' => 'admin-zero@example.com',
+            'password' => 'password',
+            'is_admin' => true,
+        ]));
+
+        Livewire::test(Financeiro::class)
+            ->set('modalClienteId', $cliente->id)
+            ->set('modalMes', 7)
+            ->set('modalAno', 2026)
+            ->set('modalDataLancamento', '')
+            ->set('modalValorPlanejado', '150,00')
+            ->set('modalValorEfetivado', '0,00')
+            ->call('salvarLancamentoModal')
+            ->assertHasNoErrors();
+
+        $lancamento = Lancamento::query()->sole();
+
+        $this->assertNull($lancamento->data_lancamento);
+        $this->assertSame('0.00', $lancamento->valor_efetivado);
+    }
+
     public function test_persists_lancamento_date_when_valor_efetivado_is_filled(): void
     {
         $cliente = $this->cliente('Cliente Pago', '04252011000110');
