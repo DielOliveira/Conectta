@@ -560,8 +560,10 @@ class Financeiro extends Page
             return;
         }
 
+        $valorEfetivado = $this->valorDecimal($this->modalValorEfetivado);
+
         $this->validate([
-            'modalDataLancamento' => ['required', 'date'],
+            'modalDataLancamento' => $valorEfetivado === null ? ['nullable', 'date'] : ['required', 'date'],
             'modalNumeroBoleto' => ['nullable', 'string', 'max:500'],
             'modalValorPlanejado' => ['nullable', 'string', 'max:50'],
             'modalValorEfetivado' => ['nullable', 'string', 'max:50'],
@@ -586,12 +588,12 @@ class Financeiro extends Page
             ['id' => $this->modalLancamentoId],
             [
                 'cliente_id' => $this->modalClienteId,
-                'data_lancamento' => $this->modalDataLancamento,
+                'data_lancamento' => $valorEfetivado === null ? null : $this->modalDataLancamento,
                 'numero_boleto' => blank($this->modalNumeroBoleto) ? null : $this->modalNumeroBoleto,
                 'ano_referencia' => $this->modalAno,
                 'mes_referencia' => $this->modalMes,
                 'valor_planejado' => $this->valorDecimal($this->modalValorPlanejado),
-                'valor_efetivado' => $this->valorDecimal($this->modalValorEfetivado),
+                'valor_efetivado' => $valorEfetivado,
                 'observacao' => blank($this->modalObservacao) ? null : $this->modalObservacao,
                 'time_stamp' => now(),
             ],
