@@ -564,7 +564,7 @@ class Financeiro extends Page
         $temValorEfetivado = $valorEfetivado !== null && (float) $valorEfetivado > 0;
 
         $this->validate([
-            'modalDataLancamento' => $temValorEfetivado ? ['required', 'date'] : ['nullable', 'date'],
+            'modalDataLancamento' => ['nullable', 'date'],
             'modalNumeroBoleto' => ['nullable', 'string', 'max:500'],
             'modalValorPlanejado' => ['nullable', 'string', 'max:50'],
             'modalValorEfetivado' => ['nullable', 'string', 'max:50'],
@@ -589,7 +589,9 @@ class Financeiro extends Page
             ['id' => $this->modalLancamentoId],
             [
                 'cliente_id' => $this->modalClienteId,
-                'data_lancamento' => $temValorEfetivado ? $this->modalDataLancamento : null,
+                'data_lancamento' => $temValorEfetivado
+                    ? ($this->modalDataLancamento ?: now()->toDateString())
+                    : null,
                 'numero_boleto' => blank($this->modalNumeroBoleto) ? null : $this->modalNumeroBoleto,
                 'ano_referencia' => $this->modalAno,
                 'mes_referencia' => $this->modalMes,
