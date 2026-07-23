@@ -170,6 +170,56 @@
             width: 16px;
         }
 
+        .ct-row-actions {
+            align-items: center;
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+            white-space: nowrap;
+        }
+
+        .ct-add-chip {
+            align-items: center;
+            background: transparent;
+            border: 0;
+            border-radius: 6px;
+            color: #15803d;
+            cursor: pointer;
+            display: inline-flex;
+            gap: 4px;
+            font-weight: 700;
+            padding: 6px 8px;
+        }
+
+        .ct-add-chip:hover {
+            background: #f0fdf4;
+            color: #166534;
+        }
+
+        .ct-add-chip svg,
+        .ct-remove-chip svg {
+            height: 17px;
+            width: 17px;
+        }
+
+        .ct-remove-chip {
+            align-items: center;
+            background: transparent;
+            border: 0;
+            border-radius: 6px;
+            color: #dc2626;
+            cursor: pointer;
+            display: inline-flex;
+            gap: 4px;
+            font-weight: 700;
+            padding: 6px 8px;
+        }
+
+        .ct-remove-chip:hover {
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+
         .ct-error {
             color: #dc2626;
             font-size: 12px;
@@ -361,6 +411,7 @@
                 <thead>
                     <tr>
                         <th>Modelo</th>
+                        <th>Numero Chip</th>
                         <th>IMEI</th>
                         <th>Ativacao</th>
                         <th>Status Estoque</th>
@@ -376,26 +427,51 @@
                                     {{ $rastreador->modelo }}
                                 </button>
                             </td>
+                            <td>{{ $rastreador->chip?->numero_chip ?: '-' }}</td>
                             <td>{{ $rastreador->imei }}</td>
                             <td>{{ $rastreador->ativacao }}</td>
                             <td>{{ $rastreador->statusRastreador?->label }}</td>
                             <td>{{ $rastreador->tecnico?->nome }}</td>
                             <td>
-                                <button
-                                    type="button"
-                                    wire:click="mountAction('confirmarExclusao', { id: {{ $rastreador->id }} })"
-                                    class="ct-delete"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" aria-hidden="true">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673A2.25 2.25 0 0 1 15.916 21H8.084a2.25 2.25 0 0 1-2.244-1.327L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916A2.25 2.25 0 0 0 13.5 2.25h-3A2.25 2.25 0 0 0 8.25 4.5v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                                    </svg>
-                                    <span>Excluir</span>
-                                </button>
+                                <div class="ct-row-actions">
+                                    @if (! $rastreador->chip_id && auth()->user()?->hasPermission(\App\Models\Permission::ESTOQUE_ESCRITA))
+                                        <button
+                                            type="button"
+                                            wire:click="mountAction('adicionarChip', { id: {{ $rastreador->id }} })"
+                                            class="ct-add-chip"
+                                            title="Adicionar chip"
+                                        >
+                                            <x-filament::icon icon="heroicon-m-plus" />
+                                            <span>Chip</span>
+                                        </button>
+                                    @elseif ($rastreador->chip_id && auth()->user()?->hasPermission(\App\Models\Permission::ESTOQUE_ESCRITA))
+                                        <button
+                                            type="button"
+                                            wire:click="mountAction('removerChip', { id: {{ $rastreador->id }} })"
+                                            class="ct-remove-chip"
+                                            title="Remover chip"
+                                        >
+                                            <x-filament::icon icon="heroicon-m-minus" />
+                                            <span>Chip</span>
+                                        </button>
+                                    @endif
+
+                                    <button
+                                        type="button"
+                                        wire:click="mountAction('confirmarExclusao', { id: {{ $rastreador->id }} })"
+                                        class="ct-delete"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673A2.25 2.25 0 0 1 15.916 21H8.084a2.25 2.25 0 0 1-2.244-1.327L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916A2.25 2.25 0 0 0 13.5 2.25h-3A2.25 2.25 0 0 0 8.25 4.5v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                        </svg>
+                                        <span>Excluir</span>
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="ct-empty">Nenhum rastreador encontrado.</td>
+                            <td colspan="7" class="ct-empty">Nenhum rastreador encontrado.</td>
                         </tr>
                     @endforelse
                 </tbody>

@@ -2,17 +2,21 @@
 
 namespace App\Filament\Pages;
 
+use App\Models\Chip;
 use App\Models\Permission;
 use App\Models\Rastreador;
 use App\Models\StatusRastreador;
 use App\Models\Tecnico;
 use App\Services\Audit\AuditLogger;
 use Filament\Actions\Action;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Grid;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use UnitEnum;
@@ -66,6 +70,153 @@ class EstoqueRastreadores extends Page
             ->requiresConfirmation()
             ->modalDescription('Deseja excluir este rastreador?')
             ->action(fn (array $arguments): mixed => $this->excluir((int) $arguments['id']));
+    }
+
+    public function adicionarChipAction(): Action
+    {
+        return Action::make('adicionarChip')
+            ->label('Adicionar chip')
+            ->icon(Heroicon::Plus)
+            ->modalHeading('Adicionar chip ao rastreador')
+            ->modalSubmitActionLabel('Adicionar chip')
+            ->fillForm(function (array $arguments): array {
+                $rastreador = Rastreador::query()->findOrFail((int) $arguments['id']);
+
+                return [
+                    'fornecedor' => '',
+                    'operadora' => '',
+                    'numero_chip' => '',
+                    'iccid' => '',
+                    'imei' => $rastreador->imei,
+                ];
+            })
+            ->schema([
+                Grid::make(2)->schema([
+                    TextInput::make('fornecedor')
+                        ->label('Fornecedor')
+                        ->maxLength(50),
+                    TextInput::make('operadora')
+                        ->label('Operadora')
+                        ->maxLength(50),
+                    TextInput::make('numero_chip')
+                        ->label('Numero Chip')
+                        ->required()
+                        ->maxLength(50)
+                        ->rules(fn (): array => [Rule::unique('chips', 'numero_chip')]),
+                    TextInput::make('iccid')
+                        ->label('ICCID')
+                        ->required()
+                        ->regex('/^\d{20}$/')
+                        ->validationMessages([
+                            'regex' => 'O ICCID deve conter exatamente 20 digitos.',
+                        ])
+                        ->rules(fn (): array => [Rule::unique('chips', 'iccid')])
+                        ->maxLength(20)
+                        ->extraInputAttributes([
+                            'inputmode' => 'numeric',
+                            'pattern' => '[0-9]{20}',
+                        ]),
+                    TextInput::make('imei')
+                        ->label('IMEI')
+                        ->disabled()
+                        ->dehydrated(false),
+                ]),
+            ])
+            ->action(function (array $data, array $arguments): void {
+                if (! auth()->user()?->hasPermission(Permission::ESTOQUE_ESCRITA)) {
+                    Notification::make()->title('Voce nao tem permissao para esta acao.')->danger()->send();
+
+                    return;
+                }
+
+                $chip = DB::transaction(function () use ($data, $arguments): ?Chip {
+                    $rastreador = Rastreador::query()
+                        ->lockForUpdate()
+                        ->findOrFail((int) $arguments['id']);
+
+                    if ($rastreador->chip_id !== null) {
+                        return null;
+                    }
+
+                    $data['tecnico_id'] = $rastreador->tecnico_id;
+                    $data['status_rastreador_id'] = $rastreador->status_rastreador_id;
+                    $chip = Chip::query()->create($data);
+                    $rastreador->update(['chip_id' => $chip->id]);
+
+                    AuditLogger::registrar(
+                        'chip.criado',
+                        'Chip incluido no estoque e vinculado ao rastreador.',
+                        $chip,
+                        depois: AuditLogger::snapshot($chip),
+                        contexto: [
+                            'rastreador_id' => $rastreador->id,
+                            'imei' => $rastreador->imei,
+                        ],
+                    );
+
+                    return $chip;
+                });
+
+                if ($chip === null) {
+                    Notification::make()
+                        ->title('Este rastreador ja possui um chip vinculado.')
+                        ->danger()
+                        ->send();
+
+                    return;
+                }
+
+                Notification::make()
+                    ->title('Chip adicionado e vinculado ao rastreador.')
+                    ->success()
+                    ->send();
+            });
+    }
+
+    public function removerChipAction(): Action
+    {
+        return Action::make('removerChip')
+            ->label('Remover chip')
+            ->color('danger')
+            ->requiresConfirmation()
+            ->modalHeading('Remover chip do rastreador')
+            ->modalDescription('Deseja desvincular este chip do rastreador? O chip continuara cadastrado no estoque.')
+            ->modalSubmitActionLabel('Remover chip')
+            ->action(function (array $arguments): void {
+                if (! auth()->user()?->hasPermission(Permission::ESTOQUE_ESCRITA)) {
+                    Notification::make()->title('Voce nao tem permissao para esta acao.')->danger()->send();
+
+                    return;
+                }
+
+                $removido = DB::transaction(function () use ($arguments): bool {
+                    $rastreador = Rastreador::query()
+                        ->lockForUpdate()
+                        ->findOrFail((int) $arguments['id']);
+
+                    if ($rastreador->chip_id === null) {
+                        return false;
+                    }
+
+                    $antes = AuditLogger::snapshot($rastreador);
+                    $rastreador->update(['chip_id' => null]);
+
+                    AuditLogger::registrar(
+                        'rastreador.editado',
+                        'Chip desvinculado do rastreador no estoque.',
+                        $rastreador,
+                        antes: $antes,
+                        depois: AuditLogger::snapshot($rastreador->refresh()),
+                    );
+
+                    return true;
+                });
+
+                Notification::make()
+                    ->title($removido ? 'Chip removido do rastreador.' : 'Este rastreador nao possui chip vinculado.')
+                    ->color($removido ? 'success' : 'warning')
+                    ->send();
+            });
     }
 
     public ?int $editingId = null;
@@ -138,7 +289,33 @@ class EstoqueRastreadores extends Page
             $rastreador = Rastreador::query()->findOrFail($this->editingId);
             $antes = AuditLogger::snapshot($rastreador);
             $rastreador->update($data);
+            $tecnicoAlterado = $rastreador->wasChanged('tecnico_id');
+            $statusAlterado = $rastreador->wasChanged('status_rastreador_id');
             $rastreador->refresh();
+
+            if (($tecnicoAlterado || $statusAlterado) && $rastreador->chip_id !== null) {
+                $chip = Chip::query()->find($rastreador->chip_id);
+
+                if ($chip !== null && ($chip->tecnico_id !== $rastreador->tecnico_id || $chip->status_rastreador_id !== $rastreador->status_rastreador_id)) {
+                    $chipAntes = AuditLogger::snapshot($chip);
+                    $chip->update([
+                        'tecnico_id' => $rastreador->tecnico_id,
+                        'status_rastreador_id' => $rastreador->status_rastreador_id,
+                    ]);
+
+                    AuditLogger::registrar(
+                        'chip.editado',
+                        'Tecnico e status do chip sincronizados com o rastreador vinculado.',
+                        $chip,
+                        antes: $chipAntes,
+                        depois: AuditLogger::snapshot($chip->refresh()),
+                        contexto: [
+                            'rastreador_id' => $rastreador->id,
+                            'imei' => $rastreador->imei,
+                        ],
+                    );
+                }
+            }
 
             AuditLogger::registrar(
                 'rastreador.editado',
@@ -257,11 +434,13 @@ class EstoqueRastreadores extends Page
             $handle = fopen('php://output', 'w');
 
             fwrite($handle, "\xEF\xBB\xBF");
-            fputcsv($handle, ['Modelo', 'IMEI', 'Ativacao', 'Status Estoque', 'Tecnico'], ';');
+            fputcsv($handle, ['Modelo', 'Numero Chip', 'ICCID', 'IMEI', 'Ativacao', 'Status Estoque', 'Tecnico'], ';');
 
             foreach ($rastreadores as $rastreador) {
                 fputcsv($handle, [
                     $rastreador->modelo,
+                    $rastreador->chip?->numero_chip,
+                    $rastreador->chip?->iccid,
                     $rastreador->imei,
                     $rastreador->ativacao,
                     $rastreador->statusRastreador?->label,
@@ -354,7 +533,7 @@ class EstoqueRastreadores extends Page
     private function rastreadoresQuery(): Builder
     {
         return Rastreador::query()
-            ->with(['statusRastreador', 'tecnico'])
+            ->with(['chip', 'statusRastreador', 'tecnico'])
             ->when($this->filtroTecnicoId, fn ($query): mixed => $query->where('tecnico_id', $this->filtroTecnicoId))
             ->when($this->filtroStatusId, fn ($query): mixed => $query->where('status_rastreador_id', $this->filtroStatusId))
             ->when($this->search !== '', function ($query): void {
@@ -365,6 +544,11 @@ class EstoqueRastreadores extends Page
                         ->where('modelo', 'like', $search)
                         ->orWhere('imei', 'like', $search)
                         ->orWhere('ativacao', 'like', $search)
+                        ->orWhereHas('chip', function (Builder $query) use ($search): void {
+                            $query
+                                ->where('numero_chip', 'like', $search)
+                                ->orWhere('iccid', 'like', $search);
+                        })
                         ->orWhereHas('tecnico', fn ($query): mixed => $query->where('nome', 'like', $search));
                 });
             })
