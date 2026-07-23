@@ -5,7 +5,6 @@ namespace App\Filament\Resources\Rastreadores\Schemas;
 use App\Models\Chip;
 use App\Models\Rastreador;
 use App\Models\StatusRastreador;
-use App\Models\Tecnico;
 use App\Models\Veiculo;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
@@ -174,19 +173,21 @@ class RastreadorForm
 
         return Rastreador::query()
             ->with('tecnico')
-            ->when($disponivelId !== null, function (Builder $query) use ($disponivelId, $record): void {
-                $query->where(function (Builder $query) use ($disponivelId, $record): void {
+            ->where(function (Builder $query) use ($disponivelId, $record): void {
+                if ($disponivelId !== null) {
                     $query->where('status_rastreador_id', $disponivelId);
+                } else {
+                    $query->whereRaw('1 = 0');
+                }
 
-                    if ($record?->rastreador_id !== null) {
-                        $query->orWhere('id', $record->rastreador_id);
-                    }
-                });
+                if ($record?->rastreador_id !== null) {
+                    $query->orWhere('id', $record->rastreador_id);
+                }
             })
             ->orderBy('imei')
             ->get()
             ->mapWithKeys(fn (Rastreador $rastreador): array => [
-                $rastreador->id => $rastreador->imei . ' (' . ($rastreador->tecnico?->nome ?? 'Sem tecnico') . ')',
+                $rastreador->id => $rastreador->imei.' ('.($rastreador->tecnico?->nome ?? 'Sem tecnico').')',
             ])
             ->all();
     }

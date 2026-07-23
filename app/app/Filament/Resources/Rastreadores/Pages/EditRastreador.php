@@ -28,11 +28,7 @@ class EditRastreador extends EditRecord
 
     public ?string $transferenciaChipDescricao = null;
 
-    public bool $transferenciaRastreadorConfirmada = false;
-
-    public ?string $transferenciaRastreadorDescricao = null;
-
-    public bool $manterHistoricoRastreador = false;
+    public ?string $rastreadorIndisponivelDescricao = null;
 
     protected function getRedirectUrl(): string
     {
@@ -94,18 +90,10 @@ class EditRastreador extends EditRecord
 
         $rastreadorId = filled($data['rastreador_id'] ?? null) ? (int) $data['rastreador_id'] : null;
 
-        if (! $this->transferenciaRastreadorConfirmada && $this->rastreadorSelecionadoEstaEmOutroVeiculoAtivo($rastreadorId)) {
-            $this->transferenciaRastreadorDescricao = $this->descricaoConfirmacaoRastreador($rastreadorId);
-            $this->mountAction('confirmarTransferenciaRastreador');
+        if ($this->rastreadorSelecionadoEstaEmOutroVeiculoAtivo($rastreadorId)) {
+            $this->rastreadorIndisponivelDescricao = $this->descricaoRastreadorIndisponivel($rastreadorId);
+            $this->mountAction('rastreadorIndisponivel');
             $this->halt();
-        }
-
-        if ($this->transferenciaRastreadorConfirmada) {
-            if ($this->manterHistoricoRastreador) {
-                $this->desativarVinculoAnteriorDoRastreador($rastreadorId);
-            } else {
-                $this->desvincularRastreadorDeOutrosVeiculosAtivos($rastreadorId);
-            }
         }
 
         if (! $this->transferenciaChipConfirmada && $this->chipSelecionadoEstaEmOutroRastreador($this->chipIdSelecionado, filled($data['rastreador_id'] ?? null) ? (int) $data['rastreador_id'] : null)) {
@@ -117,25 +105,13 @@ class EditRastreador extends EditRecord
         return $data;
     }
 
-    public function confirmarTransferenciaRastreadorAction(): Action
+    public function rastreadorIndisponivelAction(): Action
     {
-        return Action::make('confirmarTransferenciaRastreador')
-            ->requiresConfirmation()
-            ->modalHeading('IMEI ja vinculado')
-            ->modalDescription(fn (): string => $this->transferenciaRastreadorDescricao ?? 'Este IMEI ja esta vinculado a outro veiculo ativo. Deseja transferi-lo para este veiculo?')
-            ->modalSubmitActionLabel('Sim, transferir IMEI e chip')
-            ->extraModalFooterActions(fn (Action $action): array => [
-                $action->makeModalSubmitAction('manterHistorico', arguments: ['manterHistorico' => true])
-                    ->label('Desativar vinculo antigo e manter historico')
-                    ->color('warning'),
-            ])
-            ->action(function (array $arguments): void {
-                $this->transferenciaRastreadorConfirmada = true;
-                $this->manterHistoricoRastreador = (bool) ($arguments['manterHistorico'] ?? false);
-                $this->save();
-                $this->transferenciaRastreadorConfirmada = false;
-                $this->manterHistoricoRastreador = false;
-            });
+        return Action::make('rastreadorIndisponivel')
+            ->modalHeading('IMEI indisponivel')
+            ->modalDescription(fn (): string => $this->rastreadorIndisponivelDescricao ?? 'Este IMEI esta ativo em outro veiculo e nao pode ser utilizado neste cadastro.')
+            ->modalSubmitAction(false)
+            ->modalCancelActionLabel('Entendi');
     }
 
     public function confirmarTransferenciaChipAction(): Action
@@ -239,7 +215,7 @@ class EditRastreador extends EditRecord
         return $this->outrosVeiculosAtivosComRastreador($rastreadorId)->exists();
     }
 
-    private function descricaoConfirmacaoRastreador(?int $rastreadorId): string
+    private function descricaoRastreadorIndisponivel(?int $rastreadorId): string
     {
         $veiculo = $rastreadorId === null
             ? null
@@ -248,41 +224,13 @@ class EditRastreador extends EditRecord
                 ->first();
 
         if ($veiculo === null) {
-            return 'Este IMEI ja esta vinculado a outro veiculo ativo. Voce pode transferi-lo removendo o vinculo anterior ou desativar o vinculo anterior para manter o historico.';
+            return 'Este IMEI esta ativo em outro veiculo e nao pode ser utilizado neste cadastro. Cancele primeiro o vinculo anterior para tornar o rastreador disponivel.';
         }
 
         $identificacao = trim($veiculo->veiculo.' / '.$veiculo->placa, ' /');
         $cliente = $veiculo->cliente?->nome ?? 'cliente nao informado';
 
-        return "Este IMEI esta vinculado ao veiculo {$identificacao} (cadastro #{$veiculo->id}), do cliente {$cliente}. Voce pode transferi-lo removendo o vinculo anterior ou desativar o vinculo anterior para manter o historico.";
-    }
-
-    private function desvincularRastreadorDeOutrosVeiculosAtivos(?int $rastreadorId): void
-    {
-        if ($rastreadorId === null) {
-            return;
-        }
-
-        $this->outrosVeiculosAtivosComRastreador($rastreadorId)
-            ->get()
-            ->each(fn (Veiculo $veiculo): bool => $veiculo->update(['rastreador_id' => null]));
-    }
-
-    private function desativarVinculoAnteriorDoRastreador(?int $rastreadorId): void
-    {
-        if ($rastreadorId === null) {
-            return;
-        }
-
-        $tecnicoId = Rastreador::query()->whereKey($rastreadorId)->value('tecnico_id');
-
-        $this->outrosVeiculosAtivosComRastreador($rastreadorId)
-            ->get()
-            ->each(fn (Veiculo $veiculo): bool => $veiculo->update([
-                'status_rastreador_id' => Veiculo::statusId('Cancelado'),
-                'data_retirada' => now()->toDateString(),
-                'tecnico_remocao_id' => $veiculo->tecnico_instala_id ?? $tecnicoId,
-            ]));
+        return "O IMEI esta ativo no veiculo {$identificacao} (cadastro #{$veiculo->id}), do cliente {$cliente}, e nao pode ser utilizado neste cadastro. Cancele primeiro o vinculo anterior para tornar o rastreador disponivel.";
     }
 
     private function outrosVeiculosAtivosComRastreador(int $rastreadorId)

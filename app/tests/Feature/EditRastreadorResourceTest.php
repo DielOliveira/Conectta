@@ -23,7 +23,7 @@ class EditRastreadorResourceTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_imei_can_keep_inactive_previous_link_when_confirming_transfer(): void
+    public function test_imei_linked_to_another_active_vehicle_is_blocked_with_an_informative_modal(): void
     {
         $this->seed(ClienteSupportSeeder::class);
         $this->seed(RastreadorSupportSeeder::class);
@@ -54,30 +54,21 @@ class EditRastreadorResourceTest extends TestCase
             'placa' => 'NOV-2H00',
         ]);
 
-        $component = Livewire::test(EditRastreador::class, ['record' => $veiculoNovo->getRouteKey()])
+        Livewire::test(EditRastreador::class, ['record' => $veiculoNovo->getRouteKey()])
             ->set('data.rastreador_id', $rastreador->id)
             ->assertSet('data.chip_id_form', $chip->id)
             ->call('save')
             ->assertSet(
-                'transferenciaRastreadorDescricao',
+                'rastreadorIndisponivelDescricao',
                 fn (?string $descricao): bool => str_contains((string) $descricao, 'Honda / Civic')
-                    && str_contains((string) $descricao, 'Cliente Anterior'),
-            );
+                    && str_contains((string) $descricao, 'Cliente Anterior')
+                    && str_contains((string) $descricao, 'Cancele primeiro'),
+            )
+            ->assertActionMounted('rastreadorIndisponivel');
 
         $this->assertSame($rastreador->id, $veiculoAnterior->refresh()->rastreador_id);
         $this->assertNull($veiculoNovo->refresh()->rastreador_id);
-
-        $component
-            ->callMountedAction(['manterHistorico' => true])
-            ->assertHasNoErrors();
-
-        $this->assertSame($rastreador->id, $veiculoAnterior->refresh()->rastreador_id);
-        $this->assertSame('Cancelado', $veiculoAnterior->statusRastreador->label);
-        $this->assertNotNull($veiculoAnterior->data_retirada);
-        $this->assertNotNull($veiculoAnterior->tecnico_remocao_id);
-        $this->assertSame($rastreador->id, $veiculoNovo->refresh()->rastreador_id);
         $this->assertSame($chip->id, $rastreador->refresh()->chip_id);
-        $this->assertSame('Ativo', $veiculoNovo->statusRastreador->label);
     }
 
     private function cliente(string $nome, string $cpfCnpj): Cliente
