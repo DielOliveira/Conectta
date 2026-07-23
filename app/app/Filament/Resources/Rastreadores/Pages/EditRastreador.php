@@ -7,6 +7,7 @@ use App\Models\Chip;
 use App\Models\Permission;
 use App\Models\Rastreador;
 use App\Models\StatusRastreador;
+use App\Models\Veiculo;
 use App\Services\Audit\AuditLogger;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
@@ -26,6 +27,10 @@ class EditRastreador extends EditRecord
     public bool $transferenciaChipConfirmada = false;
 
     public ?string $transferenciaChipDescricao = null;
+
+    public bool $transferenciaRastreadorConfirmada = false;
+
+    public ?string $transferenciaRastreadorDescricao = null;
 
     protected function getRedirectUrl(): string
     {
@@ -85,6 +90,18 @@ class EditRastreador extends EditRecord
             ]);
         }
 
+        $rastreadorId = filled($data['rastreador_id'] ?? null) ? (int) $data['rastreador_id'] : null;
+
+        if (! $this->transferenciaRastreadorConfirmada && $this->rastreadorSelecionadoEstaEmOutroVeiculoAtivo($rastreadorId)) {
+            $this->transferenciaRastreadorDescricao = $this->descricaoConfirmacaoRastreador($rastreadorId);
+            $this->mountAction('confirmarTransferenciaRastreador');
+            $this->halt();
+        }
+
+        if ($this->transferenciaRastreadorConfirmada) {
+            $this->desvincularRastreadorDeOutrosVeiculosAtivos($rastreadorId);
+        }
+
         if (! $this->transferenciaChipConfirmada && $this->chipSelecionadoEstaEmOutroRastreador($this->chipIdSelecionado, filled($data['rastreador_id'] ?? null) ? (int) $data['rastreador_id'] : null)) {
             $this->transferenciaChipDescricao = $this->descricaoConfirmacaoChip($this->chipIdSelecionado, (int) $data['rastreador_id']);
             $this->mountAction('confirmarTransferenciaChip');
@@ -92,6 +109,20 @@ class EditRastreador extends EditRecord
         }
 
         return $data;
+    }
+
+    public function confirmarTransferenciaRastreadorAction(): Action
+    {
+        return Action::make('confirmarTransferenciaRastreador')
+            ->requiresConfirmation()
+            ->modalHeading('IMEI ja vinculado')
+            ->modalDescription(fn (): string => $this->transferenciaRastreadorDescricao ?? 'Este IMEI ja esta vinculado a outro veiculo ativo. Deseja transferi-lo para este veiculo?')
+            ->modalSubmitActionLabel('Sim, transferir IMEI e chip')
+            ->action(function (): void {
+                $this->transferenciaRastreadorConfirmada = true;
+                $this->save();
+                $this->transferenciaRastreadorConfirmada = false;
+            });
     }
 
     public function confirmarTransferenciaChipAction(): Action
@@ -184,6 +215,53 @@ class EditRastreador extends EditRecord
             ->where('chip_id', $chipId)
             ->where('id', '!=', $rastreadorId)
             ->exists();
+    }
+
+    private function rastreadorSelecionadoEstaEmOutroVeiculoAtivo(?int $rastreadorId): bool
+    {
+        if ($rastreadorId === null) {
+            return false;
+        }
+
+        return $this->outrosVeiculosAtivosComRastreador($rastreadorId)->exists();
+    }
+
+    private function descricaoConfirmacaoRastreador(?int $rastreadorId): string
+    {
+        $veiculo = $rastreadorId === null
+            ? null
+            : $this->outrosVeiculosAtivosComRastreador($rastreadorId)
+                ->with('cliente:id,nome')
+                ->first();
+
+        if ($veiculo === null) {
+            return 'Este IMEI ja esta vinculado a outro veiculo ativo. Deseja transferi-lo para este veiculo?';
+        }
+
+        $identificacao = trim($veiculo->veiculo.' / '.$veiculo->placa, ' /');
+        $cliente = $veiculo->cliente?->nome ?? 'cliente nao informado';
+
+        return "Este IMEI esta vinculado ao veiculo {$identificacao} (cadastro #{$veiculo->id}), do cliente {$cliente}. Deseja transferir o IMEI e o chip para este veiculo?";
+    }
+
+    private function desvincularRastreadorDeOutrosVeiculosAtivos(?int $rastreadorId): void
+    {
+        if ($rastreadorId === null) {
+            return;
+        }
+
+        $this->outrosVeiculosAtivosComRastreador($rastreadorId)
+            ->get()
+            ->each(fn (Veiculo $veiculo): bool => $veiculo->update(['rastreador_id' => null]));
+    }
+
+    private function outrosVeiculosAtivosComRastreador(int $rastreadorId)
+    {
+        return Veiculo::query()
+            ->whereKeyNot($this->record->getKey())
+            ->where('rastreador_id', $rastreadorId)
+            ->whereNull('data_exclusao')
+            ->where('status_rastreador_id', Veiculo::statusId('Ativo'));
     }
 
     private function descricaoConfirmacaoChip(?int $chipId = null, ?int $rastreadorId = null): string
