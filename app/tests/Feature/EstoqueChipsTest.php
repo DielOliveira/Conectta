@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Filament\Pages\EstoqueChips;
 use App\Models\Chip;
+use App\Models\Fornecedor;
 use App\Models\Operadora;
 use App\Models\Rastreador;
 use App\Models\StatusRastreador;
@@ -30,6 +31,14 @@ class EstoqueChipsTest extends TestCase
             6 => 'TIM',
             7 => 'VIVO',
         ], Operadora::query()->orderBy('id')->pluck('nome', 'id')->all());
+    }
+
+    public function test_fornecedor_ids_are_stable(): void
+    {
+        $this->assertSame([
+            1 => 'HINOVA',
+            2 => 'TRANSMEET',
+        ], Fornecedor::query()->orderBy('id')->pluck('nome', 'id')->all());
     }
 
     public function test_chip_form_does_not_offer_tracker_link(): void
@@ -65,7 +74,7 @@ class EstoqueChipsTest extends TestCase
         Livewire::test(EstoqueChips::class)
             ->call('editar', $chip->id)
             ->fillForm([
-                'fornecedor' => 'Fornecedor Atualizado',
+                'fornecedor_id' => Fornecedor::query()->where('nome', 'HINOVA')->value('id'),
                 'operadora_id' => Operadora::query()->where('nome', 'CLARO')->value('id'),
                 'numero_chip' => '62955554444',
                 'iccid' => $chip->iccid,
@@ -76,7 +85,8 @@ class EstoqueChipsTest extends TestCase
             ->assertHasNoErrors();
 
         $this->assertSame($chip->id, $rastreador->refresh()->chip_id);
-        $this->assertSame('Fornecedor Atualizado', $chip->refresh()->fornecedor);
+        $this->assertSame('HINOVA', $chip->refresh()->fornecedor);
+        $this->assertSame(1, $chip->fornecedor_id);
         $this->assertSame('5562955554444', $chip->numero_chip);
         $this->assertSame(4, $chip->operadora_id);
         $this->assertSame('CLARO', $chip->operadora);

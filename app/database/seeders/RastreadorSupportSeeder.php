@@ -44,12 +44,12 @@ class RastreadorSupportSeeder extends Seeder
 
         Chip::query()->firstOrCreate(
             ['numero_chip' => '9.9874-8737'],
-            ['fornecedor' => 'Seed', 'operadora_id' => 4, 'tecnico_id' => $outros->id, 'status_rastreador_id' => $disponivelId],
+            ['fornecedor' => 'HINOVA', 'fornecedor_id' => 1, 'operadora_id' => 4, 'tecnico_id' => $outros->id, 'status_rastreador_id' => $disponivelId],
         );
 
         Chip::query()->firstOrCreate(
             ['numero_chip' => '8.7654-3210'],
-            ['fornecedor' => 'Seed', 'operadora_id' => 4, 'tecnico_id' => $romeu->id, 'status_rastreador_id' => $disponivelId],
+            ['fornecedor' => 'HINOVA', 'fornecedor_id' => 1, 'operadora_id' => 4, 'tecnico_id' => $romeu->id, 'status_rastreador_id' => $disponivelId],
         );
 
         Rastreador::query()->firstOrCreate(

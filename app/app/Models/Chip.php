@@ -7,9 +7,14 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
-#[Fillable(['fornecedor', 'operadora', 'operadora_id', 'numero_chip', 'iccid', 'tecnico_id', 'status_rastreador_id'])]
+#[Fillable(['fornecedor', 'fornecedor_id', 'operadora', 'operadora_id', 'numero_chip', 'iccid', 'tecnico_id', 'status_rastreador_id'])]
 class Chip extends Model
 {
+    public function fornecedorCadastro(): BelongsTo
+    {
+        return $this->belongsTo(Fornecedor::class, 'fornecedor_id');
+    }
+
     public function operadoraCadastro(): BelongsTo
     {
         return $this->belongsTo(Operadora::class, 'operadora_id');

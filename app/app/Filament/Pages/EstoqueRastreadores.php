@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Models\Chip;
+use App\Models\Fornecedor;
 use App\Models\Operadora;
 use App\Models\Permission;
 use App\Models\Rastreador;
@@ -86,7 +87,7 @@ class EstoqueRastreadores extends Page
                 $rastreador = Rastreador::query()->findOrFail((int) $arguments['id']);
 
                 return [
-                    'fornecedor' => '',
+                    'fornecedor_id' => null,
                     'operadora_id' => null,
                     'numero_chip' => '',
                     'iccid' => '',
@@ -95,9 +96,15 @@ class EstoqueRastreadores extends Page
             })
             ->schema([
                 Grid::make(2)->schema([
-                    TextInput::make('fornecedor')
+                    Select::make('fornecedor_id')
                         ->label('Fornecedor')
-                        ->maxLength(50),
+                        ->options(fn (): array => Fornecedor::query()
+                            ->orderBy('id')
+                            ->pluck('nome', 'id')
+                            ->all())
+                        ->searchable()
+                        ->preload()
+                        ->native(false),
                     Select::make('operadora_id')
                         ->label('Operadora')
                         ->options(fn (): array => Operadora::query()
@@ -162,6 +169,10 @@ class EstoqueRastreadores extends Page
 
                     $data['tecnico_id'] = $rastreador->tecnico_id;
                     $data['status_rastreador_id'] = $rastreador->status_rastreador_id;
+
+                    if ($data['fornecedor_id'] ?? null) {
+                        $data['fornecedor'] = Fornecedor::query()->findOrFail($data['fornecedor_id'])->nome;
+                    }
 
                     if ($data['operadora_id'] ?? null) {
                         $data['operadora'] = Operadora::query()->findOrFail($data['operadora_id'])->nome;

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Filament\Pages\EstoqueRastreadores;
 use App\Models\Chip;
+use App\Models\Fornecedor;
 use App\Models\Operadora;
 use App\Models\Rastreador;
 use App\Models\StatusRastreador;
@@ -29,7 +30,7 @@ class EstoqueRastreadoresTest extends TestCase
 
         Livewire::test(EstoqueRastreadores::class)
             ->callAction('adicionarChip', [
-                'fornecedor' => 'Fornecedor Teste',
+                'fornecedor_id' => Fornecedor::query()->where('nome', 'HINOVA')->value('id'),
                 'operadora_id' => Operadora::query()->where('nome', 'VIVO')->value('id'),
                 'numero_chip' => '62999990000',
                 'iccid' => '89550000000000000001',
@@ -46,6 +47,8 @@ class EstoqueRastreadoresTest extends TestCase
         $this->assertSame($status->id, $chip->status_rastreador_id);
         $this->assertSame(7, $chip->operadora_id);
         $this->assertSame('VIVO', $chip->operadora);
+        $this->assertSame(1, $chip->fornecedor_id);
+        $this->assertSame('HINOVA', $chip->fornecedor);
     }
 
     public function test_changing_tracker_technician_and_status_also_changes_linked_chip(): void
@@ -114,7 +117,8 @@ class EstoqueRastreadoresTest extends TestCase
         $naoEncontrado = $this->rastreador('222222222222222', $tecnico, $status);
 
         $chip = Chip::query()->create([
-            'fornecedor' => 'Fornecedor Busca',
+            'fornecedor' => 'HINOVA',
+            'fornecedor_id' => Fornecedor::query()->where('nome', 'HINOVA')->value('id'),
             'operadora_id' => Operadora::query()->where('nome', 'TIM')->value('id'),
             'numero_chip' => '62988887777',
             'iccid' => '89550000000000000002',

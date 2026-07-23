@@ -379,7 +379,7 @@
                             </td>
                             <td>{{ $chip->iccid }}</td>
                             <td>{{ $chip->rastreador?->imei }}</td>
-                            <td>{{ $chip->fornecedor }}</td>
+                            <td>{{ $chip->fornecedorCadastro?->nome }}</td>
                             <td>{{ $chip->operadoraCadastro?->nome }}</td>
                             <td>{{ $chip->statusRastreador?->label }}</td>
                             <td>{{ $chip->tecnico?->nome }}</td>

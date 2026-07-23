@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Models\Chip;
+use App\Models\Fornecedor;
 use App\Models\Operadora;
 use App\Models\Permission;
 use App\Models\Rastreador;
@@ -117,9 +118,15 @@ class EstoqueChips extends Page
             ->statePath('formData')
             ->components([
                 Grid::make(12)->schema([
-                    TextInput::make('fornecedor')
+                    Select::make('fornecedor_id')
                         ->label('Fornecedor')
-                        ->maxLength(50)
+                        ->options(fn (): array => Fornecedor::query()
+                            ->orderBy('id')
+                            ->pluck('nome', 'id')
+                            ->all())
+                        ->searchable()
+                        ->preload()
+                        ->native(false)
                         ->columnSpan(3),
                     Select::make('operadora_id')
                         ->label('Operadora')
@@ -201,8 +208,14 @@ class EstoqueChips extends Page
 
         $isEditing = $this->editingId !== null;
         $data = $this->form->getState();
-        $fornecedorAtual = (string) ($data['fornecedor'] ?? '');
+        $fornecedorAtual = $data['fornecedor_id'] ?? null;
         $operadoraAtual = $data['operadora_id'] ?? null;
+
+        if ($fornecedorAtual) {
+            $data['fornecedor'] = Fornecedor::query()->findOrFail($fornecedorAtual)->nome;
+        } else {
+            $data['fornecedor'] = null;
+        }
 
         if ($operadoraAtual) {
             $data['operadora'] = Operadora::query()->findOrFail($operadoraAtual)->nome;
@@ -244,7 +257,7 @@ class EstoqueChips extends Page
         if (! $isEditing) {
             $this->form->fill([
                 ...$this->formDataPadrao(),
-                'fornecedor' => $fornecedorAtual,
+                'fornecedor_id' => $fornecedorAtual,
                 'operadora_id' => $operadoraAtual,
             ]);
         }
@@ -262,7 +275,7 @@ class EstoqueChips extends Page
 
         $this->editingId = $chip->id;
         $this->form->fill([
-            'fornecedor' => (string) $chip->fornecedor,
+            'fornecedor_id' => $chip->fornecedor_id,
             'operadora_id' => $chip->operadora_id,
             'numero_chip' => (string) $chip->numero_chip,
             'iccid' => (string) $chip->iccid,
@@ -359,7 +372,7 @@ class EstoqueChips extends Page
                     $chip->numero_chip,
                     $chip->iccid,
                     $chip->rastreador?->imei,
-                    $chip->fornecedor,
+                    $chip->fornecedorCadastro?->nome,
                     $chip->operadoraCadastro?->nome,
                     $chip->statusRastreador?->label,
                     $chip->tecnico?->nome,
@@ -451,7 +464,7 @@ class EstoqueChips extends Page
     private function chipsQuery(): Builder
     {
         $query = Chip::query()
-            ->with(['operadoraCadastro', 'statusRastreador', 'tecnico', 'rastreador'])
+            ->with(['fornecedorCadastro', 'operadoraCadastro', 'statusRastreador', 'tecnico', 'rastreador'])
             ->when($this->filtroTecnicoId, fn ($query): mixed => $query->where('tecnico_id', $this->filtroTecnicoId))
             ->when($this->filtroStatusId, fn ($query): mixed => $query->where('status_rastreador_id', $this->filtroStatusId))
             ->when($this->search !== '', function ($query): void {
@@ -461,7 +474,7 @@ class EstoqueChips extends Page
                     $query
                         ->where('numero_chip', 'like', $search)
                         ->orWhere('iccid', 'like', $search)
-                        ->orWhere('fornecedor', 'like', $search)
+                        ->orWhereHas('fornecedorCadastro', fn ($query): mixed => $query->where('nome', 'like', $search))
                         ->orWhereHas('operadoraCadastro', fn ($query): mixed => $query->where('nome', 'like', $search))
                         ->orWhereHas('rastreador', fn ($query): mixed => $query->where('imei', 'like', $search))
                         ->orWhereHas('statusRastreador', fn ($query): mixed => $query->where('label', 'like', $search))
@@ -480,7 +493,13 @@ class EstoqueChips extends Page
                     ->limit(1),
                 $direcao,
             ),
-            'fornecedor' => $query->orderBy('fornecedor', $direcao),
+            'fornecedor' => $query->orderBy(
+                Fornecedor::query()
+                    ->select('nome')
+                    ->whereColumn('fornecedores.id', 'chips.fornecedor_id')
+                    ->limit(1),
+                $direcao,
+            ),
             'operadora' => $query->orderBy(
                 Operadora::query()
                     ->select('nome')
@@ -514,7 +533,7 @@ class EstoqueChips extends Page
     private function formDataPadrao(): array
     {
         return [
-            'fornecedor' => '',
+            'fornecedor_id' => null,
             'operadora_id' => null,
             'numero_chip' => '',
             'iccid' => '',
