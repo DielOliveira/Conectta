@@ -3,7 +3,9 @@
 namespace App\Filament\Pages;
 
 use App\Models\Chip;
+use App\Models\Operadora;
 use App\Models\Permission;
+use App\Models\Rastreador;
 use App\Models\StatusRastreador;
 use App\Models\Tecnico;
 use App\Services\Audit\AuditLogger;
@@ -85,9 +87,23 @@ class EstoqueChips extends Page
 
     public ?int $filtroStatusId = null;
 
+    public string $ordenacao = 'numero_chip';
+
+    public string $direcaoOrdenacao = 'asc';
+
     public int $pagina = 1;
 
     private const ITENS_POR_PAGINA = 15;
+
+    private const CAMPOS_ORDENAVEIS = [
+        'numero_chip',
+        'iccid',
+        'imei',
+        'fornecedor',
+        'operadora',
+        'status',
+        'tecnico',
+    ];
 
     public function mount(): void
     {
@@ -104,9 +120,15 @@ class EstoqueChips extends Page
                         ->label('Fornecedor')
                         ->maxLength(50)
                         ->columnSpan(3),
-                    TextInput::make('operadora')
+                    Select::make('operadora_id')
                         ->label('Operadora')
-                        ->maxLength(50)
+                        ->options(fn (): array => Operadora::query()
+                            ->orderBy('id')
+                            ->pluck('nome', 'id')
+                            ->all())
+                        ->searchable()
+                        ->preload()
+                        ->native(false)
                         ->columnSpan(3),
                     TextInput::make('numero_chip')
                         ->label('Numero Chip')
@@ -166,7 +188,11 @@ class EstoqueChips extends Page
         $isEditing = $this->editingId !== null;
         $data = $this->form->getState();
         $fornecedorAtual = (string) ($data['fornecedor'] ?? '');
-        $operadoraAtual = (string) ($data['operadora'] ?? '');
+        $operadoraAtual = $data['operadora_id'] ?? null;
+
+        if ($operadoraAtual) {
+            $data['operadora'] = Operadora::query()->findOrFail($operadoraAtual)->nome;
+        }
 
         if ($this->editingId) {
             $chip = Chip::query()->findOrFail($this->editingId);
@@ -205,7 +231,7 @@ class EstoqueChips extends Page
             $this->form->fill([
                 ...$this->formDataPadrao(),
                 'fornecedor' => $fornecedorAtual,
-                'operadora' => $operadoraAtual,
+                'operadora_id' => $operadoraAtual,
             ]);
         }
     }
@@ -223,7 +249,7 @@ class EstoqueChips extends Page
         $this->editingId = $chip->id;
         $this->form->fill([
             'fornecedor' => (string) $chip->fornecedor,
-            'operadora' => (string) $chip->operadora,
+            'operadora_id' => $chip->operadora_id,
             'numero_chip' => (string) $chip->numero_chip,
             'iccid' => (string) $chip->iccid,
             'tecnico_id' => $chip->tecnico_id,
@@ -272,6 +298,22 @@ class EstoqueChips extends Page
         }
     }
 
+    public function ordenarPor(string $campo): void
+    {
+        if (! in_array($campo, self::CAMPOS_ORDENAVEIS, true)) {
+            return;
+        }
+
+        if ($this->ordenacao === $campo) {
+            $this->direcaoOrdenacao = $this->direcaoOrdenacao === 'asc' ? 'desc' : 'asc';
+        } else {
+            $this->ordenacao = $campo;
+            $this->direcaoOrdenacao = 'asc';
+        }
+
+        $this->pagina = 1;
+    }
+
     public function paginaAnterior(): void
     {
         $this->pagina = max(1, $this->pagina - 1);
@@ -304,7 +346,7 @@ class EstoqueChips extends Page
                     $chip->iccid,
                     $chip->rastreador?->imei,
                     $chip->fornecedor,
-                    $chip->operadora,
+                    $chip->operadoraCadastro?->nome,
                     $chip->statusRastreador?->label,
                     $chip->tecnico?->nome,
                 ], ';');
@@ -394,8 +436,8 @@ class EstoqueChips extends Page
 
     private function chipsQuery(): Builder
     {
-        return Chip::query()
-            ->with(['statusRastreador', 'tecnico', 'rastreador'])
+        $query = Chip::query()
+            ->with(['operadoraCadastro', 'statusRastreador', 'tecnico', 'rastreador'])
             ->when($this->filtroTecnicoId, fn ($query): mixed => $query->where('tecnico_id', $this->filtroTecnicoId))
             ->when($this->filtroStatusId, fn ($query): mixed => $query->where('status_rastreador_id', $this->filtroStatusId))
             ->when($this->search !== '', function ($query): void {
@@ -406,15 +448,50 @@ class EstoqueChips extends Page
                         ->where('numero_chip', 'like', $search)
                         ->orWhere('iccid', 'like', $search)
                         ->orWhere('fornecedor', 'like', $search)
-                        ->orWhere('operadora', 'like', $search)
+                        ->orWhereHas('operadoraCadastro', fn ($query): mixed => $query->where('nome', 'like', $search))
                         ->orWhereHas('rastreador', fn ($query): mixed => $query->where('imei', 'like', $search))
                         ->orWhereHas('statusRastreador', fn ($query): mixed => $query->where('label', 'like', $search))
                         ->orWhereHas('tecnico', fn ($query): mixed => $query->where('nome', 'like', $search));
                 });
-            })
-            ->latest('updated_at')
-            ->latest('id')
-            ->orderBy('numero_chip');
+            });
+
+        $direcao = $this->direcaoOrdenacao === 'desc' ? 'desc' : 'asc';
+
+        match ($this->ordenacao) {
+            'iccid' => $query->orderBy('iccid', $direcao),
+            'imei' => $query->orderBy(
+                Rastreador::query()
+                    ->select('imei')
+                    ->whereColumn('rastreadores.chip_id', 'chips.id')
+                    ->limit(1),
+                $direcao,
+            ),
+            'fornecedor' => $query->orderBy('fornecedor', $direcao),
+            'operadora' => $query->orderBy(
+                Operadora::query()
+                    ->select('nome')
+                    ->whereColumn('operadoras.id', 'chips.operadora_id')
+                    ->limit(1),
+                $direcao,
+            ),
+            'status' => $query->orderBy(
+                StatusRastreador::query()
+                    ->select('label')
+                    ->whereColumn('status_rastreadores.id', 'chips.status_rastreador_id')
+                    ->limit(1),
+                $direcao,
+            ),
+            'tecnico' => $query->orderBy(
+                Tecnico::query()
+                    ->select('nome')
+                    ->whereColumn('tecnicos.id', 'chips.tecnico_id')
+                    ->limit(1),
+                $direcao,
+            ),
+            default => $query->orderBy('numero_chip', $direcao),
+        };
+
+        return $query->orderBy('id');
     }
 
     /**
@@ -424,7 +501,7 @@ class EstoqueChips extends Page
     {
         return [
             'fornecedor' => '',
-            'operadora' => '',
+            'operadora_id' => null,
             'numero_chip' => '',
             'iccid' => '',
             'tecnico_id' => null,

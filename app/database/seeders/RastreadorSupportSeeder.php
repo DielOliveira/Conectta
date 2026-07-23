@@ -7,6 +7,7 @@ use App\Models\Rastreador;
 use App\Models\StatusRastreador;
 use App\Models\Tecnico;
 use App\Models\TipoVeiculo;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Seeder;
 
 class RastreadorSupportSeeder extends Seeder
@@ -43,12 +44,12 @@ class RastreadorSupportSeeder extends Seeder
 
         Chip::query()->firstOrCreate(
             ['numero_chip' => '9.9874-8737'],
-            ['fornecedor' => 'Seed', 'operadora' => 'Operadora', 'tecnico_id' => $outros->id, 'status_rastreador_id' => $disponivelId],
+            ['fornecedor' => 'Seed', 'operadora_id' => 4, 'tecnico_id' => $outros->id, 'status_rastreador_id' => $disponivelId],
         );
 
         Chip::query()->firstOrCreate(
             ['numero_chip' => '8.7654-3210'],
-            ['fornecedor' => 'Seed', 'operadora' => 'Operadora', 'tecnico_id' => $romeu->id, 'status_rastreador_id' => $disponivelId],
+            ['fornecedor' => 'Seed', 'operadora_id' => 4, 'tecnico_id' => $romeu->id, 'status_rastreador_id' => $disponivelId],
         );
 
         Rastreador::query()->firstOrCreate(
@@ -63,8 +64,8 @@ class RastreadorSupportSeeder extends Seeder
     }
 
     /**
-     * @param class-string<\Illuminate\Database\Eloquent\Model> $model
-     * @param array<int, array{label: string, order: int}> $records
+     * @param  class-string<Model>  $model
+     * @param  array<int, array{label: string, order: int}>  $records
      */
     private function seedOrdered(string $model, array $records): void
     {

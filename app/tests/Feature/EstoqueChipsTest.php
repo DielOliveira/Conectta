@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Filament\Pages\EstoqueChips;
 use App\Models\Chip;
+use App\Models\Operadora;
 use App\Models\Rastreador;
 use App\Models\StatusRastreador;
 use App\Models\Tecnico;
@@ -17,6 +18,19 @@ use Tests\TestCase;
 class EstoqueChipsTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_operadora_ids_are_stable(): void
+    {
+        $this->assertSame([
+            1 => 'ALGAR 5 OP',
+            2 => 'ARQIA',
+            3 => 'ARQIA DUAL C',
+            4 => 'CLARO',
+            5 => 'CONNECT ONE CLARO',
+            6 => 'TIM',
+            7 => 'VIVO',
+        ], Operadora::query()->orderBy('id')->pluck('nome', 'id')->all());
+    }
 
     public function test_chip_form_does_not_offer_tracker_link(): void
     {
@@ -52,7 +66,7 @@ class EstoqueChipsTest extends TestCase
             ->call('editar', $chip->id)
             ->fillForm([
                 'fornecedor' => 'Fornecedor Atualizado',
-                'operadora' => 'Operadora Atualizada',
+                'operadora_id' => Operadora::query()->where('nome', 'CLARO')->value('id'),
                 'numero_chip' => $chip->numero_chip,
                 'iccid' => $chip->iccid,
                 'status_rastreador_id' => $status->id,
@@ -63,6 +77,8 @@ class EstoqueChipsTest extends TestCase
 
         $this->assertSame($chip->id, $rastreador->refresh()->chip_id);
         $this->assertSame('Fornecedor Atualizado', $chip->refresh()->fornecedor);
+        $this->assertSame(4, $chip->operadora_id);
+        $this->assertSame('CLARO', $chip->operadora);
     }
 
     private function admin(): User

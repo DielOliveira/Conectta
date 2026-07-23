@@ -3,12 +3,14 @@
 namespace App\Filament\Pages;
 
 use App\Models\Chip;
+use App\Models\Operadora;
 use App\Models\Permission;
 use App\Models\Rastreador;
 use App\Models\StatusRastreador;
 use App\Models\Tecnico;
 use App\Services\Audit\AuditLogger;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -84,7 +86,7 @@ class EstoqueRastreadores extends Page
 
                 return [
                     'fornecedor' => '',
-                    'operadora' => '',
+                    'operadora_id' => null,
                     'numero_chip' => '',
                     'iccid' => '',
                     'imei' => $rastreador->imei,
@@ -95,9 +97,15 @@ class EstoqueRastreadores extends Page
                     TextInput::make('fornecedor')
                         ->label('Fornecedor')
                         ->maxLength(50),
-                    TextInput::make('operadora')
+                    Select::make('operadora_id')
                         ->label('Operadora')
-                        ->maxLength(50),
+                        ->options(fn (): array => Operadora::query()
+                            ->orderBy('id')
+                            ->pluck('nome', 'id')
+                            ->all())
+                        ->searchable()
+                        ->preload()
+                        ->native(false),
                     TextInput::make('numero_chip')
                         ->label('Numero Chip')
                         ->required()
@@ -140,6 +148,11 @@ class EstoqueRastreadores extends Page
 
                     $data['tecnico_id'] = $rastreador->tecnico_id;
                     $data['status_rastreador_id'] = $rastreador->status_rastreador_id;
+
+                    if ($data['operadora_id'] ?? null) {
+                        $data['operadora'] = Operadora::query()->findOrFail($data['operadora_id'])->nome;
+                    }
+
                     $chip = Chip::query()->create($data);
                     $rastreador->update(['chip_id' => $chip->id]);
 

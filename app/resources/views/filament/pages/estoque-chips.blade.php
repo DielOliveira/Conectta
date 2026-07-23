@@ -135,6 +135,24 @@
             text-align: left;
         }
 
+        .ct-sort {
+            align-items: center;
+            background: transparent;
+            border: 0;
+            color: inherit;
+            cursor: pointer;
+            display: inline-flex;
+            font: inherit;
+            font-weight: inherit;
+            gap: 6px;
+            padding: 0;
+        }
+
+        .ct-sort-indicator {
+            color: var(--ct-primary-strong);
+            font-size: 12px;
+        }
+
         .ct-table td {
             border-top: 1px solid #e2e8f0;
             color: #0f172a;
@@ -328,13 +346,26 @@
             <table class="ct-table">
                 <thead>
                     <tr>
-                        <th>Numero Chip</th>
-                        <th>ICCID</th>
-                        <th>IMEI</th>
-                        <th>Fornecedor</th>
-                        <th>Operadora</th>
-                        <th>Status Estoque</th>
-                        <th>Tecnico</th>
+                        @foreach ([
+                            'numero_chip' => 'Numero Chip',
+                            'iccid' => 'ICCID',
+                            'imei' => 'IMEI',
+                            'fornecedor' => 'Fornecedor',
+                            'operadora' => 'Operadora',
+                            'status' => 'Status Estoque',
+                            'tecnico' => 'Tecnico',
+                        ] as $campo => $rotulo)
+                            <th>
+                                <button type="button" wire:click="ordenarPor('{{ $campo }}')" class="ct-sort">
+                                    <span>{{ $rotulo }}</span>
+                                    @if ($ordenacao === $campo)
+                                        <span class="ct-sort-indicator">
+                                            {{ $direcaoOrdenacao === 'asc' ? '▲' : '▼' }}
+                                        </span>
+                                    @endif
+                                </button>
+                            </th>
+                        @endforeach
                         <th></th>
                     </tr>
                 </thead>
@@ -349,7 +380,7 @@
                             <td>{{ $chip->iccid }}</td>
                             <td>{{ $chip->rastreador?->imei }}</td>
                             <td>{{ $chip->fornecedor }}</td>
-                            <td>{{ $chip->operadora }}</td>
+                            <td>{{ $chip->operadoraCadastro?->nome }}</td>
                             <td>{{ $chip->statusRastreador?->label }}</td>
                             <td>{{ $chip->tecnico?->nome }}</td>
                             <td>

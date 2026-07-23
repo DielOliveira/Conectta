@@ -7,6 +7,20 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## Base de conferência HINOVA
+
+A tabela `inventario` contém a base de conferência fornecida pela **HINOVA**. Ela representa a estrutura informada pelo fornecedor para validação dos vínculos entre chips e rastreadores.
+
+Campos importados da planilha do fornecedor:
+
+- `iccid`: identificador físico do chip;
+- `numero`: número da linha, armazenado somente com dígitos;
+- `imei`: identificador do rastreador associado pela HINOVA;
+- `status`: situação da linha no fornecedor;
+- `operadora`: operadora informada pela HINOVA para a linha.
+
+Essa tabela deve ser usada como referência nos cruzamentos com `chips.numero_chip`, `chips.iccid` e `rastreadores.imei`. Antes de qualquer correção automática, é necessário validar correspondência única, ausência de conflitos com cadastros ativos e gerar backup do banco de produção.
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
