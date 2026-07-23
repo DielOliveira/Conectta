@@ -23,7 +23,7 @@ class EditRastreadorResourceTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_imei_linked_to_another_active_vehicle_requires_confirmation_before_transfer(): void
+    public function test_imei_can_keep_inactive_previous_link_when_confirming_transfer(): void
     {
         $this->seed(ClienteSupportSeeder::class);
         $this->seed(RastreadorSupportSeeder::class);
@@ -68,12 +68,16 @@ class EditRastreadorResourceTest extends TestCase
         $this->assertNull($veiculoNovo->refresh()->rastreador_id);
 
         $component
-            ->callMountedAction()
+            ->callMountedAction(['manterHistorico' => true])
             ->assertHasNoErrors();
 
-        $this->assertNull($veiculoAnterior->refresh()->rastreador_id);
+        $this->assertSame($rastreador->id, $veiculoAnterior->refresh()->rastreador_id);
+        $this->assertSame('Cancelado', $veiculoAnterior->statusRastreador->label);
+        $this->assertNotNull($veiculoAnterior->data_retirada);
+        $this->assertNotNull($veiculoAnterior->tecnico_remocao_id);
         $this->assertSame($rastreador->id, $veiculoNovo->refresh()->rastreador_id);
         $this->assertSame($chip->id, $rastreador->refresh()->chip_id);
+        $this->assertSame('Ativo', $veiculoNovo->statusRastreador->label);
     }
 
     private function cliente(string $nome, string $cpfCnpj): Cliente

@@ -32,6 +32,8 @@ class EditRastreador extends EditRecord
 
     public ?string $transferenciaRastreadorDescricao = null;
 
+    public bool $manterHistoricoRastreador = false;
+
     protected function getRedirectUrl(): string
     {
         return static::getResource()::getUrl('index');
@@ -99,7 +101,11 @@ class EditRastreador extends EditRecord
         }
 
         if ($this->transferenciaRastreadorConfirmada) {
-            $this->desvincularRastreadorDeOutrosVeiculosAtivos($rastreadorId);
+            if ($this->manterHistoricoRastreador) {
+                $this->desativarVinculoAnteriorDoRastreador($rastreadorId);
+            } else {
+                $this->desvincularRastreadorDeOutrosVeiculosAtivos($rastreadorId);
+            }
         }
 
         if (! $this->transferenciaChipConfirmada && $this->chipSelecionadoEstaEmOutroRastreador($this->chipIdSelecionado, filled($data['rastreador_id'] ?? null) ? (int) $data['rastreador_id'] : null)) {
@@ -118,10 +124,17 @@ class EditRastreador extends EditRecord
             ->modalHeading('IMEI ja vinculado')
             ->modalDescription(fn (): string => $this->transferenciaRastreadorDescricao ?? 'Este IMEI ja esta vinculado a outro veiculo ativo. Deseja transferi-lo para este veiculo?')
             ->modalSubmitActionLabel('Sim, transferir IMEI e chip')
-            ->action(function (): void {
+            ->extraModalFooterActions(fn (Action $action): array => [
+                $action->makeModalSubmitAction('manterHistorico', arguments: ['manterHistorico' => true])
+                    ->label('Desativar vinculo antigo e manter historico')
+                    ->color('warning'),
+            ])
+            ->action(function (array $arguments): void {
                 $this->transferenciaRastreadorConfirmada = true;
+                $this->manterHistoricoRastreador = (bool) ($arguments['manterHistorico'] ?? false);
                 $this->save();
                 $this->transferenciaRastreadorConfirmada = false;
+                $this->manterHistoricoRastreador = false;
             });
     }
 
@@ -235,13 +248,13 @@ class EditRastreador extends EditRecord
                 ->first();
 
         if ($veiculo === null) {
-            return 'Este IMEI ja esta vinculado a outro veiculo ativo. Deseja transferi-lo para este veiculo?';
+            return 'Este IMEI ja esta vinculado a outro veiculo ativo. Voce pode transferi-lo removendo o vinculo anterior ou desativar o vinculo anterior para manter o historico.';
         }
 
         $identificacao = trim($veiculo->veiculo.' / '.$veiculo->placa, ' /');
         $cliente = $veiculo->cliente?->nome ?? 'cliente nao informado';
 
-        return "Este IMEI esta vinculado ao veiculo {$identificacao} (cadastro #{$veiculo->id}), do cliente {$cliente}. Deseja transferir o IMEI e o chip para este veiculo?";
+        return "Este IMEI esta vinculado ao veiculo {$identificacao} (cadastro #{$veiculo->id}), do cliente {$cliente}. Voce pode transferi-lo removendo o vinculo anterior ou desativar o vinculo anterior para manter o historico.";
     }
 
     private function desvincularRastreadorDeOutrosVeiculosAtivos(?int $rastreadorId): void
@@ -253,6 +266,23 @@ class EditRastreador extends EditRecord
         $this->outrosVeiculosAtivosComRastreador($rastreadorId)
             ->get()
             ->each(fn (Veiculo $veiculo): bool => $veiculo->update(['rastreador_id' => null]));
+    }
+
+    private function desativarVinculoAnteriorDoRastreador(?int $rastreadorId): void
+    {
+        if ($rastreadorId === null) {
+            return;
+        }
+
+        $tecnicoId = Rastreador::query()->whereKey($rastreadorId)->value('tecnico_id');
+
+        $this->outrosVeiculosAtivosComRastreador($rastreadorId)
+            ->get()
+            ->each(fn (Veiculo $veiculo): bool => $veiculo->update([
+                'status_rastreador_id' => Veiculo::statusId('Cancelado'),
+                'data_retirada' => now()->toDateString(),
+                'tecnico_remocao_id' => $veiculo->tecnico_instala_id ?? $tecnicoId,
+            ]));
     }
 
     private function outrosVeiculosAtivosComRastreador(int $rastreadorId)
