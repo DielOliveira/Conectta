@@ -9,6 +9,7 @@ use App\Models\Rastreador;
 use App\Models\StatusRastreador;
 use App\Models\Tecnico;
 use App\Services\Audit\AuditLogger;
+use App\Support\ChipNumber;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -133,9 +134,22 @@ class EstoqueChips extends Page
                     TextInput::make('numero_chip')
                         ->label('Numero Chip')
                         ->required()
-                        ->maxLength(50)
+                        ->prefix('55')
+                        ->mask('(99) 99999-9999')
+                        ->stripCharacters(['(', ')', ' ', '-'])
+                        ->maxLength(15)
+                        ->regex(ChipNumber::LOCAL_REGEX)
+                        ->formatStateUsing(fn (?string $state): string => ChipNumber::local($state))
+                        ->dehydrateStateUsing(fn (?string $state): string => ChipNumber::canonical($state))
+                        ->validationMessages([
+                            'regex' => 'Informe um número de celular completo, com DDD válido.',
+                        ])
                         ->rules(fn (): array => [
-                            Rule::unique('chips', 'numero_chip')->ignore($this->editingId),
+                            ChipNumber::uniqueRule($this->editingId),
+                        ])
+                        ->extraInputAttributes([
+                            'inputmode' => 'numeric',
+                            'autocomplete' => 'off',
                         ])
                         ->columnSpan(4),
                     TextInput::make('iccid')

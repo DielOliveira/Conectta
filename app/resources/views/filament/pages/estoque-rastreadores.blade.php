@@ -131,6 +131,24 @@
             text-align: left;
         }
 
+        .ct-sort {
+            align-items: center;
+            background: transparent;
+            border: 0;
+            color: inherit;
+            cursor: pointer;
+            display: inline-flex;
+            font: inherit;
+            font-weight: inherit;
+            gap: 6px;
+            padding: 0;
+        }
+
+        .ct-sort-indicator {
+            color: var(--ct-primary-strong);
+            font-size: 12px;
+        }
+
         .ct-table td {
             border-top: 1px solid #e2e8f0;
             color: #0f172a;
@@ -410,12 +428,25 @@
             <table class="ct-table">
                 <thead>
                     <tr>
-                        <th>Modelo</th>
-                        <th>Numero Chip</th>
-                        <th>IMEI</th>
-                        <th>Ativacao</th>
-                        <th>Status Estoque</th>
-                        <th>Tecnico</th>
+                        @foreach ([
+                            'modelo' => 'Modelo',
+                            'numero_chip' => 'Numero Chip',
+                            'imei' => 'IMEI',
+                            'ativacao' => 'Ativacao',
+                            'status' => 'Status Estoque',
+                            'tecnico' => 'Tecnico',
+                        ] as $campo => $rotulo)
+                            <th>
+                                <button type="button" wire:click="ordenarPor('{{ $campo }}')" class="ct-sort">
+                                    <span>{{ $rotulo }}</span>
+                                    @if ($ordenacao === $campo)
+                                        <span class="ct-sort-indicator">
+                                            {{ $direcaoOrdenacao === 'asc' ? '▲' : '▼' }}
+                                        </span>
+                                    @endif
+                                </button>
+                            </th>
+                        @endforeach
                         <th></th>
                     </tr>
                 </thead>

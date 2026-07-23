@@ -48,7 +48,7 @@ class EstoqueChipsTest extends TestCase
         $status = $this->statusDisponivel();
         $tecnico = Tecnico::query()->create(['nome' => 'Tecnico Chip']);
         $chip = Chip::query()->create([
-            'numero_chip' => '62955554444',
+            'numero_chip' => '5562955554444',
             'iccid' => '89550000000000000005',
             'status_rastreador_id' => $status->id,
             'tecnico_id' => $tecnico->id,
@@ -67,7 +67,7 @@ class EstoqueChipsTest extends TestCase
             ->fillForm([
                 'fornecedor' => 'Fornecedor Atualizado',
                 'operadora_id' => Operadora::query()->where('nome', 'CLARO')->value('id'),
-                'numero_chip' => $chip->numero_chip,
+                'numero_chip' => '62955554444',
                 'iccid' => $chip->iccid,
                 'status_rastreador_id' => $status->id,
                 'tecnico_id' => $tecnico->id,
@@ -77,6 +77,7 @@ class EstoqueChipsTest extends TestCase
 
         $this->assertSame($chip->id, $rastreador->refresh()->chip_id);
         $this->assertSame('Fornecedor Atualizado', $chip->refresh()->fornecedor);
+        $this->assertSame('5562955554444', $chip->numero_chip);
         $this->assertSame(4, $chip->operadora_id);
         $this->assertSame('CLARO', $chip->operadora);
     }

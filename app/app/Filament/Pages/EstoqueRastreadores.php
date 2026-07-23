@@ -9,6 +9,7 @@ use App\Models\Rastreador;
 use App\Models\StatusRastreador;
 use App\Models\Tecnico;
 use App\Services\Audit\AuditLogger;
+use App\Support\ChipNumber;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -109,8 +110,21 @@ class EstoqueRastreadores extends Page
                     TextInput::make('numero_chip')
                         ->label('Numero Chip')
                         ->required()
-                        ->maxLength(50)
-                        ->rules(fn (): array => [Rule::unique('chips', 'numero_chip')]),
+                        ->prefix('55')
+                        ->mask('(99) 99999-9999')
+                        ->stripCharacters(['(', ')', ' ', '-'])
+                        ->maxLength(15)
+                        ->regex(ChipNumber::LOCAL_REGEX)
+                        ->formatStateUsing(fn (?string $state): string => ChipNumber::local($state))
+                        ->dehydrateStateUsing(fn (?string $state): string => ChipNumber::canonical($state))
+                        ->validationMessages([
+                            'regex' => 'Informe um número de celular completo, com DDD válido.',
+                        ])
+                        ->rules(fn (): array => [ChipNumber::uniqueRule()])
+                        ->extraInputAttributes([
+                            'inputmode' => 'numeric',
+                            'autocomplete' => 'off',
+                        ]),
                     TextInput::make('iccid')
                         ->label('ICCID')
                         ->required()
@@ -250,9 +264,22 @@ class EstoqueRastreadores extends Page
 
     public ?int $filtroStatusId = null;
 
+    public string $ordenacao = 'imei';
+
+    public string $direcaoOrdenacao = 'asc';
+
     public int $pagina = 1;
 
     private const ITENS_POR_PAGINA = 15;
+
+    private const CAMPOS_ORDENAVEIS = [
+        'modelo',
+        'numero_chip',
+        'imei',
+        'ativacao',
+        'status',
+        'tecnico',
+    ];
 
     public function mount(): void
     {
@@ -423,6 +450,22 @@ class EstoqueRastreadores extends Page
         }
     }
 
+    public function ordenarPor(string $campo): void
+    {
+        if (! in_array($campo, self::CAMPOS_ORDENAVEIS, true)) {
+            return;
+        }
+
+        if ($this->ordenacao === $campo) {
+            $this->direcaoOrdenacao = $this->direcaoOrdenacao === 'asc' ? 'desc' : 'asc';
+        } else {
+            $this->ordenacao = $campo;
+            $this->direcaoOrdenacao = 'asc';
+        }
+
+        $this->pagina = 1;
+    }
+
     public function paginaAnterior(): void
     {
         $this->pagina = max(1, $this->pagina - 1);
@@ -545,7 +588,7 @@ class EstoqueRastreadores extends Page
 
     private function rastreadoresQuery(): Builder
     {
-        return Rastreador::query()
+        $query = Rastreador::query()
             ->with(['chip', 'statusRastreador', 'tecnico'])
             ->when($this->filtroTecnicoId, fn ($query): mixed => $query->where('tecnico_id', $this->filtroTecnicoId))
             ->when($this->filtroStatusId, fn ($query): mixed => $query->where('status_rastreador_id', $this->filtroStatusId))
@@ -564,9 +607,37 @@ class EstoqueRastreadores extends Page
                         })
                         ->orWhereHas('tecnico', fn ($query): mixed => $query->where('nome', 'like', $search));
                 });
-            })
-            ->latest('updated_at')
-            ->latest('id')
-            ->orderBy('imei');
+            });
+
+        $direcao = $this->direcaoOrdenacao === 'desc' ? 'desc' : 'asc';
+
+        match ($this->ordenacao) {
+            'modelo' => $query->orderBy('modelo', $direcao),
+            'numero_chip' => $query->orderBy(
+                Chip::query()
+                    ->select('numero_chip')
+                    ->whereColumn('chips.id', 'rastreadores.chip_id')
+                    ->limit(1),
+                $direcao,
+            ),
+            'ativacao' => $query->orderBy('ativacao', $direcao),
+            'status' => $query->orderBy(
+                StatusRastreador::query()
+                    ->select('label')
+                    ->whereColumn('status_rastreadores.id', 'rastreadores.status_rastreador_id')
+                    ->limit(1),
+                $direcao,
+            ),
+            'tecnico' => $query->orderBy(
+                Tecnico::query()
+                    ->select('nome')
+                    ->whereColumn('tecnicos.id', 'rastreadores.tecnico_id')
+                    ->limit(1),
+                $direcao,
+            ),
+            default => $query->orderBy('imei', $direcao),
+        };
+
+        return $query->orderBy('id');
     }
 }

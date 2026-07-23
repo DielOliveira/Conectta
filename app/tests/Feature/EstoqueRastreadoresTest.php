@@ -38,7 +38,7 @@ class EstoqueRastreadoresTest extends TestCase
             ])
             ->assertHasNoActionErrors();
 
-        $chip = Chip::query()->where('numero_chip', '62999990000')->firstOrFail();
+        $chip = Chip::query()->where('numero_chip', '5562999990000')->firstOrFail();
 
         $this->assertSame($chip->id, $rastreador->refresh()->chip_id);
         $this->assertSame('89550000000000000001', $rastreador->chip?->iccid);
