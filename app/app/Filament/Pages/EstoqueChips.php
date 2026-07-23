@@ -9,6 +9,7 @@ use App\Models\Permission;
 use App\Models\Rastreador;
 use App\Models\StatusRastreador;
 use App\Models\Tecnico;
+use App\Models\Veiculo;
 use App\Services\Audit\AuditLogger;
 use App\Support\ChipNumber;
 use Filament\Actions\Action;
@@ -21,6 +22,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use UnitEnum;
@@ -76,7 +78,30 @@ class EstoqueChips extends Page
             ->action(fn (array $arguments): mixed => $this->excluir((int) $arguments['id']));
     }
 
+    public function confirmarSincronizacaoTecnicoAction(): Action
+    {
+        return Action::make('confirmarSincronizacaoTecnico')
+            ->requiresConfirmation()
+            ->modalHeading('Alterar tecnico do chip ativo')
+            ->modalDescription(fn (): string => $this->sincronizacaoTecnicoDescricao
+                ?? 'A alteracao tambem sera aplicada ao rastreador e ao tecnico de instalacao do veiculo ativo. Deseja continuar?')
+            ->modalSubmitActionLabel('Sim, alterar tecnico')
+            ->action(function (): void {
+                $this->sincronizacaoTecnicoConfirmada = true;
+
+                try {
+                    $this->salvar();
+                } finally {
+                    $this->sincronizacaoTecnicoConfirmada = false;
+                }
+            });
+    }
+
     public ?int $editingId = null;
+
+    public bool $sincronizacaoTecnicoConfirmada = false;
+
+    public ?string $sincronizacaoTecnicoDescricao = null;
 
     /**
      * @var array<string, mixed>
@@ -211,6 +236,13 @@ class EstoqueChips extends Page
         $fornecedorAtual = $data['fornecedor_id'] ?? null;
         $operadoraAtual = $data['operadora_id'] ?? null;
 
+        if ($this->deveConfirmarSincronizacaoTecnico($data)) {
+            $this->sincronizacaoTecnicoDescricao = $this->descricaoSincronizacaoTecnico($data);
+            $this->mountAction('confirmarSincronizacaoTecnico');
+
+            return;
+        }
+
         if ($fornecedorAtual) {
             $data['fornecedor'] = Fornecedor::query()->findOrFail($fornecedorAtual)->nome;
         } else {
@@ -222,18 +254,27 @@ class EstoqueChips extends Page
         }
 
         if ($this->editingId) {
-            $chip = Chip::query()->findOrFail($this->editingId);
-            $antes = AuditLogger::snapshot($chip);
-            $chip->update($data);
-            $chip->refresh();
+            DB::transaction(function () use ($data): void {
+                $chip = Chip::query()->lockForUpdate()->findOrFail($this->editingId);
+                $antes = AuditLogger::snapshot($chip);
+                $sincronizarTecnico = $this->chipPossuiVeiculoAtivo($chip)
+                    && $chip->tecnico_id !== ($data['tecnico_id'] ?? null);
 
-            AuditLogger::registrar(
-                'chip.editado',
-                'Chip editado no estoque.',
-                $chip,
-                antes: $antes,
-                depois: AuditLogger::snapshot($chip),
-            );
+                $chip->update($data);
+                $chip->refresh();
+
+                if ($sincronizarTecnico) {
+                    $this->sincronizarTecnicoDoChipAtivo($chip);
+                }
+
+                AuditLogger::registrar(
+                    'chip.editado',
+                    'Chip editado no estoque.',
+                    $chip,
+                    antes: $antes,
+                    depois: AuditLogger::snapshot($chip),
+                );
+            });
         } else {
             $chip = Chip::query()->create($data);
             $chip->refresh();
@@ -542,5 +583,114 @@ class EstoqueChips extends Page
                 ->where('label', 'Disponivel')
                 ->value('id'),
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function deveConfirmarSincronizacaoTecnico(array $data): bool
+    {
+        if ($this->sincronizacaoTecnicoConfirmada || $this->editingId === null) {
+            return false;
+        }
+
+        $chip = Chip::query()->find($this->editingId);
+
+        return $chip !== null
+            && $chip->tecnico_id !== ($data['tecnico_id'] ?? null)
+            && $this->chipPossuiVeiculoAtivo($chip);
+    }
+
+    private function chipPossuiVeiculoAtivo(Chip $chip): bool
+    {
+        if ($chip->statusRastreador?->label !== 'Ativo') {
+            return false;
+        }
+
+        $rastreadorId = Rastreador::query()
+            ->where('chip_id', $chip->id)
+            ->value('id');
+
+        return $rastreadorId !== null
+            && Veiculo::query()
+                ->ativos()
+                ->where('rastreador_id', $rastreadorId)
+                ->exists();
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function descricaoSincronizacaoTecnico(array $data): string
+    {
+        $chip = Chip::query()->with('tecnico')->findOrFail($this->editingId);
+        $rastreador = Rastreador::query()->where('chip_id', $chip->id)->first();
+        $veiculo = $rastreador === null
+            ? null
+            : Veiculo::query()->ativos()->where('rastreador_id', $rastreador->id)->first();
+        $tecnicoNovo = filled($data['tecnico_id'] ?? null)
+            ? Tecnico::query()->find($data['tecnico_id'])?->nome
+            : 'Sem tecnico';
+        $identificacaoVeiculo = collect([$veiculo?->veiculo, $veiculo?->placa])
+            ->filter()
+            ->implode(' - ');
+
+        return 'O chip ativo'.($rastreador?->imei ? ' do IMEI '.$rastreador->imei : '')
+            .($identificacaoVeiculo !== '' ? ' esta vinculado ao veiculo '.$identificacaoVeiculo.'.' : '.')
+            .' Ao confirmar, o tecnico sera alterado de '
+            .($chip->tecnico?->nome ?? 'Sem tecnico').' para '.($tecnicoNovo ?? 'Sem tecnico')
+            .' no chip, no rastreador e no tecnico de instalacao do veiculo. Deseja continuar?';
+    }
+
+    private function sincronizarTecnicoDoChipAtivo(Chip $chip): void
+    {
+        $rastreador = Rastreador::query()
+            ->where('chip_id', $chip->id)
+            ->lockForUpdate()
+            ->first();
+
+        if ($rastreador === null) {
+            return;
+        }
+
+        if ($rastreador->tecnico_id !== $chip->tecnico_id) {
+            $antes = AuditLogger::snapshot($rastreador);
+            $rastreador->update(['tecnico_id' => $chip->tecnico_id]);
+
+            AuditLogger::registrar(
+                'rastreador.editado',
+                'Tecnico do rastreador sincronizado com o chip ativo.',
+                $rastreador,
+                antes: $antes,
+                depois: AuditLogger::snapshot($rastreador->refresh()),
+                contexto: ['chip_id' => $chip->id],
+            );
+        }
+
+        Veiculo::query()
+            ->ativos()
+            ->where('rastreador_id', $rastreador->id)
+            ->lockForUpdate()
+            ->get()
+            ->each(function (Veiculo $veiculo) use ($chip, $rastreador): void {
+                if ($veiculo->tecnico_instala_id === $chip->tecnico_id) {
+                    return;
+                }
+
+                $antes = AuditLogger::snapshot($veiculo);
+                $veiculo->update(['tecnico_instala_id' => $chip->tecnico_id]);
+
+                AuditLogger::registrar(
+                    'veiculo.tecnico_instalacao_sincronizado',
+                    'Tecnico de instalacao sincronizado com o chip ativo.',
+                    $veiculo,
+                    antes: $antes,
+                    depois: AuditLogger::snapshot($veiculo->refresh()),
+                    contexto: [
+                        'chip_id' => $chip->id,
+                        'rastreador_id' => $rastreador->id,
+                    ],
+                );
+            });
     }
 }

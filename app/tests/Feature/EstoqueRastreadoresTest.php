@@ -4,12 +4,14 @@ namespace Tests\Feature;
 
 use App\Filament\Pages\EstoqueRastreadores;
 use App\Models\Chip;
+use App\Models\Cliente;
 use App\Models\Fornecedor;
 use App\Models\Operadora;
 use App\Models\Rastreador;
 use App\Models\StatusRastreador;
 use App\Models\Tecnico;
 use App\Models\User;
+use App\Models\Veiculo;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use PHPUnit\Framework\Attributes\RequiresPhpExtension;
@@ -83,6 +85,70 @@ class EstoqueRastreadoresTest extends TestCase
         $this->assertSame($novoTecnico->id, $chip->refresh()->tecnico_id);
         $this->assertSame($novoStatus->id, $rastreador->status_rastreador_id);
         $this->assertSame($novoStatus->id, $chip->status_rastreador_id);
+    }
+
+    public function test_changing_active_tracker_technician_requires_confirmation_and_syncs_vehicle(): void
+    {
+        $this->actingAs($this->admin());
+
+        $statusAtivo = StatusRastreador::query()->create([
+            'label' => 'Ativo',
+            'order' => 1,
+            'is_active' => true,
+        ]);
+        $tecnicoAtual = Tecnico::query()->create(['nome' => 'Tecnico Atual']);
+        $novoTecnico = Tecnico::query()->create(['nome' => 'Tecnico Novo']);
+        $chip = Chip::query()->create([
+            'numero_chip' => '62977775555',
+            'iccid' => '89550000000000000007',
+            'status_rastreador_id' => $statusAtivo->id,
+            'tecnico_id' => $tecnicoAtual->id,
+        ]);
+        $rastreador = Rastreador::query()->create([
+            'modelo' => 'Modelo Ativo',
+            'ativacao' => 2026,
+            'imei' => '777777777777777',
+            'chip_id' => $chip->id,
+            'tecnico_id' => $tecnicoAtual->id,
+            'status_rastreador_id' => $statusAtivo->id,
+            'is_estoque' => true,
+        ]);
+        $cliente = Cliente::query()->create([
+            'nome' => 'Cliente Rastreador Ativo',
+            'cpf_cnpj' => '52998224725',
+            'telefone1' => '62999999999',
+            'data_adesao' => '2026-07-23',
+            'dia_pagamento' => 10,
+        ]);
+        $veiculo = Veiculo::query()->create([
+            'cliente_id' => $cliente->id,
+            'status_rastreador_id' => $statusAtivo->id,
+            'rastreador_id' => $rastreador->id,
+            'veiculo' => 'Toyota / Corolla',
+            'placa' => 'ABC-1D23',
+        ]);
+
+        $component = Livewire::test(EstoqueRastreadores::class)
+            ->call('editar', $rastreador->id)
+            ->set('tecnico_id', $novoTecnico->id)
+            ->call('salvar')
+            ->assertSet('sincronizacaoTecnicoDescricao', fn (?string $descricao): bool => str_contains(
+                (string) $descricao,
+                'no rastreador, no chip vinculado e no tecnico de instalacao do veiculo',
+            ));
+
+        $this->assertSame($tecnicoAtual->id, $rastreador->refresh()->tecnico_id);
+        $this->assertSame($tecnicoAtual->id, $chip->refresh()->tecnico_id);
+        $this->assertSame($tecnicoAtual->id, $veiculo->refresh()->tecnico_instala_id);
+
+        $component
+            ->callMountedAction()
+            ->assertHasNoErrors();
+
+        $this->assertSame($novoTecnico->id, $rastreador->refresh()->tecnico_id);
+        $this->assertSame($novoTecnico->id, $chip->refresh()->tecnico_id);
+        $this->assertSame($novoTecnico->id, $veiculo->refresh()->tecnico_instala_id);
+        $this->assertSame('Tecnico Novo', $veiculo->instalador);
     }
 
     public function test_chip_can_be_unlinked_without_being_deleted(): void
