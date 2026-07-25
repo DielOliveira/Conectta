@@ -18,10 +18,13 @@ use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\HtmlString;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use UnitEnum;
@@ -103,55 +106,86 @@ class EstoqueRastreadores extends Page
             ->icon(Heroicon::Plus)
             ->modalHeading('Adicionar chip ao rastreador')
             ->modalSubmitActionLabel('Adicionar chip')
+            ->modalSubmitAction(fn (Action $action): Action => $action
+                ->label('Adicionar chip')
+                ->disabled(fn (): bool => $this->chipSelecionadoIndisponivel()))
             ->fillForm(function (array $arguments): array {
                 $rastreador = Rastreador::query()->findOrFail((int) $arguments['id']);
 
                 return [
+                    'chip_id' => null,
                     'fornecedor_id' => null,
                     'operadora_id' => null,
-                    'numero_chip' => '',
+                    'numero_chip' => null,
                     'iccid' => '',
                     'imei' => $rastreador->imei,
                 ];
             })
             ->schema([
                 Grid::make(2)->schema([
-                    Select::make('fornecedor_id')
-                        ->label('Fornecedor')
-                        ->options(fn (): array => Fornecedor::query()
-                            ->orderBy('id')
-                            ->pluck('nome', 'id')
-                            ->all())
-                        ->searchable()
-                        ->preload()
-                        ->native(false),
-                    Select::make('operadora_id')
-                        ->label('Operadora')
-                        ->options(fn (): array => Operadora::query()
-                            ->orderBy('id')
-                            ->pluck('nome', 'id')
-                            ->all())
-                        ->searchable()
-                        ->preload()
-                        ->native(false),
-                    TextInput::make('numero_chip')
+                    Select::make('numero_chip')
                         ->label('Numero Chip')
                         ->required()
                         ->prefix('55')
-                        ->mask('(99) 99999-9999')
-                        ->stripCharacters(['(', ')', ' ', '-'])
-                        ->maxLength(15)
-                        ->regex(ChipNumber::LOCAL_REGEX)
-                        ->formatStateUsing(fn (?string $state): string => ChipNumber::local($state))
-                        ->dehydrateStateUsing(fn (?string $state): string => ChipNumber::canonical($state))
-                        ->validationMessages([
-                            'regex' => 'Informe um número de celular completo, com DDD válido.',
+                        ->searchable()
+                        ->preload()
+                        ->native(false)
+                        ->live()
+                        ->options(fn (): array => Chip::query()
+                            ->orderBy('numero_chip')
+                            ->get()
+                            ->mapWithKeys(fn (Chip $chip): array => [
+                                $chip->numero_chip => ChipNumber::local($chip->numero_chip),
+                            ])
+                            ->all())
+                        ->getOptionLabelUsing(fn (mixed $value): string => ChipNumber::local((string) $value))
+                        ->createOptionForm([
+                            TextInput::make('numero_chip')
+                                ->label('Numero Chip')
+                                ->required()
+                                ->prefix('55')
+                                ->mask('(99) 99999-9999')
+                                ->stripCharacters(['(', ')', ' ', '-'])
+                                ->regex(ChipNumber::LOCAL_REGEX)
+                                ->validationMessages([
+                                    'regex' => 'Informe um número de celular completo, com DDD válido.',
+                                ]),
                         ])
-                        ->rules(fn (): array => [ChipNumber::uniqueRule()])
-                        ->extraInputAttributes([
-                            'inputmode' => 'numeric',
-                            'autocomplete' => 'off',
-                        ]),
+                        ->createOptionModalHeading('Informar novo numero de chip')
+                        ->createOptionAction(fn (Action $action): Action => $action
+                            ->label('Usar novo numero'))
+                        ->createOptionUsing(fn (array $data): string => ChipNumber::canonical($data['numero_chip']))
+                        ->afterStateUpdated(function (Set $set, mixed $state): void {
+                            $chip = Chip::query()
+                                ->where('numero_chip', ChipNumber::canonical((string) $state))
+                                ->first();
+
+                            $set('chip_id', $chip?->id);
+                            $set('fornecedor_id', $chip?->fornecedor_id);
+                            $set('operadora_id', $chip?->operadora_id);
+                            $set('iccid', $chip?->iccid ?? '');
+                        })
+                        ->helperText(function (Get $get): ?HtmlString {
+                            $mensagem = $this->chipIndisponibilidadeMensagem((int) $get('chip_id'));
+
+                            return $mensagem
+                                ? new HtmlString('<span class="font-medium text-danger-600 dark:text-danger-400">'.e($mensagem).'</span>')
+                                : null;
+                        })
+                        ->rules([
+                            fn (Get $get): \Closure => function (string $attribute, mixed $value, \Closure $fail) use ($get): void {
+                                if (! preg_match(ChipNumber::LOCAL_REGEX, ChipNumber::local((string) $value))) {
+                                    $fail('Informe um número de celular completo, com DDD válido.');
+                                }
+
+                                if ($mensagem = $this->chipIndisponibilidadeMensagem((int) $get('chip_id'))) {
+                                    $fail($mensagem);
+                                }
+                            },
+                        ])
+                        ->placeholder('Pesquisar numero do chip')
+                        ->searchPrompt('Digite o numero do chip para pesquisar')
+                        ->noSearchResultsMessage('Nenhum chip encontrado. Use a opção para informar um novo número.'),
                     TextInput::make('iccid')
                         ->label('ICCID')
                         ->required()
@@ -159,17 +193,37 @@ class EstoqueRastreadores extends Page
                         ->validationMessages([
                             'regex' => 'O ICCID deve conter exatamente 20 digitos.',
                         ])
-                        ->rules(fn (): array => [Rule::unique('chips', 'iccid')])
+                        ->rules(fn (Get $get): array => [
+                            Rule::unique('chips', 'iccid')->ignore($get('chip_id')),
+                        ])
+                        ->disabled(fn (Get $get): bool => filled($get('chip_id')))
                         ->maxLength(20)
                         ->extraInputAttributes([
                             'inputmode' => 'numeric',
                             'pattern' => '[0-9]{20}',
                         ]),
+                    Select::make('fornecedor_id')
+                        ->label('Fornecedor')
+                        ->options(fn (): array => Fornecedor::query()->orderBy('id')->pluck('nome', 'id')->all())
+                        ->searchable()
+                        ->preload()
+                        ->native(false)
+                        ->disabled(fn (Get $get): bool => filled($get('chip_id'))),
+                    Select::make('operadora_id')
+                        ->label('Operadora')
+                        ->options(fn (): array => Operadora::query()->orderBy('id')->pluck('nome', 'id')->all())
+                        ->searchable()
+                        ->preload()
+                        ->native(false)
+                        ->disabled(fn (Get $get): bool => filled($get('chip_id'))),
                     TextInput::make('imei')
                         ->label('IMEI')
                         ->disabled()
                         ->dehydrated(false),
                 ]),
+                TextInput::make('chip_id')
+                    ->hidden()
+                    ->dehydrated(),
             ])
             ->action(function (array $data, array $arguments): void {
                 if (! auth()->user()?->hasPermission(Permission::ESTOQUE_ESCRITA)) {
@@ -187,23 +241,35 @@ class EstoqueRastreadores extends Page
                         return null;
                     }
 
-                    $data['tecnico_id'] = $rastreador->tecnico_id;
-                    $data['status_rastreador_id'] = $rastreador->status_rastreador_id;
+                    $numeroChip = ChipNumber::canonical($data['numero_chip']);
+                    $chip = Chip::query()
+                        ->lockForUpdate()
+                        ->where('numero_chip', $numeroChip)
+                        ->first();
 
-                    if ($data['fornecedor_id'] ?? null) {
-                        $data['fornecedor'] = Fornecedor::query()->findOrFail($data['fornecedor_id'])->nome;
+                    if ($chip && $this->chipIndisponivel($chip->id)) {
+                        return null;
                     }
 
-                    if ($data['operadora_id'] ?? null) {
-                        $data['operadora'] = Operadora::query()->findOrFail($data['operadora_id'])->nome;
+                    if ($chip) {
+                        $chip->update([
+                            'tecnico_id' => $rastreador->tecnico_id,
+                            'status_rastreador_id' => $rastreador->status_rastreador_id,
+                        ]);
+                    } else {
+                        $data['numero_chip'] = $numeroChip;
+                        $data['tecnico_id'] = $rastreador->tecnico_id;
+                        $data['status_rastreador_id'] = $rastreador->status_rastreador_id;
+                        unset($data['chip_id']);
+
+                        $chip = Chip::query()->create($this->prepararDadosNovoChip($data));
                     }
 
-                    $chip = Chip::query()->create($data);
                     $rastreador->update(['chip_id' => $chip->id]);
 
                     AuditLogger::registrar(
-                        'chip.criado',
-                        'Chip incluido no estoque e vinculado ao rastreador.',
+                        'rastreador.editado',
+                        'Chip vinculado ao rastreador no estoque.',
                         $chip,
                         depois: AuditLogger::snapshot($chip),
                         contexto: [
@@ -217,7 +283,7 @@ class EstoqueRastreadores extends Page
 
                 if ($chip === null) {
                     Notification::make()
-                        ->title('Este rastreador ja possui um chip vinculado.')
+                        ->title('Não foi possível vincular o chip. Verifique se ambos continuam disponíveis.')
                         ->danger()
                         ->send();
 
@@ -229,6 +295,58 @@ class EstoqueRastreadores extends Page
                     ->success()
                     ->send();
             });
+    }
+
+    private function prepararDadosNovoChip(array $data): array
+    {
+        $data['fornecedor'] = filled($data['fornecedor_id'] ?? null)
+            ? Fornecedor::query()->findOrFail($data['fornecedor_id'])->nome
+            : null;
+        $data['operadora'] = filled($data['operadora_id'] ?? null)
+            ? Operadora::query()->findOrFail($data['operadora_id'])->nome
+            : null;
+
+        return $data;
+    }
+
+    private function chipSelecionadoIndisponivel(): bool
+    {
+        $data = $this->mountedActions[array_key_last($this->mountedActions)]['data'] ?? [];
+
+        return filled($data['chip_id'] ?? null) && $this->chipIndisponivel((int) $data['chip_id']);
+    }
+
+    private function chipIndisponivel(int $chipId): bool
+    {
+        return $this->chipIndisponibilidadeMensagem($chipId) !== null;
+    }
+
+    private function chipIndisponibilidadeMensagem(int $chipId): ?string
+    {
+        if ($chipId <= 0) {
+            return null;
+        }
+
+        $chip = Chip::query()
+            ->with(['statusRastreador', 'rastreador'])
+            ->find($chipId);
+
+        if (! $chip) {
+            return null;
+        }
+
+        $status = $chip->statusRastreador?->label ?? 'Sem status';
+        $rastreador = $chip->rastreador;
+
+        if ($status === 'Disponivel' && ! $rastreador) {
+            return null;
+        }
+
+        if ($rastreador) {
+            return "Este chip está com status “{$status}” e já está vinculado ao rastreador IMEI {$rastreador->imei}. Somente chips disponíveis e sem vínculo podem ser selecionados.";
+        }
+
+        return "Este chip está com status “{$status}”. Somente chips com status “Disponivel” podem ser vinculados.";
     }
 
     public function removerChipAction(): Action

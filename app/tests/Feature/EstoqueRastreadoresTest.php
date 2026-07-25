@@ -22,26 +22,34 @@ class EstoqueRastreadoresTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_chip_can_be_created_and_linked_from_tracker_row_action(): void
+    public function test_available_existing_chip_can_be_linked_from_tracker_row_action(): void
     {
         $this->actingAs($this->admin());
 
         $status = $this->statusDisponivel();
         $tecnico = Tecnico::query()->create(['nome' => 'Tecnico Teste']);
         $rastreador = $this->rastreador('123456789012345', $tecnico, $status);
+        $chip = Chip::query()->create([
+            'fornecedor' => 'HINOVA',
+            'fornecedor_id' => Fornecedor::query()->where('nome', 'HINOVA')->value('id'),
+            'operadora' => 'VIVO',
+            'operadora_id' => Operadora::query()->where('nome', 'VIVO')->value('id'),
+            'numero_chip' => '5562999990000',
+            'iccid' => '89550000000000000001',
+            'status_rastreador_id' => $status->id,
+        ]);
 
         Livewire::test(EstoqueRastreadores::class)
             ->callAction('adicionarChip', [
-                'fornecedor_id' => Fornecedor::query()->where('nome', 'HINOVA')->value('id'),
-                'operadora_id' => Operadora::query()->where('nome', 'VIVO')->value('id'),
-                'numero_chip' => '62999990000',
-                'iccid' => '89550000000000000001',
+                'chip_id' => $chip->id,
+                'fornecedor_id' => $chip->fornecedor_id,
+                'operadora_id' => $chip->operadora_id,
+                'numero_chip' => $chip->numero_chip,
+                'iccid' => $chip->iccid,
             ], [
                 'id' => $rastreador->id,
             ])
             ->assertHasNoActionErrors();
-
-        $chip = Chip::query()->where('numero_chip', '5562999990000')->firstOrFail();
 
         $this->assertSame($chip->id, $rastreador->refresh()->chip_id);
         $this->assertSame('89550000000000000001', $rastreador->chip?->iccid);
@@ -51,6 +59,66 @@ class EstoqueRastreadoresTest extends TestCase
         $this->assertSame('VIVO', $chip->operadora);
         $this->assertSame(1, $chip->fornecedor_id);
         $this->assertSame('HINOVA', $chip->fornecedor);
+    }
+
+    public function test_unavailable_existing_chip_cannot_be_linked_from_tracker_row_action(): void
+    {
+        $this->actingAs($this->admin());
+
+        $disponivel = $this->statusDisponivel();
+        $ativo = StatusRastreador::query()->create([
+            'label' => 'Ativo',
+            'order' => 2,
+            'is_active' => true,
+        ]);
+        $tecnico = Tecnico::query()->create(['nome' => 'Tecnico Teste']);
+        $rastreador = $this->rastreador('123456789012346', $tecnico, $disponivel);
+        $chip = Chip::query()->create([
+            'numero_chip' => '5562999990001',
+            'iccid' => '89550000000000000011',
+            'status_rastreador_id' => $ativo->id,
+        ]);
+
+        Livewire::test(EstoqueRastreadores::class)
+            ->callAction('adicionarChip', [
+                'chip_id' => $chip->id,
+                'numero_chip' => $chip->numero_chip,
+                'iccid' => $chip->iccid,
+            ], [
+                'id' => $rastreador->id,
+            ])
+            ->assertHasActionErrors(['chip_id']);
+
+        $this->assertNull($rastreador->refresh()->chip_id);
+    }
+
+    public function test_new_chip_can_still_be_created_with_all_original_fields(): void
+    {
+        $this->actingAs($this->admin());
+
+        $status = $this->statusDisponivel();
+        $tecnico = Tecnico::query()->create(['nome' => 'Tecnico Novo Chip']);
+        $rastreador = $this->rastreador('123456789012347', $tecnico, $status);
+
+        Livewire::test(EstoqueRastreadores::class)
+            ->callAction('adicionarChip', [
+                'chip_id' => null,
+                'fornecedor_id' => Fornecedor::query()->where('nome', 'HINOVA')->value('id'),
+                'operadora_id' => Operadora::query()->where('nome', 'VIVO')->value('id'),
+                'numero_chip' => '5562999990002',
+                'iccid' => '89550000000000000012',
+            ], [
+                'id' => $rastreador->id,
+            ])
+            ->assertHasNoActionErrors();
+
+        $chip = Chip::query()->where('numero_chip', '5562999990002')->firstOrFail();
+
+        $this->assertSame($chip->id, $rastreador->refresh()->chip_id);
+        $this->assertSame('HINOVA', $chip->fornecedor);
+        $this->assertSame('VIVO', $chip->operadora);
+        $this->assertSame($tecnico->id, $chip->tecnico_id);
+        $this->assertSame($status->id, $chip->status_rastreador_id);
     }
 
     public function test_changing_tracker_technician_and_status_also_changes_linked_chip(): void
