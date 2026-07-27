@@ -224,6 +224,7 @@ class RelatorioGeral extends Page
             ->leftJoin('clientes', 'lancamentos.cliente_id', '=', 'clientes.id')
             ->leftJoin('invoices', 'lancamentos.id', '=', 'invoices.lancamento_id')
             ->with(['cliente.statusCliente', 'invoice'])
+            ->whereNull('lancamentos.invalidado_em')
             ->where('lancamentos.valor_planejado', '>', 0)
             ->where(function (Builder $query): void {
                 $query

@@ -154,6 +154,7 @@ class CobrancaAutomaticaService
     private function lancamentosParaVencimento(CarbonImmutable $vencimento, ?int $clienteId = null): Collection
     {
         return Lancamento::query()
+            ->validos()
             ->with(['cliente', 'invoice'])
             ->when($clienteId !== null, fn (Builder $query): Builder => $query->where('cliente_id', $clienteId))
             ->where('mes_referencia', (int) $vencimento->month)
@@ -320,6 +321,7 @@ class CobrancaAutomaticaService
         $anoPrincipal = (int) $lancamentoPrincipal->ano_referencia;
 
         Lancamento::query()
+            ->validos()
             ->where('cliente_id', $clienteId)
             ->where('valor_planejado', '>', 0)
             ->whereNotNull('mes_referencia')
@@ -562,6 +564,7 @@ class CobrancaAutomaticaService
     private function valorEfetivadoReferencia(int $clienteId, int $mes, int $ano): float
     {
         return (float) Lancamento::query()
+            ->validos()
             ->where('cliente_id', $clienteId)
             ->where('mes_referencia', $mes)
             ->where('ano_referencia', $ano)
@@ -571,6 +574,7 @@ class CobrancaAutomaticaService
     private function quantidadeLancamentosPlanejados(Lancamento $lancamento): int
     {
         return Lancamento::query()
+            ->validos()
             ->where('cliente_id', $lancamento->cliente_id)
             ->where('mes_referencia', $lancamento->mes_referencia)
             ->where('ano_referencia', $lancamento->ano_referencia)

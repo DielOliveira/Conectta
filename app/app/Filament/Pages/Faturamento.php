@@ -153,6 +153,7 @@ class Faturamento extends Page
     public function panoramaAnual(): Collection
     {
         $totaisPlanejados = Lancamento::query()
+            ->validos()
             ->select('ano_referencia', DB::raw('sum(valor_planejado) as total'))
             ->whereIn('ano_referencia', self::ANOS_PERMITIDOS)
             ->whereNotNull('cliente_id')
@@ -160,6 +161,7 @@ class Faturamento extends Page
             ->pluck('total', 'ano_referencia');
 
         $totaisLancados = Lancamento::query()
+            ->validos()
             ->select('ano_referencia', DB::raw('sum(valor_efetivado) as total'))
             ->whereIn('ano_referencia', self::ANOS_PERMITIDOS)
             ->whereNotNull('cliente_id')
@@ -167,6 +169,7 @@ class Faturamento extends Page
             ->pluck('total', 'ano_referencia');
 
         $totaisRecebidos = Lancamento::query()
+            ->validos()
             ->selectRaw('year(data_lancamento) as ano, sum(valor_efetivado) as total')
             ->whereNotNull('data_lancamento')
             ->groupByRaw('year(data_lancamento)')
@@ -186,6 +189,7 @@ class Faturamento extends Page
     public function comparativoMensal(): Collection
     {
         $totaisRecebidos = Lancamento::query()
+            ->validos()
             ->selectRaw('year(data_lancamento) as ano, sum(valor_efetivado) as total')
             ->whereNotNull('data_lancamento')
             ->whereMonth('data_lancamento', $this->mesComparativo)
@@ -228,6 +232,7 @@ class Faturamento extends Page
     private function totaisLancados(): Collection
     {
         return Lancamento::query()
+            ->validos()
             ->select('mes_referencia', DB::raw('sum(valor_efetivado) as total'))
             ->where('ano_referencia', $this->ano)
             ->whereNotNull('cliente_id')
@@ -238,6 +243,7 @@ class Faturamento extends Page
     private function totaisPlanejados(): Collection
     {
         return Lancamento::query()
+            ->validos()
             ->select('mes_referencia', DB::raw('sum(valor_planejado) as total'))
             ->where('ano_referencia', $this->ano)
             ->whereNotNull('cliente_id')
@@ -248,6 +254,7 @@ class Faturamento extends Page
     private function totaisRecebidos(): Collection
     {
         return Lancamento::query()
+            ->validos()
             ->selectRaw('month(data_lancamento) as mes, sum(valor_efetivado) as total')
             ->whereYear('data_lancamento', $this->ano)
             ->groupByRaw('month(data_lancamento)')

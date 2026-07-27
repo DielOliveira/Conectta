@@ -196,6 +196,8 @@ class FinanceiroLancamentoModalTest extends TestCase
             'ano_referencia' => 2026,
             'valor_planejado' => null,
             'observacao' => 'Neutralizado em saneamento de duplicidade.',
+            'invalidado_em' => now(),
+            'motivo_invalidacao' => 'Duplicidade de boleto.',
         ]);
         $ativo = Lancamento::query()->create([
             'cliente_id' => $cliente->id,
@@ -218,6 +220,40 @@ class FinanceiroLancamentoModalTest extends TestCase
             ->assertSet('modalObservacao', '');
 
         $this->assertNotSame($neutralizado->id, $ativo->id);
+    }
+
+    public function test_financeiro_ignores_invalidated_lancamento_in_monthly_values_and_search(): void
+    {
+        $cliente = $this->cliente('Cliente Com Historico Invalidado', '99887766000155');
+
+        Lancamento::query()->create([
+            'cliente_id' => $cliente->id,
+            'mes_referencia' => 7,
+            'ano_referencia' => 2026,
+            'valor_planejado' => 180,
+            'observacao' => 'Observacao valida',
+        ]);
+        Lancamento::query()->create([
+            'cliente_id' => $cliente->id,
+            'mes_referencia' => 7,
+            'ano_referencia' => 2026,
+            'valor_planejado' => null,
+            'observacao' => 'Neutralizado em saneamento de duplicidade',
+            'invalidado_em' => now(),
+        ]);
+
+        $this->actingAs(User::query()->create([
+            'name' => 'Admin Lista',
+            'email' => 'admin-lista@example.com',
+            'password' => 'password',
+            'is_admin' => true,
+        ]));
+
+        Livewire::test(Financeiro::class)
+            ->set('mesBase', 7)
+            ->set('anoBase', 2026)
+            ->set('consultaMes1', 'Neutralizado em saneamento')
+            ->assertDontSee($cliente->nome);
     }
 
     private function cliente(string $nome = 'Cliente Teste', string $cpfCnpj = '52998224725'): Cliente

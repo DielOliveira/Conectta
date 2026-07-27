@@ -390,6 +390,7 @@ class Financeiro extends Page
         }
 
         $origens = Lancamento::query()
+            ->validos()
             ->select('cliente_id')
             ->selectRaw('MAX(valor_planejado) as valor_planejado')
             ->whereIn('cliente_id', $clienteIds)
@@ -412,6 +413,7 @@ class Financeiro extends Page
             }
 
             $jaTemValor = Lancamento::query()
+                ->validos()
                 ->where('cliente_id', $origem->cliente_id)
                 ->where('mes_referencia', $mes)
                 ->where('ano_referencia', $ano)
@@ -425,6 +427,7 @@ class Financeiro extends Page
             }
 
             $lancamento = Lancamento::query()
+                ->validos()
                 ->where('cliente_id', $origem->cliente_id)
                 ->where('mes_referencia', $mes)
                 ->where('ano_referencia', $ano)
@@ -583,8 +586,9 @@ class Financeiro extends Page
             Cliente::query()->whereKey($this->modalClienteId)->lockForUpdate()->firstOrFail();
 
             $lancamentoAtual = $this->modalLancamentoId
-                ? Lancamento::query()->whereKey($this->modalLancamentoId)->lockForUpdate()->first()
+                ? Lancamento::query()->validos()->whereKey($this->modalLancamentoId)->lockForUpdate()->first()
                 : Lancamento::query()
+                    ->validos()
                     ->where('cliente_id', $this->modalClienteId)
                     ->where('mes_referencia', $this->modalMes)
                     ->where('ano_referencia', $this->modalAno)
@@ -669,6 +673,7 @@ class Financeiro extends Page
         }
 
         return Lancamento::query()
+            ->validos()
             ->whereKey($this->modalLancamentoId)
             ->whereNotNull('valor_efetivado')
             ->where('valor_efetivado', '<>', 0)
@@ -682,6 +687,7 @@ class Financeiro extends Page
         }
 
         return Lancamento::query()
+            ->validos()
             ->where('cliente_id', $this->modalClienteId)
             ->where('mes_referencia', $this->modalMes)
             ->where('ano_referencia', $this->modalAno)
@@ -760,6 +766,7 @@ class Financeiro extends Page
         }
 
         $lancamento = Lancamento::query()
+            ->validos()
             ->whereKey($lancamentoId)
             ->where('cliente_id', $this->modalClienteId)
             ->first();
@@ -1088,6 +1095,7 @@ class Financeiro extends Page
         }
 
         $lancamento = Lancamento::query()
+            ->validos()
             ->whereKey($this->modalLancamentoId)
             ->where('cliente_id', $cliente->id)
             ->first();
@@ -1144,6 +1152,7 @@ class Financeiro extends Page
         }
 
         return (float) (Lancamento::query()
+            ->validos()
             ->whereKey($this->modalLancamentoId)
             ->value('valor_planejado') ?? 0);
     }
@@ -1176,12 +1185,14 @@ class Financeiro extends Page
             ->join('lancamentos', 'invoices.lancamento_id', '=', 'lancamentos.id')
             ->where('lancamentos.cliente_id', $clienteId)
             ->where('lancamentos.mes_referencia', $mes)
-            ->where('lancamentos.ano_referencia', $ano);
+            ->where('lancamentos.ano_referencia', $ano)
+            ->whereNull('lancamentos.invalidado_em');
     }
 
     private function valorEfetivadoReferencia(int $clienteId, int $mes, int $ano): float
     {
         return (float) Lancamento::query()
+            ->validos()
             ->where('cliente_id', $clienteId)
             ->where('mes_referencia', $mes)
             ->where('ano_referencia', $ano)
@@ -1290,6 +1301,7 @@ class Financeiro extends Page
         );
 
         Lancamento::query()
+            ->validos()
             ->whereKey($this->modalLancamentoId)
             ->update(['numero_boleto' => 'Lytex']);
 
@@ -1624,18 +1636,10 @@ class Financeiro extends Page
         }
 
         $lancamento = Lancamento::query()
+            ->validos()
             ->where('cliente_id', $this->modalClienteId)
             ->where('mes_referencia', $this->modalMes)
             ->where('ano_referencia', $this->modalAno)
-            ->orderByRaw('case when valor_planejado > 0 then 0 else 1 end')
-            ->orderByRaw(
-                "case when exists (
-                    select 1
-                    from invoices
-                    where invoices.lancamento_id = lancamentos.id
-                      and invoices.status in ('Pago', 'paid')
-                ) then 0 else 1 end",
-            )
             ->orderBy('id')
             ->first();
 
@@ -1689,6 +1693,7 @@ class Financeiro extends Page
         }
 
         return Lancamento::query()
+            ->validos()
             ->select('cliente_id')
             ->selectRaw('MAX(numero_boleto) as numero_boleto')
             ->selectRaw('MAX(valor_planejado) as valor_planejado')
@@ -1707,6 +1712,7 @@ class Financeiro extends Page
         $search = '%'.$consulta.'%';
 
         return Lancamento::query()
+            ->validos()
             ->select('cliente_id')
             ->where('mes_referencia', $mes)
             ->where('ano_referencia', $ano)
@@ -1721,6 +1727,7 @@ class Financeiro extends Page
     private function clientesComNumeroBoleto(int $mes, int $ano): Collection
     {
         return Lancamento::query()
+            ->validos()
             ->select('cliente_id')
             ->where('mes_referencia', $mes)
             ->where('ano_referencia', $ano)
@@ -1732,6 +1739,7 @@ class Financeiro extends Page
     private function clientesComValorEfetuado(int $mes, int $ano): Collection
     {
         return Lancamento::query()
+            ->validos()
             ->select('cliente_id')
             ->where('mes_referencia', $mes)
             ->where('ano_referencia', $ano)
@@ -1743,6 +1751,7 @@ class Financeiro extends Page
     private function totalEfetivadoReferencia(int $mes, int $ano): float
     {
         return (float) Lancamento::query()
+            ->validos()
             ->where('mes_referencia', $mes)
             ->where('ano_referencia', $ano)
             ->sum('valor_efetivado');

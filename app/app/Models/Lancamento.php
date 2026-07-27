@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -20,6 +21,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'ano_referencia',
     'time_stamp',
     'log',
+    'invalidado_em',
+    'motivo_invalidacao',
 ])]
 class Lancamento extends Model
 {
@@ -31,7 +34,13 @@ class Lancamento extends Model
             'valor_efetivado' => 'decimal:2',
             'is_baixado' => 'boolean',
             'time_stamp' => 'datetime',
+            'invalidado_em' => 'datetime',
         ];
+    }
+
+    public function scopeValidos(Builder $query): Builder
+    {
+        return $query->whereNull('invalidado_em');
     }
 
     public function cliente(): BelongsTo
