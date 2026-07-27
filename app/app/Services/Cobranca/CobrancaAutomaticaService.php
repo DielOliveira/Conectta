@@ -23,6 +23,7 @@ use Illuminate\Support\Facades\Validator;
 class CobrancaAutomaticaService
 {
     public const BOLETO_7_DIAS = 'boleto_7_dias';
+
     public const LEMBRETE_VENCIMENTO = 'lembrete_vencimento';
 
     /** @var array<int, int> */
@@ -60,7 +61,7 @@ class CobrancaAutomaticaService
     }
 
     /**
-     * @param array{tipo:string,vencimento:CarbonImmutable,dias_atraso:int|null} $plano
+     * @param  array{tipo:string,vencimento:CarbonImmutable,dias_atraso:int|null}  $plano
      * @return array{execucao_id:int,total_processados:int,total_enviados:int,total_ignorados:int,total_erros:int}
      */
     private function processarPlano(CarbonImmutable $data, bool $dryRun, array $plano, ?int $limit, ?int $clienteId, ?int $agendamentoId): array
@@ -168,7 +169,7 @@ class CobrancaAutomaticaService
     }
 
     /**
-     * @param array{tipo:string,vencimento:CarbonImmutable,dias_atraso:int|null} $plano
+     * @param  array{tipo:string,vencimento:CarbonImmutable,dias_atraso:int|null}  $plano
      */
     private function processarLancamento(CobrancaExecucao $execucao, Lancamento $lancamento, array $plano, CarbonImmutable $dataReferencia, bool $dryRun): string
     {
@@ -179,6 +180,21 @@ class CobrancaAutomaticaService
 
         if ($cliente === null) {
             $this->registrar($execucao, $lancamento, $tipo, 'erro', $dataReferencia, $vencimento, $valor, erro: 'Cliente nao encontrado.');
+
+            return 'total_erros';
+        }
+
+        if ($this->quantidadeLancamentosPlanejados($lancamento) > 1) {
+            $this->registrar(
+                $execucao,
+                $lancamento,
+                $tipo,
+                'erro',
+                $dataReferencia,
+                $vencimento,
+                $valor,
+                erro: 'Cobranca bloqueada: existem multiplos lancamentos planejados para o cliente nesta competencia.',
+            );
 
             return 'total_erros';
         }
@@ -550,6 +566,16 @@ class CobrancaAutomaticaService
             ->where('mes_referencia', $mes)
             ->where('ano_referencia', $ano)
             ->sum('valor_efetivado');
+    }
+
+    private function quantidadeLancamentosPlanejados(Lancamento $lancamento): int
+    {
+        return Lancamento::query()
+            ->where('cliente_id', $lancamento->cliente_id)
+            ->where('mes_referencia', $lancamento->mes_referencia)
+            ->where('ano_referencia', $lancamento->ano_referencia)
+            ->where('valor_planejado', '>', 0)
+            ->count();
     }
 
     private function telefoneWhatsapp(Cliente $cliente): ?string

@@ -7,6 +7,7 @@ use App\Models\Invoice;
 use App\Models\Lancamento;
 use App\Models\Permission;
 use App\Models\StatusCliente;
+use App\Models\Vendedor;
 use App\Rules\CpfCnpj;
 use App\Services\Audit\AuditLogger;
 use App\Services\Lytex\LytexException;
@@ -20,6 +21,7 @@ use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use UnitEnum;
@@ -577,17 +579,22 @@ class Financeiro extends Page
             'modalObservacao' => 'observacao',
         ]);
 
-        $antes = null;
-        $totalAntes = $this->totalEfetivadoReferencia($this->modalMes, $this->modalAno);
+        [$lancamento, $antes, $totalAntes] = DB::transaction(function () use ($valorEfetivado, $temValorEfetivado): array {
+            Cliente::query()->whereKey($this->modalClienteId)->lockForUpdate()->firstOrFail();
 
-        if ($this->modalLancamentoId) {
-            $lancamentoAtual = Lancamento::query()->find($this->modalLancamentoId);
+            $lancamentoAtual = $this->modalLancamentoId
+                ? Lancamento::query()->whereKey($this->modalLancamentoId)->lockForUpdate()->first()
+                : Lancamento::query()
+                    ->where('cliente_id', $this->modalClienteId)
+                    ->where('mes_referencia', $this->modalMes)
+                    ->where('ano_referencia', $this->modalAno)
+                    ->where('valor_planejado', '>', 0)
+                    ->orderBy('id')
+                    ->lockForUpdate()
+                    ->first();
             $antes = $lancamentoAtual ? AuditLogger::snapshot($lancamentoAtual) : null;
-        }
-
-        $lancamento = Lancamento::query()->updateOrCreate(
-            ['id' => $this->modalLancamentoId],
-            [
+            $totalAntes = $this->totalEfetivadoReferencia($this->modalMes, $this->modalAno);
+            $atributos = [
                 'cliente_id' => $this->modalClienteId,
                 'data_lancamento' => $temValorEfetivado
                     ? ($this->modalDataLancamento ?: now()->toDateString())
@@ -599,8 +606,17 @@ class Financeiro extends Page
                 'valor_efetivado' => $valorEfetivado,
                 'observacao' => blank($this->modalObservacao) ? null : $this->modalObservacao,
                 'time_stamp' => now(),
-            ],
-        );
+            ];
+
+            if ($lancamentoAtual) {
+                $lancamentoAtual->update($atributos);
+                $lancamento = $lancamentoAtual;
+            } else {
+                $lancamento = Lancamento::query()->create($atributos);
+            }
+
+            return [$lancamento, $antes, $totalAntes];
+        });
 
         $this->modalLancamentoId = $lancamento->id;
         $totalDepois = $this->totalEfetivadoReferencia($this->modalMes, $this->modalAno);
@@ -1528,7 +1544,7 @@ class Financeiro extends Page
                 ->orderBy('nome'),
             'vendedor' => $query
                 ->orderBy(
-                    \App\Models\Vendedor::query()
+                    Vendedor::query()
                         ->select('nome')
                         ->whereColumn('vendedores.id', 'clientes.vendedor_id')
                         ->limit(1),

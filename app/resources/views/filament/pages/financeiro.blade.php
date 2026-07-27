@@ -1326,6 +1326,8 @@
                                         type="date"
                                         wire:model="modalDataLancamento"
                                         wire:keydown.enter.prevent="salvarLancamentoModal"
+                                        wire:loading.attr="disabled"
+                                        wire:target="salvarLancamentoModal"
                                         class="ct-fin-modal-input"
                                     />
                                     @error('modalDataLancamento') <span class="ct-error">{{ $message }}</span> @enderror
@@ -1337,6 +1339,8 @@
                                         type="text"
                                         wire:model="modalNumeroBoleto"
                                         wire:keydown.enter.prevent="salvarLancamentoModal"
+                                        wire:loading.attr="disabled"
+                                        wire:target="salvarLancamentoModal"
                                         class="ct-fin-modal-input"
                                     />
                                     @error('modalNumeroBoleto') <span class="ct-error">{{ $message }}</span> @enderror
@@ -1364,6 +1368,8 @@
                                         autocomplete="off"
                                         wire:model.live="modalValorPlanejado"
                                         wire:keydown.enter.prevent="salvarLancamentoModal"
+                                        wire:loading.attr="disabled"
+                                        wire:target="salvarLancamentoModal"
                                         oninput="this.value = window.conecttaMaskMoney(this.value)"
                                         class="ct-fin-modal-input"
                                     />
@@ -1378,6 +1384,8 @@
                                         autocomplete="off"
                                         wire:model.live="modalValorEfetivado"
                                         wire:keydown.enter.prevent="salvarLancamentoModal"
+                                        wire:loading.attr="disabled"
+                                        wire:target="salvarLancamentoModal"
                                         oninput="this.value = window.conecttaMaskMoney(this.value)"
                                         class="ct-fin-modal-input"
                                     />
@@ -1390,6 +1398,8 @@
                                         type="text"
                                         wire:model="modalObservacao"
                                         wire:keydown.enter.prevent="salvarLancamentoModal"
+                                        wire:loading.attr="disabled"
+                                        wire:target="salvarLancamentoModal"
                                         class="ct-fin-modal-input"
                                     />
                                     @error('modalObservacao') <span class="ct-error">{{ $message }}</span> @enderror
@@ -1398,7 +1408,16 @@
 
                             <div class="ct-fin-modal-actions">
                                 <button type="button" wire:click="fecharLancamento" class="ct-fin-btn ct-fin-modal-secondary ct-fin-modal-action-btn">Fechar</button>
-                                <button type="button" wire:click="salvarLancamentoModal" class="ct-fin-btn ct-fin-modal-primary ct-fin-modal-action-btn">Salvar</button>
+                                <button
+                                    type="button"
+                                    wire:click="salvarLancamentoModal"
+                                    wire:loading.attr="disabled"
+                                    wire:target="salvarLancamentoModal"
+                                    class="ct-fin-btn ct-fin-modal-primary ct-fin-modal-action-btn"
+                                >
+                                    <span wire:loading.remove wire:target="salvarLancamentoModal">Salvar</span>
+                                    <span wire:loading wire:target="salvarLancamentoModal">Salvando...</span>
+                                </button>
                             </div>
                         @elseif ($modalAba === 'parcelamento')
                             <div>

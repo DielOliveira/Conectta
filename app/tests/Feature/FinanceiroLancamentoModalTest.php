@@ -4,8 +4,11 @@ namespace Tests\Feature;
 
 use App\Filament\Pages\Financeiro;
 use App\Models\Cliente;
+use App\Models\CobrancaEnvio;
 use App\Models\Lancamento;
 use App\Models\User;
+use App\Services\Cobranca\CobrancaAutomaticaService;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use PHPUnit\Framework\Attributes\RequiresPhpExtension;
@@ -124,6 +127,64 @@ class FinanceiroLancamentoModalTest extends TestCase
 
         $this->assertSame('2026-07-20', $lancamento->data_lancamento?->toDateString());
         $this->assertSame('150.00', $lancamento->valor_efetivado);
+    }
+
+    public function test_repeated_stale_create_request_updates_existing_planned_lancamento(): void
+    {
+        $cliente = $this->cliente('Cliente Idempotente', '84762979000191');
+
+        $this->actingAs(User::query()->create([
+            'name' => 'Admin',
+            'email' => 'admin-idempotente@example.com',
+            'password' => 'password',
+            'is_admin' => true,
+        ]));
+
+        foreach (['150,00', '175,00'] as $valor) {
+            Livewire::test(Financeiro::class)
+                ->set('modalClienteId', $cliente->id)
+                ->set('modalMes', 7)
+                ->set('modalAno', 2026)
+                ->set('modalValorPlanejado', $valor)
+                ->call('salvarLancamentoModal')
+                ->assertHasNoErrors();
+        }
+
+        $lancamento = Lancamento::query()->sole();
+
+        $this->assertSame('175.00', $lancamento->valor_planejado);
+    }
+
+    public function test_automatic_billing_blocks_duplicated_planned_lancamentos(): void
+    {
+        $cliente = $this->cliente('Cliente Duplicado', '11222333000181');
+        $cliente->update([
+            'email' => 'duplicado@example.com',
+            'dia_pagamento' => 30,
+        ]);
+
+        foreach ([150, 150] as $valor) {
+            Lancamento::query()->create([
+                'cliente_id' => $cliente->id,
+                'mes_referencia' => 7,
+                'ano_referencia' => 2026,
+                'valor_planejado' => $valor,
+            ]);
+        }
+
+        $resultado = app(CobrancaAutomaticaService::class)->processar(
+            CarbonImmutable::create(2026, 7, 23),
+            dryRun: false,
+            tipo: CobrancaAutomaticaService::BOLETO_7_DIAS,
+        );
+
+        $this->assertSame(2, $resultado['total_erros']);
+        $this->assertSame(0, $resultado['total_enviados']);
+        $this->assertDatabaseCount('invoices', 0);
+        $this->assertSame(2, CobrancaEnvio::query()->where('status', 'erro')->count());
+        $this->assertTrue(CobrancaEnvio::query()->get()->every(
+            fn (CobrancaEnvio $envio): bool => str_contains((string) $envio->erro, 'multiplos lancamentos planejados'),
+        ));
     }
 
     private function cliente(string $nome = 'Cliente Teste', string $cpfCnpj = '52998224725'): Cliente
