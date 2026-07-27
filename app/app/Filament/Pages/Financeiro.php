@@ -1627,6 +1627,15 @@ class Financeiro extends Page
             ->where('cliente_id', $this->modalClienteId)
             ->where('mes_referencia', $this->modalMes)
             ->where('ano_referencia', $this->modalAno)
+            ->orderByRaw('case when valor_planejado > 0 then 0 else 1 end')
+            ->orderByRaw(
+                "case when exists (
+                    select 1
+                    from invoices
+                    where invoices.lancamento_id = lancamentos.id
+                      and invoices.status in ('Pago', 'paid')
+                ) then 0 else 1 end",
+            )
             ->orderBy('id')
             ->first();
 

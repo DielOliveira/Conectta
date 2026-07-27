@@ -187,6 +187,39 @@ class FinanceiroLancamentoModalTest extends TestCase
         ));
     }
 
+    public function test_popup_prioritizes_active_lancamento_over_neutralized_history(): void
+    {
+        $cliente = $this->cliente('Cliente Saneado', '72993876000103');
+        $neutralizado = Lancamento::query()->create([
+            'cliente_id' => $cliente->id,
+            'mes_referencia' => 7,
+            'ano_referencia' => 2026,
+            'valor_planejado' => null,
+            'observacao' => 'Neutralizado em saneamento de duplicidade.',
+        ]);
+        $ativo = Lancamento::query()->create([
+            'cliente_id' => $cliente->id,
+            'mes_referencia' => 7,
+            'ano_referencia' => 2026,
+            'valor_planejado' => 180,
+        ]);
+
+        $this->actingAs(User::query()->create([
+            'name' => 'Admin',
+            'email' => 'admin-popup@example.com',
+            'password' => 'password',
+            'is_admin' => true,
+        ]));
+
+        Livewire::test(Financeiro::class)
+            ->call('abrirLancamento', $cliente->id, 7, 2026)
+            ->assertSet('modalLancamentoId', $ativo->id)
+            ->assertSet('modalValorPlanejado', '180,00')
+            ->assertSet('modalObservacao', '');
+
+        $this->assertNotSame($neutralizado->id, $ativo->id);
+    }
+
     private function cliente(string $nome = 'Cliente Teste', string $cpfCnpj = '52998224725'): Cliente
     {
         return Cliente::query()->create([
