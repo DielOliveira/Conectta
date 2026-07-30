@@ -43,6 +43,15 @@ return [
         'timeout' => env('LYTEX_TIMEOUT', 30),
     ],
 
+    'tracksolid' => [
+        'base_url' => env('TRACKSOLID_BASE_URL'),
+        'account' => env('TRACKSOLID_ACCOUNT'),
+        'app_key' => env('TRACKSOLID_APP_KEY'),
+        'app_secret' => env('TRACKSOLID_APP_SECRET'),
+        'password_md5' => env('TRACKSOLID_PASSWORD_MD5'),
+        'timeout' => env('TRACKSOLID_TIMEOUT', 30),
+    ],
+
     'whatsapp' => [
         'zapi' => [
             'base_url' => env('WHATSAPP_ZAPI_BASE_URL', 'https://api.z-api.io'),

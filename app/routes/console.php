@@ -6,10 +6,14 @@ use App\Models\Invoice;
 use App\Services\Cobranca\CobrancaAgendamentoService;
 use App\Services\Cobranca\CobrancaAutomaticaService;
 use App\Services\Cobranca\CobrancaWhatsappService;
+use App\Services\Tracksolid\TracksolidDiagnosticService;
+use App\Services\Tracksolid\TracksolidException;
+use App\Services\Tracksolid\TracksolidService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
+use Illuminate\Support\Facades\Storage;
 
 Artisan::command('cobrancas:processar {--data= : Data de processamento no formato YYYY-MM-DD} {--tipo= : boleto_7_dias, lembrete_vencimento ou atraso_X} {--limit= : Limite de itens para processar} {--cliente= : ID do cliente para processar isoladamente} {--executar : Executa de verdade. Sem esta flag roda em simulacao.}', function (CobrancaAutomaticaService $service) {
     $dataOption = trim((string) $this->option('data'));
@@ -71,6 +75,53 @@ Schedule::command('cobrancas:rodar-agendadas')
     ->withoutOverlapping();
 
 if (! app()->isProduction()) {
+    Artisan::command('tracksolid:diagnostico {--base-url= : URL HTTPS do no Tracksolid} {--imei= : IMEI conhecido para validar detalhes} {--output= : Caminho relativo no storage privado}', function (TracksolidDiagnosticService $diagnostic) {
+        $baseUrl = trim((string) $this->option('base-url')) ?: null;
+        $output = trim((string) $this->option('output'))
+            ?: 'tracksolid/diagnostico-'.now()->format('Ymd-His').'.json';
+
+        try {
+            $service = new TracksolidService($baseUrl);
+            $token = $service->token();
+            $accessToken = (string) $token['accessToken'];
+            $this->info('Autenticacao Tracksolid concluida.');
+
+            $imei = preg_replace('/\D+/', '', (string) $this->option('imei')) ?? '';
+            $detail = $imei === '' ? null : $service->deviceDetail($accessToken, $imei);
+
+            if ($detail !== null) {
+                $this->info("Consulta do IMEI {$imei} concluida.");
+            }
+
+            $devices = $service->devices($accessToken);
+            $report = $diagnostic->build($devices);
+            $report['connection'] = [
+                'base_url' => $baseUrl ?: config('services.tracksolid.base_url'),
+                'account' => (string) config('services.tracksolid.account'),
+                'token_expires_in' => $token['expiresIn'] ?? null,
+                'sample_imei' => $imei ?: null,
+                'sample_detail' => $detail,
+            ];
+
+            Storage::disk('local')->put(
+                $output,
+                json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+            );
+
+            $this->table(
+                ['Metrica', 'Total'],
+                collect($report['summary'])->map(fn (mixed $value, string $key): array => [$key, $value])->values()->all(),
+            );
+            $this->info('Relatorio privado salvo em: '.Storage::disk('local')->path($output));
+
+            return self::SUCCESS;
+        } catch (TracksolidException $exception) {
+            $this->error($exception->getMessage());
+
+            return self::FAILURE;
+        }
+    })->purpose('Concilia o inventario Tracksolid com os rastreadores locais, sem alterar dados.');
+
     Artisan::command('conectta:lytex-webhook-test {invoiceId? : fatura_id externa da Lytex} {--event=liquidateInvoice : liquidateInvoice, scheduleInvoicePayment ou cancelInvoice} {--status= : Status externo opcional} {--show-payload : Exibe o payload assinado antes de processar}', function () {
         $event = (string) $this->option('event');
 

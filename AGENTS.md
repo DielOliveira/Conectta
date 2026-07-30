@@ -411,6 +411,26 @@ O restore garante os modelos padrao de mensagens de cobranca ao final do process
 - Os campos `Total Antes` e `Total Depois` sao gravados no `contexto` dos logs novos; logs antigos podem aparecer sem esses totais porque esse dado nao era persistido no momento da operacao.
 - O acesso ao historico financeiro usa a permissao `Financeiro_Leitura`.
 
+## Playbook De Incidentes Financeiros
+
+Use este procedimento ao investigar boletos duplicados, cobrancas ou mensagens financeiras indevidas em producao:
+
+1. Comecar somente com diagnostico e avisar o usuario antes de qualquer alteracao.
+2. Identificar todos os casos afetados, sem presumir que os exemplos informados sao a lista completa.
+3. Correlacionar `clientes`, `lancamentos`, `invoices`, `cobranca_envios`, webhooks, auditorias e o estado real na Lytex.
+4. Conter primeiro a causa no codigo, com idempotencia, bloqueio de duplicidade e testes proporcionais ao risco.
+5. Antes do saneamento em PD, confirmar os alvos e gerar backup quando o procedimento autorizado permitir.
+6. Classificar os casos por estado: nao pago/cancelavel, pago unico e pagamentos multiplos ou ambiguos. Nao decidir casos ambiguos sem confirmacao da central.
+7. Preferir saneamento reversivel. Nao excluir lancamentos, invoices, envios, webhooks ou auditorias quando for possivel invalidar o registro operacionalmente.
+8. Para lancamentos duplicados, usar `invalidado_em` e `motivo_invalidacao`. Consultas operacionais usam `Lancamento::validos()` ou `WHERE invalidado_em IS NULL`; telas historicas e auditorias preservam os invalidos.
+9. Cancelar na Lytex somente o boleto duplicado confirmado como nao pago. Verificar novamente o status imediatamente antes de cancelar ou comunicar o cliente.
+10. Quando necessario, enviar correcao ao cliente com apenas o boleto/PDF e PIX validos, mantendo auditoria de cada etapa e evitando novo envio duplicado.
+11. Validar depois da mudanca: commit em PD, migration aplicada, quantidade de registros afetados, ausencia de neutralizados nas consultas operacionais e resposta HTTP da aplicacao.
+12. Nunca preencher ou consolidar automaticamente `valor_efetivado`, `data_lancamento` ou `is_baixado` com base apenas no status da Lytex. Esses campos sao responsabilidade da central apos a validacao financeira. A investigacao pode relatar o pagamento confirmado, mas deve aguardar autorizacao explicita da central para registrar a baixa.
+13. Se uma acao indevida precisar ser revertida, usar os snapshots de `audit_logs`, preservar alteracoes posteriores feitas por usuarios/central e registrar uma nova auditoria da reversao.
+
+Principio operacional: conter, diagnosticar, preservar evidencias, corrigir de forma reversivel, comunicar, auditar e validar em producao.
+
 ## Rastreadores E Estoque
 
 - Existem duas telas com nomes parecidos:

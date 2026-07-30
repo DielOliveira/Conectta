@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Clientes\Schemas;
 
 use App\Models\Pais;
 use App\Rules\CpfCnpj;
+use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\DatePicker;
@@ -63,23 +64,7 @@ class ClienteForm
 
                                     return $date?->format('Y-m-d');
                                 })
-                                ->formatStateUsing(function ($state): ?string {
-                                    if (blank($state)) {
-                                        return null;
-                                    }
-
-                                    if ($state instanceof CarbonInterface || $state instanceof \DateTimeInterface) {
-                                        return $state->format('d/m/Y');
-                                    }
-
-                                    $date = \DateTime::createFromFormat('Y-m-d', (string) $state)
-                                        ?: \DateTime::createFromFormat('Y-m-d H:i:s', (string) $state)
-                                        ?: \DateTime::createFromFormat('d/m/Y', (string) $state);
-
-                                    return $date instanceof \DateTimeInterface
-                                        ? $date->format('d/m/Y')
-                                        : (string) $state;
-                                })
+                                ->formatStateUsing(fn ($state): ?string => self::formatNascimento($state))
                                 ->columnSpan(3),
                             TextInput::make('email')
                                 ->label('Email')
@@ -216,6 +201,23 @@ class ClienteForm
                     ])
                     ->columnSpanFull(),
             ]);
+    }
+
+    public static function formatNascimento(mixed $state): ?string
+    {
+        if (blank($state)) {
+            return null;
+        }
+
+        if ($state instanceof CarbonInterface || $state instanceof \DateTimeInterface) {
+            return $state->format('d/m/Y');
+        }
+
+        try {
+            return CarbonImmutable::parse((string) $state)->format('d/m/Y');
+        } catch (\Throwable) {
+            return (string) $state;
+        }
     }
 
     private static function onlyDigitsOrNull(?string $value): ?string
