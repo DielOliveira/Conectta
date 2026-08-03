@@ -3,9 +3,11 @@
 namespace App\Filament\Resources\OrdensServico\Pages;
 
 use App\Enums\OrdemServicoStatus;
+use App\Enums\OrdemServicoTipo;
 use App\Filament\Resources\OrdensServico\OrdemServicoResource;
 use App\Models\OrdemServicoDisponibilidade;
 use App\Models\Permission;
+use App\Models\Veiculo;
 use App\Services\OrdemServico\OrdemServicoAgendaService;
 use App\Services\OrdemServico\OrdemServicoService;
 use Carbon\CarbonImmutable;
@@ -18,6 +20,7 @@ use Filament\Resources\Pages\EditRecord;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Validation\ValidationException;
 
 class EditOrdemServico extends EditRecord
 {
@@ -100,7 +103,29 @@ class EditOrdemServico extends EditRecord
             foreach (['tipo', 'cliente_id', 'veiculo_id'] as $campo) {
                 unset($data[$campo]);
             }
+
+            return $data;
         }
+
+        $veiculo = Veiculo::query()->with('rastreador.chip')->findOrFail($data['veiculo_id']);
+        if ((int) $veiculo->cliente_id !== (int) $data['cliente_id']) {
+            throw ValidationException::withMessages(['data.veiculo_id' => 'O veículo não pertence ao cliente selecionado.']);
+        }
+        if (($data['notificar_cliente'] ?? false) && strlen(preg_replace('/\D+/', '', (string) $veiculo->cliente?->telefone1) ?? '') < 10) {
+            throw ValidationException::withMessages(['data.notificar_cliente' => 'Corrija o telefone do cliente antes de ativar as notificações.']);
+        }
+        if ($this->record->newQuery()->ativas()->where('veiculo_id', $veiculo->id)->whereKeyNot($this->record->id)->exists()) {
+            throw ValidationException::withMessages(['data.veiculo_id' => 'Este veículo já possui outra ordem de serviço ativa.']);
+        }
+        $tipo = OrdemServicoTipo::from($data['tipo']);
+        if ($tipo === OrdemServicoTipo::INSTALACAO && $veiculo->rastreador_id !== null) {
+            throw ValidationException::withMessages(['data.tipo' => 'A instalação exige um veículo sem rastreador vinculado.']);
+        }
+        if ($tipo !== OrdemServicoTipo::INSTALACAO && ($veiculo->rastreador_id === null || $veiculo->rastreador?->chip_id === null)) {
+            throw ValidationException::withMessages(['data.tipo' => 'Retirada e manutenção exigem rastreador e chip vinculados.']);
+        }
+        $data['rastreador_anterior_id'] = $veiculo->rastreador_id;
+        $data['chip_anterior_id'] = $veiculo->rastreador?->chip_id;
 
         return $data;
     }
@@ -113,6 +138,16 @@ class EditOrdemServico extends EditRecord
     protected function getSaveFormAction(): Action
     {
         return parent::getSaveFormAction()->visible(fn (): bool => $this->podeEditar());
+    }
+
+    protected function afterSave(): void
+    {
+        $this->record->historicos()->create([
+            'evento' => 'dados_atualizados',
+            'status_anterior' => $this->record->status->value,
+            'status_novo' => $this->record->status->value,
+            'user_id' => auth()->id(),
+        ]);
     }
 
     public function getTitle(): string
