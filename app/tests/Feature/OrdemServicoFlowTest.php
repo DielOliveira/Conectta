@@ -77,6 +77,7 @@ class OrdemServicoFlowTest extends TestCase
         $operador = User::factory()->create(['is_admin' => true]);
         StatusRastreador::query()->create(['label' => 'Disponivel', 'order' => 1, 'is_active' => true]);
         StatusRastreador::query()->create(['label' => 'Ativo', 'order' => 2, 'is_active' => true]);
+        StatusRastreador::query()->create(['label' => 'Cancelado', 'order' => 3, 'is_active' => true]);
         $cliente = Cliente::query()->create(['nome' => 'Cliente OS', 'cpf_cnpj' => fake()->unique()->numerify('###########'), 'telefone1' => '62999999999', 'data_adesao' => '2026-01-01', 'dia_pagamento' => 10]);
         $veiculo = Veiculo::query()->create(['cliente_id' => $cliente->id, 'veiculo' => 'Automóvel', 'placa' => 'OSX-0001']);
         $tecnico = Tecnico::query()->create(['nome' => 'Técnico OS', 'telefone' => '62988888888', 'is_ativo' => true]);
