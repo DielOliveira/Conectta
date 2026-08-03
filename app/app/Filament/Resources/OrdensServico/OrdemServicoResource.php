@@ -67,7 +67,7 @@ class OrdemServicoResource extends Resource
                     Select::make('veiculo_id')->label('Veículo')->options(fn (Get $get) => Veiculo::query()->where('cliente_id', $get('cliente_id'))->orderBy('placa')->get()
                         ->mapWithKeys(fn (Veiculo $v) => [$v->id => trim(($v->placa ?: 'Sem placa').' - '.($v->veiculo ?: 'Veículo'))])->all())
                         ->searchable()->required()->columnSpan(6),
-                    DateTimePicker::make('atendimento_desejado_em')->label('Data e horário desejados')->seconds(false)->native(false)->required()->columnSpan(6),
+                    DateTimePicker::make('atendimento_desejado_em')->label('Data e horário desejados')->seconds(false)->native(false)->minDate(fn (?OrdemServico $record) => $record ? null : now())->required()->columnSpan(6),
                     TextInput::make('endereco')->label('Endereço do atendimento')->required()->maxLength(500)->columnSpanFull(),
                     Textarea::make('descricao')->label('Motivo ou descrição do serviço')->required()->rows(3)->columnSpanFull(),
                     Textarea::make('observacoes')->label('Observações')->rows(3)->columnSpanFull(),

@@ -24,6 +24,9 @@ class OrdemServicoService
     public function criar(array $dados, User $operador): array
     {
         return DB::transaction(function () use ($dados, $operador): array {
+            if (CarbonImmutable::parse($dados['atendimento_desejado_em'])->isPast()) {
+                throw ValidationException::withMessages(['atendimento_desejado_em' => 'Informe uma data e horário futuros.']);
+            }
             $veiculo = Veiculo::query()->with('rastreador.chip')->lockForUpdate()->findOrFail($dados['veiculo_id']);
             if ((int) $veiculo->cliente_id !== (int) $dados['cliente_id']) {
                 throw ValidationException::withMessages(['veiculo_id' => 'O veículo não pertence ao cliente selecionado.']);
