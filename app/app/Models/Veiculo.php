@@ -106,6 +106,12 @@ class Veiculo extends Model
     {
         return $this->hasMany(Contrato::class);
     }
+
+    public function ordensServico(): HasMany
+    {
+        return $this->hasMany(OrdemServico::class);
+    }
+
     #[Scope]
     protected function ativos(Builder $query): void
     {

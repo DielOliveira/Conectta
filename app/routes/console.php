@@ -3,9 +3,11 @@
 use App\Http\Controllers\LytexWebhookController;
 use App\Models\ConfiguracaoIntegracao;
 use App\Models\Invoice;
+use App\Models\OrdemServico;
 use App\Services\Cobranca\CobrancaAgendamentoService;
 use App\Services\Cobranca\CobrancaAutomaticaService;
 use App\Services\Cobranca\CobrancaWhatsappService;
+use App\Services\OrdemServico\OrdemServicoNotificacaoService;
 use App\Services\Tracksolid\TracksolidDiagnosticService;
 use App\Services\Tracksolid\TracksolidException;
 use App\Services\Tracksolid\TracksolidService;
@@ -73,6 +75,22 @@ Artisan::command('cobrancas:rodar-agendadas', function (CobrancaAgendamentoServi
 Schedule::command('cobrancas:rodar-agendadas')
     ->everyMinute()
     ->withoutOverlapping();
+
+Artisan::command('ordens-servico:enviar-notificacoes {--limit=50}', function (OrdemServicoNotificacaoService $service) {
+    $resultado = $service->processarPendentes(max(1, (int) $this->option('limit')));
+    $this->info("Enviadas: {$resultado['enviadas']}; erros: {$resultado['erros']}.");
+
+    return $resultado['erros'] ? self::FAILURE : self::SUCCESS;
+})->purpose('Envia notificações pendentes das ordens de serviço.');
+
+Schedule::call(function (): void {
+    OrdemServico::query()->with('tecnico')->where('status', 'aceita')
+        ->whereBetween('agendado_em', [now()->addMinutes(115), now()->addMinutes(125)])
+        ->whereDoesntHave('notificacoes', fn ($q) => $q->where('evento', 'lembrete_2h'))
+        ->each(fn (OrdemServico $ordem) => app(OrdemServicoNotificacaoService::class)->registrarTecnico($ordem, 'lembrete_2h', "Lembrete: {$ordem->numero_formatado} está agendada para {$ordem->agendado_em->format('d/m/Y H:i')}."));
+})->name('ordens-servico:lembretes')->everyFiveMinutes()->withoutOverlapping();
+
+Schedule::command('ordens-servico:enviar-notificacoes')->everyMinute()->withoutOverlapping();
 
 if (! app()->isProduction()) {
     Artisan::command('tracksolid:diagnostico {--base-url= : URL HTTPS do no Tracksolid} {--imei= : IMEI conhecido para validar detalhes} {--output= : Caminho relativo no storage privado}', function (TracksolidDiagnosticService $diagnostic) {

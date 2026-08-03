@@ -104,6 +104,11 @@ class Cliente extends Model
         return $this->hasMany(Lancamento::class);
     }
 
+    public function ordensServico(): HasMany
+    {
+        return $this->hasMany(OrdemServico::class);
+    }
+
     public function syncStatusFromVeiculos(): void
     {
         $status = StatusCliente::query()

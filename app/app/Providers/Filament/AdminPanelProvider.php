@@ -43,6 +43,7 @@ class AdminPanelProvider extends PanelProvider
                 'Cadastro',
                 'Financeiro',
                 'Estoque',
+                'Ordens de Serviço',
                 'Rotinas',
                 'Administrativo',
             ])

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable(['nome', 'cpf', 'telefone', 'is_ativo'])]
 class Tecnico extends Model
@@ -22,5 +23,15 @@ class Tecnico extends Model
         return [
             'is_ativo' => 'boolean',
         ];
+    }
+
+    public function ordensServico(): HasMany
+    {
+        return $this->hasMany(OrdemServico::class);
+    }
+
+    public function disponibilidadesOrdemServico(): HasMany
+    {
+        return $this->hasMany(OrdemServicoDisponibilidade::class);
     }
 }

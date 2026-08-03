@@ -10,18 +10,35 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 class Permission extends Model
 {
     public const BOLETOS_BAIXAR = 'Boletos_Baixar';
+
     public const BOLETOS_ESCRITA = 'Boletos_Escrita';
+
     public const BOLETOS_LEITURA = 'Boletos_Leitura';
+
     public const CADASTRO_ESCRITA = 'Cadastro_Escrita';
+
     public const CADASTRO_EXCLUSAO = 'Cadastro_Exclusao';
+
     public const CADASTRO_LEITURA = 'Cadastro_Leitura';
+
     public const COORDENADOR = 'Coordenador';
+
     public const ESTOQUE_ESCRITA = 'Estoque_Escrita';
+
     public const ESTOQUE_LEITURA = 'Estoque_Leitura';
+
     public const FATURAMENTO_ESCRITA = 'Faturamento_Escrita';
+
     public const FATURAMENTO_LEITURA = 'Faturamento_Leitura';
+
     public const FINANCEIRO_ESCRITA = 'Financeiro_Escrita';
+
     public const FINANCEIRO_LEITURA = 'Financeiro_Leitura';
+
+    public const OS_ESCRITA = 'OS_Escrita';
+
+    public const OS_LEITURA = 'OS_Leitura';
+
     public const TECNICO = 'Tecnico';
 
     public static function catalogo(): array
@@ -40,7 +57,9 @@ class Permission extends Model
             self::FATURAMENTO_LEITURA => ['label' => 'Faturamento - Leitura', 'modulo' => 'Faturamento', 'acao' => 'Leitura', 'ordem' => 110],
             self::FINANCEIRO_ESCRITA => ['label' => 'Financeiro - Escrita', 'modulo' => 'Financeiro', 'acao' => 'Escrita', 'ordem' => 120],
             self::FINANCEIRO_LEITURA => ['label' => 'Financeiro - Leitura', 'modulo' => 'Financeiro', 'acao' => 'Leitura', 'ordem' => 130],
-            self::TECNICO => ['label' => 'Técnico', 'modulo' => 'Administrativo', 'acao' => 'Tecnico', 'ordem' => 140],
+            self::OS_ESCRITA => ['label' => 'Ordens de Serviço - Escrita', 'modulo' => 'Ordens de Serviço', 'acao' => 'Escrita', 'ordem' => 140],
+            self::OS_LEITURA => ['label' => 'Ordens de Serviço - Leitura', 'modulo' => 'Ordens de Serviço', 'acao' => 'Leitura', 'ordem' => 150],
+            self::TECNICO => ['label' => 'Técnico', 'modulo' => 'Administrativo', 'acao' => 'Tecnico', 'ordem' => 160],
         ];
     }
 
