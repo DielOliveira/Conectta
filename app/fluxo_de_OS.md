@@ -24,7 +24,7 @@ Criar no sistema um fluxo para controlar Ordens de Servico (OS), desde a abertur
 
 1. A OS e criada com status `Aberta`.
 2. A OS pode ser atribuida a um tecnico.
-3. O tecnico cadastra sua agenda, selecionando dias e horarios disponiveis.
+3. A central cadastra a agenda do tecnico, selecionando dias e horarios disponiveis.
 4. Quando a OS e vinculada a um horario da agenda do tecnico, passa para o status `Enviada`.
 5. O tecnico pode aceitar ou rejeitar a OS.
 6. Se rejeitar, deve preencher uma observacao com o motivo, e a OS volta ao operador com status `Aberta`.
@@ -82,20 +82,23 @@ Em retiradas ou manutencoes com divergencia de IMEI ou chip, a OS sai de `Em ate
 - A atribuicao exige que o tecnico possua um telefone valido no cadastro para receber o link por WhatsApp.
 - Sem telefone valido, a atribuicao e recusada, nenhum bloco e ocupado e a OS permanece `Aberta`.
 - A tela orienta a central a corrigir o telefone no cadastro do tecnico.
-- Quando a OS for rejeitada, cancelada ou transferida para outro tecnico, o bloco anteriormente ocupado volta a ficar disponivel.
-- Em um reagendamento, o bloco anterior e liberado e o novo bloco passa a ficar ocupado pela OS.
-- A central nao pode excluir ou reduzir uma disponibilidade se a alteracao remover um bloco ocupado por uma OS.
-- Para alterar esse intervalo, primeiro deve reagendar ou cancelar a OS que ocupa o bloco.
+- Um tecnico sem telefone valido tambem nao pode receber uma faixa de disponibilidade; a criacao ou edicao da agenda orienta a central a corrigir o cadastro.
+- O telefone do tecnico e exibido no formulario com mascara brasileira e prefixo visual `+55`, mas somente os 11 digitos locais sao armazenados.
+- Quando a OS for rejeitada ou seu agendamento for cancelado pela central, o bloco anteriormente ocupado volta a ficar disponivel.
+- Nao existe acao de `Reagendar` dentro da OS. Para trocar tecnico, data ou horario, a central cancela o agendamento no calendario e faz uma nova atribuicao.
+- Cancelar o agendamento remove tecnico, disponibilidade e horario efetivo, invalida o hash anterior e devolve a OS para `Aberta`, sem cancelar a OS.
+- O cancelamento do agendamento e permitido somente enquanto a OS estiver `Enviada` ou `Aceita`.
+- Uma disponibilidade que ja tenha sido usada por uma OS deve preservar a data, o tecnico e os horarios que contem o bloco historico, inclusive depois da finalizacao da OS.
+- Uma disponibilidade que ja tenha OS vinculada nao pode ser excluida.
 - Nao e permitido criar disponibilidade em data ou horario ja passado.
-- Nao e permitido agendar ou reagendar uma OS para um bloco ja passado.
+- Nao e permitido agendar uma OS para um bloco ja passado.
 - Essa validacao nao impede que uma OS `Aceita` e atrasada seja iniciada normalmente.
 
 Escopo futuro:
 
 - Posteriormente, cada tecnico podera ter um usuario proprio vinculado ao seu cadastro para manter a propria agenda.
 - O autoatendimento da agenda pelo tecnico nao faz parte desta primeira implementacao.
-- Se a central alterar a data, o horario ou o tecnico de uma OS que ja esteja `Enviada` ou `Aceita`, o aceite anterior deixa de valer.
-- Depois dessa alteracao, a OS retorna para `Enviada` e o tecnico precisa realizar um novo aceite.
+- Depois do cancelamento do agendamento, toda nova atribuicao gera outro hash e exige um novo aceite do tecnico.
 
 ## Abertura da OS
 
@@ -198,7 +201,7 @@ Regras de edicao:
 
 - A partir de `Em atendimento`, a central nao pode alterar tipo, cliente, veiculo nem tecnico.
 - Nesse ponto, permanecem disponiveis apenas observacoes, a correcao cadastral prevista para retirada, a conferencia e o cancelamento com motivo.
-- Reagendamento e troca de tecnico devem ocorrer antes do inicio do atendimento.
+- Cancelamento do agendamento e nova atribuicao devem ocorrer antes do inicio do atendimento.
 - Depois de `Finalizada`, a OS fica totalmente bloqueada para edicao tambem na central.
 - Uma OS finalizada permite apenas consultar dados, equipamentos, fotos, checklist e historico.
 
@@ -213,7 +216,13 @@ Regras de edicao:
 - O modulo possui uma visualizacao de agenda ou calendario por tecnico.
 - A agenda oferece visoes por dia e por semana.
 - A agenda mostra os blocos livres de 1 hora e as OS agendadas.
-- A central pode abrir a OS a partir de um bloco ocupado e usar os blocos livres durante a atribuicao.
+- Na visao diaria, cada hora ocupa uma linha, independentemente da quantidade de tecnicos.
+- Cada OS agendada aparece em um card vermelho com numero, tecnico, cliente e placa.
+- Cada horario possui no maximo um card verde `Livre`, com os nomes dos tecnicos aptos e disponiveis naquele bloco.
+- Horarios passados aparecem como encerrados e nao permitem atribuicao.
+- Tecnicos sem telefone valido nao aparecem como aptos para atribuicao.
+- Ao clicar no card livre, a central escolhe em um modal uma OS `Aberta`, ainda sem tecnico, e um dos tecnicos livres no horario.
+- Ao clicar em um card ocupado, um modal oferece `Cancelar agendamento`, quando o status permitir, e `Ver ordem de servico`.
 - Nesta primeira versao, nao havera geracao de PDF nem layout especifico para impressao da OS.
 
 ## Historico e auditoria
@@ -222,8 +231,10 @@ Regras de edicao:
 - Cada evento registra data e hora.
 - Cada evento identifica o operador da central ou o tecnico responsavel.
 - Observacoes e motivos associados ao evento ficam visiveis no historico.
-- O historico inclui, no minimo: envio, aceite, rejeicao, inicio do atendimento, divergencia cadastral, correcao cadastral, solicitacoes de conferencia, pendencias, novas conferencias, reagendamentos, troca de tecnico, finalizacao e cancelamento.
+- O historico inclui, no minimo: envio, aceite, rejeicao, inicio do atendimento, divergencia cadastral, correcao cadastral, solicitacoes de conferencia, pendencias, novas conferencias, cancelamento de agendamento, nova atribuicao, finalizacao e cancelamento da OS.
 - Os eventos historicos nao podem ser editados nem excluidos.
+- Cada OS tambem exibe um historico permanente e somente leitura de todas as mensagens destinadas ao tecnico e ao cliente, tanto em desenvolvimento quanto em producao.
+- O historico de mensagens mostra destinatario, telefone, evento, conteudo, data de geracao, data de envio, situacao e erro quando houver.
 - A OS usa um unico tipo de observacao geral, visivel para a central e para o tecnico.
 - Nao existe campo separado de observacao interna nesta primeira versao.
 - O cliente nao recebe nem visualiza essas observacoes.
@@ -250,6 +261,8 @@ Regras de edicao:
 - Os textos devem ficar centralizados no servico de notificacao para permitir configuracao futura sem espalhar conteudo pelo sistema.
 - Quando o operador concluir uma correcao cadastral solicitada em uma retirada, o sistema avisa o tecnico e envia novamente o mesmo link.
 - Ao vincular a OS a agenda, o sistema envia ao tecnico o link unico para aceitar ou rejeitar.
+- Ao cancelar somente o agendamento, o sistema avisa o tecnico que perdeu o atendimento, mas nao envia mensagem ao cliente.
+- O cliente recebe aviso de cancelamento apenas quando a propria OS e cancelada e a opcao de notificacao estiver ativa.
 - Depois do envio, a central tem sempre disponivel a acao `Reenviar link` enquanto a OS ainda permitir acesso do tecnico.
 - O status permanece `Enviada` mesmo se a chamada de WhatsApp falhar ou nao houver confirmacao de entrega.
 - O fluxo nao depende da validacao de entrega ou leitura da mensagem.
@@ -415,6 +428,10 @@ Regras do checklist:
 - Quando houver bloqueio, o operador deve confirma-lo como conferido.
 - A central nao pode finalizar uma instalacao ou manutencao enquanto o checklist obrigatorio estiver incompleto.
 - `Funcionamento do equipamento` e `Pos-chave` devem estar conferidos, e `Bloqueio do veiculo` deve estar conferido ou marcado como `Nao se aplica`.
+- O checklist e preenchido exclusivamente no modal `Aprovar e finalizar`; os campos exibidos no formulario principal sao somente para consulta.
+- Os tres itens usam botoes segmentados em vez de combos ou checkboxes isolados.
+- O modal de conferencia sempre abre sem selecoes predefinidas.
+- Checklist e finalizacao sao gravados na mesma transacao; se qualquer validacao falhar, nenhum item do modal permanece salvo.
 
 Para retirada:
 
@@ -441,8 +458,7 @@ Quando a OS fica `Pendente`:
 - O tecnico corrige ou complementa o atendimento e solicita uma nova conferencia.
 - A OS volta para `Em conferencia` sem gerar um novo hash.
 - As tentativas e observacoes ficam preservadas no historico.
-- O checklist preenchido na conferencia anterior nao e zerado.
-- Na nova conferencia, o operador pode revisar e alterar os itens ja marcados.
+- Quando a OS retorna para nova conferencia, o modal abre novamente sem selecoes e o operador realiza uma nova verificacao completa.
 
 Enquanto a OS estiver `Em conferencia`:
 
@@ -484,7 +500,7 @@ Os itens substituidos sao transferidos para o estoque do tecnico que realizou o 
 - Toda manutencao exige descricao do servico ou diagnostico e pelo menos uma foto antes da solicitacao de conferencia.
 - Na abertura da OS sao informados tipo, cliente, veiculo, endereco, data e horario, motivo ou descricao, observacoes e localizacao recebida pelo WhatsApp.
 - A localizacao e opcional; o sistema armazena o link recebido e extrai latitude e longitude quando possivel.
-- A agenda usa intervalos informados pelo tecnico e gera blocos de atendimento com duracao fixa de 1 hora.
+- A agenda usa intervalos cadastrados pela central e gera blocos de atendimento com duracao fixa de 1 hora.
 - A agenda aceita multiplos intervalos nao sobrepostos no mesmo dia.
 - As disponibilidades sao cadastradas para datas especificas, sem recorrencia semanal.
 - A rejeicao exige uma observacao do tecnico; a OS volta para `Aberta` e o motivo permanece no historico.
@@ -493,8 +509,8 @@ Os itens substituidos sao transferidos para o estoque do tecnico que realizou o 
 - O operador da central usa as rotas autenticadas normais do sistema, identificadas pelo ID da OS.
 - Somente a central pode cancelar uma OS; o cancelamento encerra as acoes e nao movimenta equipamentos.
 - O cancelamento exige motivo, que fica registrado no historico com o operador responsavel.
-- Alterar data, horario ou tecnico de uma OS `Enviada` ou `Aceita` exige um novo aceite e retorna a OS para `Enviada`.
-- Na troca de tecnico, o hash anterior e invalidado e um novo link e gerado para o novo responsavel.
+- Para alterar data, horario ou tecnico de uma OS `Enviada` ou `Aceita`, a central cancela o agendamento atual pelo calendario e realiza uma nova atribuicao.
+- O cancelamento do agendamento invalida o hash anterior; a nova atribuicao gera outro link para o tecnico escolhido.
 - O tecnico recebe um lembrete automatico pelo WhatsApp duas horas antes do horario agendado.
 - O lembrete de duas horas e enviado somente para OS `Aceita`.
 - Uma OS `Pendente` e corrigida pelo tecnico no mesmo link; depois, ele solicita nova conferencia e o historico das tentativas e preservado.
@@ -502,7 +518,7 @@ Os itens substituidos sao transferidos para o estoque do tecnico que realizou o 
 - Equipamentos selecionados durante o atendimento nao sao reservados; a movimentacao definitiva ocorre na finalizacao.
 - O estoque individual ja e controlado pelo vinculo do item ao tecnico; o fluxo de OS reutiliza essa implementacao e nao adiciona historico de abastecimento.
 - Na instalacao, o chip vinculado ao rastreador e preenchido automaticamente; a selecao manual ocorre apenas quando o rastreador nao possui chip.
-- O tecnico pode trocar o chip preenchido automaticamente, mas somente por outro item do estoque dele.
+- Quando o rastreador ja possui chip, esse vinculo e obrigatorio na instalacao e o tecnico nao pode substitui-lo pela tela da OS.
 - A aplicabilidade do teste de bloqueio e decidida manualmente pelo operador durante a conferencia.
 - O painel ganha um novo grupo de menu chamado `Ordens de Servico`.
 - O modulo tera apenas as permissoes `OS_Leitura` e `OS_Escrita`; nao havera exclusao definitiva de OS.
@@ -517,7 +533,7 @@ Os itens substituidos sao transferidos para o estoque do tecnico que realizou o 
 - Uma OS pode ser aberta sem tecnico; ela permanece `Aberta` ate ser vinculada a um bloco disponivel da agenda.
 - A atribuicao exige um bloco livre da agenda, e seu horario passa a ser o horario efetivo da OS.
 - Na primeira versao, a agenda dos tecnicos e cadastrada pela central; usuarios proprios para os tecnicos ficam para uma evolucao futura.
-- Rejeicao, cancelamento, troca de tecnico e reagendamento liberam automaticamente o bloco de agenda anterior.
+- Rejeicao e cancelamento do agendamento liberam automaticamente o bloco anterior; uma nova atribuicao ocupa outro bloco e gera novo aceite.
 - Uma OS `Aceita` permanece nesse status quando o horario passa e pode ser iniciada posteriormente, sem penalidade ou transicao automatica.
 - Os anexos do tecnico aceitam somente imagens da camera ou galeria, sem PDF ou outros documentos.
 - Cada OS aceita no maximo quatro fotos de atendimento.
@@ -533,9 +549,9 @@ Os itens substituidos sao transferidos para o estoque do tecnico que realizou o 
 - Cada OS atende somente um veiculo; clientes com frota exigem ordens separadas.
 - A tela mobile mostra o telefone do cliente e oferece atalhos para ligar e abrir o WhatsApp.
 - A lista da central permite filtrar por status, tipo, tecnico e periodo, e buscar por numero da OS, cliente ou placa.
-- A central possui uma agenda visual por tecnico com horarios livres e OS agendadas.
+- A visao diaria da agenda usa uma linha por hora, cards vermelhos para OS agendadas e um unico card verde com os nomes dos tecnicos livres.
 - A agenda pode ser alternada entre visao diaria e semanal.
-- Disponibilidades com blocos ocupados nao podem ser reduzidas ou excluidas ate que as OS afetadas sejam reagendadas ou canceladas.
+- Disponibilidades ja usadas por uma OS preservam data, tecnico e horarios compativeis com o bloco historico, inclusive depois da finalizacao, e nao podem ser excluidas.
 - Agenda e agendamento nao aceitam datas ou horarios passados, sem bloquear o inicio tardio de uma OS ja aceita.
 - Sobras inferiores a 1 hora no fim de uma disponibilidade nao geram bloco de agenda.
 - O aceite nao tem prazo automatico; uma OS pode permanecer `Enviada` ate a central intervir.
@@ -545,8 +561,9 @@ Os itens substituidos sao transferidos para o estoque do tecnico que realizou o 
 - A manutencao tambem exige rastreador e chip previamente vinculados ao veiculo.
 - A instalacao e bloqueada quando o veiculo ja possui rastreador vinculado.
 - O sistema impede duas OS ativas simultaneas para o mesmo veiculo.
-- A rejeicao ou a troca de tecnico invalida o hash anterior; todo novo envio posterior usa um novo hash.
-- O cancelamento tambem invalida o hash e dispara uma mensagem de WhatsApp ao tecnico com o motivo.
+- A rejeicao ou o cancelamento do agendamento invalida o hash anterior; todo novo envio posterior usa um novo hash.
+- O cancelamento da OS tambem invalida o hash e dispara uma mensagem de WhatsApp ao tecnico com o motivo.
+- O cancelamento somente do agendamento avisa o tecnico, mas nunca envia mensagem ao cliente.
 - Em uma OS com notificacao do cliente ativa, o cancelamento posterior ao aceite tambem gera um aviso ao cliente.
 - O motivo do cancelamento e enviado ao tecnico, mas nao ao cliente.
 - A mensagem de aceite ao cliente identifica OS, tipo, data, horario e tecnico.
@@ -555,7 +572,7 @@ Os itens substituidos sao transferidos para o estoque do tecnico que realizou o 
 - Antes do aceite, o tecnico visualiza todos os dados necessarios para avaliar o atendimento e pode abrir a rota.
 - Instalacoes e manutencoes so podem ser finalizadas com todo o checklist de conferencia resolvido.
 - Em uma pendencia, o tecnico pode remover ou substituir fotos; o historico nao conserva os arquivos removidos.
-- O checklist anterior e mantido quando uma OS pendente retorna para nova conferencia.
+- O checklist e informado somente no modal `Aprovar e finalizar`, sempre inicia vazio e nao e persistido quando a finalizacao falha.
 - O atendimento mobile nao possui rascunho; o formulario e persistido ao solicitar conferencia.
 - A manutencao mostra ao tecnico o IMEI e o chip atuais do veiculo antes da escolha do resultado.
 - Divergencias de equipamento na manutencao seguem o mesmo fluxo de correcao cadastral usado na retirada.
@@ -573,4 +590,6 @@ Os itens substituidos sao transferidos para o estoque do tecnico que realizou o 
 - Uma OS finalizada e imutavel para o tecnico e para a central, permanecendo disponivel somente para consulta.
 - A primeira versao nao gera PDF nem versao para impressao da OS finalizada.
 - Um tecnico sem telefone valido nao pode receber uma OS; a ordem permanece `Aberta` ate a correcao cadastral.
+- Um tecnico sem telefone valido nao pode receber disponibilidade na agenda; o telefone usa mascara com prefixo visual `+55` e e salvo somente com os 11 digitos locais.
+- Cada OS mantem um historico permanente e somente leitura das mensagens geradas para tecnico e cliente, com situacao de envio e eventual erro.
 - A central pode reenviar o link a qualquer momento aplicavel; falha ou ausencia de confirmacao do WhatsApp nao tira a OS de `Enviada`.
