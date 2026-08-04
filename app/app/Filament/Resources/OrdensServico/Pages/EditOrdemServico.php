@@ -48,7 +48,12 @@ class EditOrdemServico extends EditRecord
                 ->icon(Heroicon::OutlinedCalendarDays)->color('primary')
                 ->visible($podeEscrever && in_array($this->record->status, [OrdemServicoStatus::ABERTA, OrdemServicoStatus::ENVIADA, OrdemServicoStatus::ACEITA], true))
                 ->schema([
-                    Select::make('disponibilidade_id')->label('Disponibilidade')->options(fn () => OrdemServicoDisponibilidade::query()->with('tecnico')->where('data', '>=', today())->orderBy('data')->get()->mapWithKeys(fn ($d) => [$d->id => $d->tecnico->nome.' — '.$d->data->format('d/m/Y').' '.substr($d->hora_inicio, 0, 5).' às '.substr($d->hora_fim, 0, 5)])->all())->searchable()->live()->required(),
+                    Select::make('disponibilidade_id')->label('Disponibilidade')->options(fn () => OrdemServicoDisponibilidade::query()->with('tecnico')->where('data', '>=', today())->orderBy('data')->get()->mapWithKeys(fn ($d) => [$d->id => $d->tecnico->nome.' — '.$d->data->format('d/m/Y').' '.substr($d->hora_inicio, 0, 5).' às '.substr($d->hora_fim, 0, 5)])->all())
+                        ->searchable()
+                        ->noOptionsMessage('Nenhuma disponibilidade futura cadastrada. Cadastre um intervalo em Agenda dos técnicos.')
+                        ->noSearchResultsMessage('Nenhuma disponibilidade encontrada.')
+                        ->live()
+                        ->required(),
                     Select::make('agendado_em')->label('Bloco livre')->options(function (Get $get): array {
                         $disponibilidade = OrdemServicoDisponibilidade::query()->find($get('disponibilidade_id'));
                         if (! $disponibilidade) {
@@ -56,7 +61,9 @@ class EditOrdemServico extends EditRecord
                         }
 
                         return app(OrdemServicoAgendaService::class)->blocos($disponibilidade, $this->record->id)->mapWithKeys(fn (CarbonImmutable $b) => [$b->format('Y-m-d H:i:s') => $b->format('d/m/Y H:i')])->all();
-                    })->required(),
+                    })
+                        ->noOptionsMessage('Selecione uma disponibilidade que possua blocos livres.')
+                        ->required(),
                 ])->action(function (array $data): void {
                     $disponibilidade = OrdemServicoDisponibilidade::query()->findOrFail($data['disponibilidade_id']);
                     app(OrdemServicoService::class)->agendar($this->record, $disponibilidade, CarbonImmutable::parse($data['agendado_em']), auth()->user());
