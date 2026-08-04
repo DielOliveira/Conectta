@@ -274,7 +274,14 @@ class OrdemServicoService
             if ($ordem->chip_novo_id !== null) {
                 $ordem->chipNovo()->update(['tecnico_id' => null]);
             }
-            $ordem->veiculo->update(['rastreador_id' => $ordem->rastreador_novo_id]);
+            $ordem->veiculo->update([
+                'rastreador_id' => $ordem->rastreador_novo_id,
+                'status_rastreador_id' => $ativo,
+                'tecnico_instala_id' => $ordem->tecnico_id,
+                'data_instalacao' => today(),
+                'tecnico_remocao_id' => null,
+                'data_retirada' => null,
+            ]);
             $ordem->rastreadorNovo()->update(['tecnico_id' => null]);
         }
         if ($ordem->rastreador_anterior_id !== null && $ordem->rastreador_anterior_id !== $ordem->rastreador_novo_id) {
