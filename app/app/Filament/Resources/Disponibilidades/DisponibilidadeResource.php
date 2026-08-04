@@ -55,8 +55,8 @@ class DisponibilidadeResource extends Resource
         return $table->columns([
             TextColumn::make('tecnico.nome')->label('Técnico')->searchable()->sortable(),
             TextColumn::make('data')->label('Data')->date('d/m/Y')->sortable(),
-            TextColumn::make('hora_inicio')->label('Início')->formatStateUsing(fn ($s) => substr($s, 0, 5)),
-            TextColumn::make('hora_fim')->label('Fim')->formatStateUsing(fn ($s) => substr($s, 0, 5)),
+            TextColumn::make('hora_inicio')->label('Início')->formatStateUsing(fn (?string $state): string => substr((string) $state, 0, 5)),
+            TextColumn::make('hora_fim')->label('Fim')->formatStateUsing(fn (?string $state): string => substr((string) $state, 0, 5)),
             TextColumn::make('ordens_count')->counts('ordens')->label('OS vinculadas'),
         ])->defaultSort('data');
     }

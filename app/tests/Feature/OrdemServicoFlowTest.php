@@ -39,6 +39,8 @@ class OrdemServicoFlowTest extends TestCase
         $this->assertDatabaseHas('ordem_servico_historicos', ['ordem_servico_id' => $ordem->id, 'evento' => 'abertura']);
 
         $disponibilidade = app(OrdemServicoAgendaService::class)->criarDisponibilidade($tecnico->id, '2026-08-04', '08:00', '10:00');
+        $this->assertSame('08:00:00', $disponibilidade->hora_inicio);
+        $this->assertSame('10:00:00', $disponibilidade->hora_fim);
         $blocos = app(OrdemServicoAgendaService::class)->blocos($disponibilidade);
         $this->assertSame(['08:00', '08:40', '09:20'], $blocos->map->format('H:i')->all());
 
