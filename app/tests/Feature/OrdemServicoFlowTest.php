@@ -4,7 +4,9 @@ namespace Tests\Feature;
 
 use App\Enums\OrdemServicoStatus;
 use App\Filament\Resources\Disponibilidades\DisponibilidadeResource;
+use App\Models\Chip;
 use App\Models\Cliente;
+use App\Models\Rastreador;
 use App\Models\StatusRastreador;
 use App\Models\Tecnico;
 use App\Models\User;
@@ -112,6 +114,49 @@ class OrdemServicoFlowTest extends TestCase
 
         $this->expectException(ValidationException::class);
         $agenda->atualizarDisponibilidade($disponibilidade, $tecnico->id, '2026-08-04', '08:00', '09:00');
+    }
+
+    public function test_chip_substituido_volta_disponivel_para_o_estoque_do_tecnico(): void
+    {
+        [$operador, $cliente, $veiculo, $tecnico] = $this->cenarioBase();
+        $statusDisponivel = StatusRastreador::query()->where('label', 'Disponivel')->firstOrFail();
+        $statusAtivo = StatusRastreador::query()->where('label', 'Ativo')->firstOrFail();
+        $chipAnterior = Chip::query()->create([
+            'numero_chip' => '5562999990001',
+            'iccid' => '89550000000000000001',
+            'status_rastreador_id' => $statusAtivo->id,
+        ]);
+        $chipNovo = Chip::query()->create([
+            'numero_chip' => '5562999990002',
+            'iccid' => '89550000000000000002',
+            'tecnico_id' => $tecnico->id,
+            'status_rastreador_id' => $statusDisponivel->id,
+        ]);
+        $rastreador = Rastreador::query()->create([
+            'imei' => '860000000000001',
+            'chip_id' => $chipAnterior->id,
+            'status_rastreador_id' => $statusAtivo->id,
+        ]);
+        $veiculo->update(['rastreador_id' => $rastreador->id]);
+
+        $dados = $this->dadosOrdem($cliente, $veiculo);
+        $dados['tipo'] = 'manutencao';
+        $ordem = app(OrdemServicoService::class)->criar($dados, $operador)['ordem'];
+        $ordem->update([
+            'tecnico_id' => $tecnico->id,
+            'chip_novo_id' => $chipNovo->id,
+            'status' => OrdemServicoStatus::EM_CONFERENCIA,
+        ]);
+
+        app(OrdemServicoService::class)->finalizar($ordem->fresh(), $operador, [
+            'check_funcionamento' => true,
+            'check_pos_chave' => true,
+            'check_bloqueio' => 'conferido',
+        ]);
+
+        $this->assertSame($tecnico->id, $chipAnterior->fresh()->tecnico_id);
+        $this->assertSame($statusDisponivel->id, $chipAnterior->fresh()->status_rastreador_id);
+        $this->assertSame($chipNovo->id, $rastreador->fresh()->chip_id);
     }
 
     private function cenarioBase(): array

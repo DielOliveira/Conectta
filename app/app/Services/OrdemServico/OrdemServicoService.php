@@ -278,7 +278,7 @@ class OrdemServicoService
         if ($ordem->tipo === OrdemServicoTipo::RETIRADA) {
             $ordem->veiculo->update(['rastreador_id' => null, 'tecnico_remocao_id' => $ordem->tecnico_id, 'data_retirada' => today()]);
             $ordem->rastreadorAnterior()->update(['tecnico_id' => $ordem->tecnico_id, 'status_rastreador_id' => $disponivel]);
-            $ordem->chipAnterior()->update(['tecnico_id' => $ordem->tecnico_id]);
+            $ordem->chipAnterior()->update(['tecnico_id' => $ordem->tecnico_id, 'status_rastreador_id' => $disponivel]);
 
             return;
         }
@@ -286,7 +286,7 @@ class OrdemServicoService
             $ordem->rastreadorAnterior()->update(['chip_id' => $ordem->chip_novo_id]);
             $ordem->chipNovo()->update(['tecnico_id' => null]);
             if ($ordem->chip_anterior_id !== $ordem->chip_novo_id) {
-                $ordem->chipAnterior()->update(['tecnico_id' => $ordem->tecnico_id]);
+                $ordem->chipAnterior()->update(['tecnico_id' => $ordem->tecnico_id, 'status_rastreador_id' => $disponivel]);
             }
 
             return;
@@ -310,7 +310,7 @@ class OrdemServicoService
             $ordem->rastreadorAnterior()->update(['tecnico_id' => $ordem->tecnico_id, 'status_rastreador_id' => $disponivel]);
         }
         if ($ordem->chip_anterior_id !== null && $ordem->chip_anterior_id !== $ordem->chip_novo_id) {
-            $ordem->chipAnterior()->update(['tecnico_id' => $ordem->tecnico_id]);
+            $ordem->chipAnterior()->update(['tecnico_id' => $ordem->tecnico_id, 'status_rastreador_id' => $disponivel]);
         }
     }
 
