@@ -104,14 +104,10 @@ class EditOrdemServico extends EditRecord
     protected function mutateFormDataBeforeSave(array $data): array
     {
         if (! (auth()->user()?->hasPermission(Permission::OS_ESCRITA) ?? false) || $this->record->status->isFinal()) {
-            return $this->record->getAttributes();
+            return [];
         }
         if (! in_array($this->record->status, [OrdemServicoStatus::ABERTA, OrdemServicoStatus::ENVIADA, OrdemServicoStatus::ACEITA], true)) {
-            foreach (['tipo', 'cliente_id', 'veiculo_id'] as $campo) {
-                unset($data[$campo]);
-            }
-
-            return $data;
+            return ['observacoes' => $data['observacoes'] ?? $this->record->observacoes];
         }
 
         $veiculo = Veiculo::query()->with('rastreador.chip')->findOrFail($data['veiculo_id']);

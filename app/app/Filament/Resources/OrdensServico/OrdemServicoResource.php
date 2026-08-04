@@ -53,6 +53,12 @@ class OrdemServicoResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
+        $bloquearDadosAbertura = fn (?OrdemServico $record): bool => $record !== null && ! in_array($record->status, [
+            OrdemServicoStatus::ABERTA,
+            OrdemServicoStatus::ENVIADA,
+            OrdemServicoStatus::ACEITA,
+        ], true);
+
         return $schema->components([
             Section::make('Ordem de serviço')->schema([
                 Grid::make(12)->schema([
@@ -63,30 +69,30 @@ class OrdemServicoResource extends Resource
                         ->dehydrated(false)
                         ->visibleOn('edit')
                         ->columnSpan(2),
-                    Select::make('tipo')->label('Tipo')->options(collect(OrdemServicoTipo::cases())->mapWithKeys(fn ($v) => [$v->value => $v->label()]))->required()->columnSpan(3),
+                    Select::make('tipo')->label('Tipo')->options(collect(OrdemServicoTipo::cases())->mapWithKeys(fn ($v) => [$v->value => $v->label()]))->disabled($bloquearDadosAbertura)->required()->columnSpan(3),
                     Hidden::make('status'),
                     Select::make('cliente_id')->label('Cliente')->options(fn () => Cliente::query()->orderBy('nome')->pluck('nome', 'id')->all())
                         ->searchable()->live()->required()->afterStateUpdated(function (Set $set, ?int $state): void {
                             $set('veiculo_id', null);
                             $cliente = $state ? Cliente::query()->find($state) : null;
                             $set('endereco', $cliente ? collect([$cliente->rua, $cliente->numero, $cliente->setor, $cliente->cidade])->filter()->implode(', ') : null);
-                        })->columnSpan(7),
+                        })->disabled($bloquearDadosAbertura)->columnSpan(7),
                     Select::make('veiculo_id')->label('Veículo')->options(fn (Get $get) => Veiculo::query()->where('cliente_id', $get('cliente_id'))->orderBy('placa')->get()
                         ->mapWithKeys(fn (Veiculo $v) => [$v->id => trim(($v->placa ?: 'Sem placa').' - '.($v->veiculo ?: 'Veículo'))])->all())
-                        ->searchable()->required()->columnSpan(6),
-                    DateTimePicker::make('atendimento_desejado_em')->label('Data e horário desejados')->seconds(false)->native(false)->minDate(fn (?OrdemServico $record) => $record ? null : now())->required()->columnSpan(6),
-                    TextInput::make('endereco')->label('Endereço do atendimento')->required()->maxLength(500)->columnSpanFull(),
-                    Textarea::make('descricao')->label('Motivo ou descrição do serviço')->required()->rows(3)->columnSpanFull(),
+                        ->searchable()->disabled($bloquearDadosAbertura)->required()->columnSpan(6),
+                    DateTimePicker::make('atendimento_desejado_em')->label('Data e horário desejados')->seconds(false)->native(false)->minDate(fn (?OrdemServico $record) => $record ? null : now())->disabled($bloquearDadosAbertura)->required()->columnSpan(6),
+                    TextInput::make('endereco')->label('Endereço do atendimento')->disabled($bloquearDadosAbertura)->required()->maxLength(500)->columnSpanFull(),
+                    Textarea::make('descricao')->label('Motivo ou descrição do serviço')->disabled($bloquearDadosAbertura)->required()->rows(3)->columnSpanFull(),
                     Textarea::make('observacoes')->label('Observações')->rows(3)->columnSpanFull(),
-                    TextInput::make('localizacao_url')->label('Link de localização')->url()->columnSpan(9),
-                    Toggle::make('notificar_cliente')->label('Notificar cliente pelo WhatsApp')->default(false)->columnSpan(3),
+                    TextInput::make('localizacao_url')->label('Link de localização')->disabled($bloquearDadosAbertura)->url()->columnSpan(9),
+                    Toggle::make('notificar_cliente')->label('Notificar cliente pelo WhatsApp')->disabled($bloquearDadosAbertura)->default(false)->columnSpan(3),
                 ]),
             ])->columnSpanFull(),
             Section::make('Conferência da central')->schema([
                 Grid::make(3)->schema([
-                    Toggle::make('check_funcionamento')->label('Funcionamento do equipamento'),
-                    Toggle::make('check_pos_chave')->label('Pós-chave'),
-                    Select::make('check_bloqueio')->label('Bloqueio do veículo')->options(['conferido' => 'Conferido', 'nao_se_aplica' => 'Não se aplica']),
+                    Toggle::make('check_funcionamento')->label('Funcionamento do equipamento')->disabled(),
+                    Toggle::make('check_pos_chave')->label('Pós-chave')->disabled(),
+                    Select::make('check_bloqueio')->label('Bloqueio do veículo')->options(['conferido' => 'Conferido', 'nao_se_aplica' => 'Não se aplica'])->disabled(),
                 ]),
                 Textarea::make('motivo_pendencia')->label('Última pendência')->disabled()->dehydrated(false),
             ])->visibleOn('edit')->columnSpanFull(),
