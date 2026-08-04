@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\ChipNumber;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -15,6 +16,7 @@ class Tecnico extends Model
     {
         static::saving(function (Tecnico $tecnico): void {
             $tecnico->cpf = preg_replace('/\D+/', '', $tecnico->cpf ?? '') ?: null;
+            $tecnico->telefone = filled($tecnico->telefone) ? ChipNumber::local($tecnico->telefone) : null;
         });
     }
 

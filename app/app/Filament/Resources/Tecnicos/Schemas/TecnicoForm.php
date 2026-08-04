@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Tecnicos\Schemas;
 
 use App\Rules\Cpf;
+use App\Support\ChipNumber;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Grid;
@@ -25,12 +26,21 @@ class TecnicoForm
                                 ->columnSpan(6),
                             TextInput::make('cpf')
                                 ->label('CPF')
-                                ->rules(['nullable', new Cpf()])
+                                ->rules(['nullable', new Cpf])
                                 ->maxLength(50)
                                 ->columnSpan(3),
                             TextInput::make('telefone')
                                 ->label('Telefone')
-                                ->maxLength(50)
+                                ->prefix('+55')
+                                ->mask('(99) 99999-9999')
+                                ->stripCharacters(['(', ')', ' ', '-'])
+                                ->formatStateUsing(fn (?string $state): string => ChipNumber::local($state))
+                                ->dehydrateStateUsing(fn (?string $state): ?string => filled($state) ? ChipNumber::local($state) : null)
+                                ->regex(ChipNumber::LOCAL_REGEX)
+                                ->validationMessages([
+                                    'regex' => 'Informe um celular brasileiro válido, com DDD.',
+                                ])
+                                ->maxLength(15)
                                 ->columnSpan(3),
                             Checkbox::make('is_ativo')
                                 ->label('Ativo')
