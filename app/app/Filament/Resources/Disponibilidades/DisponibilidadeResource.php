@@ -17,6 +17,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use UnitEnum;
 
 class DisponibilidadeResource extends Resource
@@ -38,7 +39,11 @@ class DisponibilidadeResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([Section::make('Intervalo disponível')->schema([Grid::make(4)->schema([
-            Select::make('tecnico_id')->label('Técnico')->relationship('tecnico', 'nome', fn ($q) => $q->where('is_ativo', true))->searchable()->preload()->required()->columnSpan(2),
+            Select::make('tecnico_id')->label('Técnico')->relationship(
+                'tecnico',
+                'nome',
+                fn (Builder $query): Builder => $query->where('is_ativo', true),
+            )->searchable()->preload()->required()->columnSpan(2),
             DatePicker::make('data')->label('Data')->native(false)->minDate(today())->required(),
             TextInput::make('hora_inicio')->label('Início')->type('time')->required(),
             TextInput::make('hora_fim')->label('Fim')->type('time')->required(),

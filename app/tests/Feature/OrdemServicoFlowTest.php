@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\OrdemServicoStatus;
+use App\Filament\Resources\Disponibilidades\DisponibilidadeResource;
 use App\Models\Cliente;
 use App\Models\StatusRastreador;
 use App\Models\Tecnico;
@@ -18,6 +19,13 @@ use Tests\TestCase;
 class OrdemServicoFlowTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_admin_consegue_abrir_o_cadastro_de_disponibilidade(): void
+    {
+        $this->actingAs(User::factory()->create(['is_admin' => true]))
+            ->get(DisponibilidadeResource::getUrl('create'))
+            ->assertOk();
+    }
 
     public function test_cria_agenda_e_executa_fluxo_inicial_com_token_imprevisivel(): void
     {
