@@ -4,6 +4,7 @@ namespace App\Services\OrdemServico;
 
 use App\Models\OrdemServico;
 use App\Models\OrdemServicoDisponibilidade;
+use App\Models\Tecnico;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -51,6 +52,11 @@ class OrdemServicoAgendaService
     /** @return array{CarbonImmutable, CarbonImmutable} */
     private function validarIntervalo(int $tecnicoId, string $data, string $horaInicio, string $horaFim, ?int $ignorarId = null): array
     {
+        $tecnico = Tecnico::query()->findOrFail($tecnicoId);
+        if (strlen(preg_replace('/\D+/', '', (string) $tecnico->telefone) ?? '') < 10) {
+            throw ValidationException::withMessages(['tecnico_id' => 'O técnico precisa ter um telefone válido antes de receber disponibilidades na agenda. Corrija o cadastro do técnico.']);
+        }
+
         $inicio = CarbonImmutable::parse("{$data} {$horaInicio}");
         $fim = CarbonImmutable::parse("{$data} {$horaFim}");
         if ($inicio->isPast() || $fim->lessThanOrEqualTo($inicio) || $inicio->diffInMinutes($fim) < self::DURACAO_MINUTOS) {
