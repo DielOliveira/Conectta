@@ -24,4 +24,12 @@ class ChipNumberTest extends TestCase
         $this->assertSame(0, preg_match(ChipNumber::LOCAL_REGEX, '00999999999'));
         $this->assertSame(0, preg_match(ChipNumber::LOCAL_REGEX, '62899999999'));
     }
+
+    public function test_it_validates_masked_local_and_canonical_numbers(): void
+    {
+        $this->assertTrue(ChipNumber::isValid('(62) 99999-9999'));
+        $this->assertTrue(ChipNumber::isValid('62999999999'));
+        $this->assertTrue(ChipNumber::isValid('5562999999999'));
+        $this->assertFalse(ChipNumber::isValid('5500999999999'));
+    }
 }

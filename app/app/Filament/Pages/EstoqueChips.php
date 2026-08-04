@@ -170,13 +170,14 @@ class EstoqueChips extends Page
                         ->mask('(99) 99999-9999')
                         ->stripCharacters(['(', ')', ' ', '-'])
                         ->maxLength(15)
-                        ->regex(ChipNumber::LOCAL_REGEX)
                         ->formatStateUsing(fn (?string $state): string => ChipNumber::local($state))
                         ->dehydrateStateUsing(fn (?string $state): string => ChipNumber::canonical($state))
-                        ->validationMessages([
-                            'regex' => 'Informe um número de celular completo, com DDD válido.',
-                        ])
                         ->rules(fn (): array => [
+                            function (string $attribute, mixed $value, \Closure $fail): void {
+                                if (! ChipNumber::isValid((string) $value)) {
+                                    $fail('Informe um número de celular completo, com DDD válido.');
+                                }
+                            },
                             ChipNumber::uniqueRule($this->editingId),
                         ])
                         ->extraInputAttributes([

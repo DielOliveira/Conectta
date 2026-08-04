@@ -25,6 +25,11 @@ final class ChipNumber
         return '55'.self::local($number);
     }
 
+    public static function isValid(?string $number): bool
+    {
+        return preg_match(self::LOCAL_REGEX, self::local($number)) === 1;
+    }
+
     public static function uniqueRule(?int $ignoreId = null): Closure
     {
         return function (string $attribute, mixed $value, Closure $fail) use ($ignoreId): void {
