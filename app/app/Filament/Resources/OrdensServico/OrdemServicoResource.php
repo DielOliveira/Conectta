@@ -67,17 +67,17 @@ class OrdemServicoResource extends Resource
                         ->dehydrated(false)
                         ->visibleOn('edit')
                         ->columnSpan(2),
-                    Select::make('tipo')->label('Tipo')->options(collect(OrdemServicoTipo::cases())->mapWithKeys(fn ($v) => [$v->value => $v->label()]))->disabled($bloquearIdentificacao)->required()->columnSpan(3),
+                    Select::make('tipo')->label('Tipo')->options(collect(OrdemServicoTipo::cases())->mapWithKeys(fn ($v) => [$v->value => $v->label()]))->disabled($bloquearIdentificacao)->required()->columnSpan(2),
                     Hidden::make('status'),
                     Select::make('cliente_id')->label('Cliente')->options(fn () => Cliente::query()->orderBy('nome')->pluck('nome', 'id')->all())
                         ->searchable()->live()->required()->afterStateUpdated(function (Set $set, ?int $state): void {
                             $set('veiculo_id', null);
                             $cliente = $state ? Cliente::query()->find($state) : null;
                             $set('endereco', $cliente ? collect([$cliente->rua, $cliente->numero, $cliente->setor, $cliente->cidade])->filter()->implode(', ') : null);
-                        })->disabled($bloquearIdentificacao)->columnSpan(7),
+                        })->disabled($bloquearIdentificacao)->columnSpan(4),
                     Select::make('veiculo_id')->label('Veículo')->options(fn (Get $get) => Veiculo::query()->where('cliente_id', $get('cliente_id'))->orderBy('placa')->get()
                         ->mapWithKeys(fn (Veiculo $v) => [$v->id => trim(($v->placa ?: 'Sem placa').' - '.($v->veiculo ?: 'Veículo'))])->all())
-                        ->searchable()->disabled($bloquearIdentificacao)->required()->columnSpanFull(),
+                        ->searchable()->disabled($bloquearIdentificacao)->required()->columnSpan(4),
                     TextInput::make('endereco')->label('Endereço do atendimento')->disabled($bloquearDadosAbertura)->required()->maxLength(500)->columnSpanFull(),
                     Textarea::make('descricao')->label('Motivo ou descrição do serviço')->disabled($bloquearDadosAbertura)->required()->rows(3)->columnSpanFull(),
                     Textarea::make('observacoes')->label('Observações')->rows(3)->columnSpanFull(),
