@@ -259,6 +259,15 @@ Regras de edicao:
 
 - Nesta primeira versao, os textos das mensagens de OS ficam fixos no codigo.
 - Os textos devem ficar centralizados no servico de notificacao para permitir configuracao futura sem espalhar conteudo pelo sistema.
+- As mensagens seguem o padrao institucional da Conectta: cumprimento pelo nome, identificacao da empresa, blocos curtos, campos relevantes destacados e encerramento objetivo.
+- A formatacao pode usar negrito e poucos icones compativeis com WhatsApp para facilitar a leitura em celular, sem excesso de elementos visuais.
+- As mensagens ao tecnico incluem, conforme o evento, numero e tipo da OS, cliente, veiculo e placa, data e horario, endereco, descricao do servico e o link pessoal de atendimento.
+- A atribuicao informa que o link e pessoal e deve ser utilizado durante todo o atendimento.
+- O lembrete de duas horas identifica cliente, veiculo, data, horario e endereco e repete o link da OS.
+- Reenvio de link, pendencia e correcao cadastral repetem os dados essenciais da OS para que a mensagem tenha contexto por si so.
+- As mensagens ao cliente incluem somente informacoes adequadas ao atendimento: OS, tipo de servico, veiculo e placa, data e horario, local e tecnico responsavel quando aplicavel.
+- Observacoes internas, descricao operacional, pendencias de conferencia e motivo interno de cancelamento nunca sao enviados ao cliente.
+- O nome do tecnico e enviado ao cliente somente depois que o tecnico aceitar o atendimento.
 - Quando o operador concluir uma correcao cadastral solicitada em uma retirada, o sistema avisa o tecnico e envia novamente o mesmo link.
 - Ao vincular a OS a agenda, o sistema envia ao tecnico o link unico para aceitar ou rejeitar.
 - Ao cancelar somente o agendamento, o sistema avisa o tecnico que perdeu o atendimento, mas nao envia mensagem ao cliente.

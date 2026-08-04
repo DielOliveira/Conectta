@@ -79,8 +79,7 @@ class OrdemServicoService
                 'token_hash' => hash('sha256', $token), 'token_credencial' => $token, 'token_invalidado_em' => null, 'aceita_em' => null,
             ]);
             $this->historico($ordem, 'agendamento', $anterior, OrdemServicoStatus::ENVIADA, $operador);
-            $ordem->loadMissing('tecnico');
-            $this->notificacoes->registrarTecnico($ordem, 'atribuicao', "{$ordem->numero_formatado} foi atribuída a você. Consulte e responda: ".$this->notificacoes->link($token));
+            $this->notificacoes->registrarAtribuicaoTecnico($ordem, $token);
 
             return ['ordem' => $ordem->fresh(), 'token' => $token];
         });
@@ -94,8 +93,7 @@ class OrdemServicoService
     public function aceitar(OrdemServico $ordem): void
     {
         $this->transicionarTecnico($ordem, OrdemServicoStatus::ENVIADA, OrdemServicoStatus::ACEITA, 'aceite', ['aceita_em' => now()]);
-        $ordem->refresh()->loadMissing(['cliente', 'tecnico']);
-        $this->notificacoes->registrarCliente($ordem, 'aceite', "{$ordem->numero_formatado}: {$ordem->tipo->label()} agendada para {$ordem->agendado_em->format('d/m/Y H:i')} com {$ordem->tecnico->nome}.");
+        $this->notificacoes->registrarAceiteCliente($ordem->refresh());
     }
 
     public function rejeitar(OrdemServico $ordem, string $motivo): void
@@ -151,8 +149,7 @@ class OrdemServicoService
             throw ValidationException::withMessages(['motivo' => 'Informe o motivo da pendência.']);
         }
         $this->transicionarOperador($ordem, OrdemServicoStatus::EM_CONFERENCIA, OrdemServicoStatus::PENDENTE, 'conferencia_reprovada', $operador, ['motivo_pendencia' => $motivo], $motivo);
-        $ordem->refresh()->loadMissing('tecnico');
-        $this->notificacoes->registrarTecnico($ordem, 'pendencia', "{$ordem->numero_formatado} ficou pendente. Motivo: {$motivo}. Acesse novamente pelo link recebido.");
+        $this->notificacoes->registrarPendenciaTecnico($ordem->refresh(), $motivo);
     }
 
     public function cancelarAgendamento(OrdemServico $ordem, User $operador): void
@@ -165,6 +162,7 @@ class OrdemServicoService
 
             $anterior = $ordem->status;
             $tecnicoId = $ordem->tecnico_id;
+            $agendadoEm = $ordem->agendado_em;
             $ordem->update([
                 'status' => OrdemServicoStatus::ABERTA,
                 'tecnico_id' => null,
@@ -176,7 +174,7 @@ class OrdemServicoService
                 'token_credencial' => null,
             ]);
             $this->historico($ordem, 'cancelamento_agendamento', $anterior, OrdemServicoStatus::ABERTA, $operador, $tecnicoId);
-            $this->notificacoes->registrarTecnico($ordem, 'cancelamento_agendamento', "O agendamento da {$ordem->numero_formatado} foi cancelado pela central.");
+            $this->notificacoes->registrarCancelamentoAgendamentoTecnico($ordem, $agendadoEm);
         });
     }
 
@@ -201,9 +199,8 @@ class OrdemServicoService
             $anterior = $ordem->status;
             $ordem->update(['status' => OrdemServicoStatus::FINALIZADA, 'finalizada_em' => now(), 'finalizada_por' => $operador->id]);
             $this->historico($ordem, 'finalizacao', $anterior, OrdemServicoStatus::FINALIZADA, $operador);
-            $ordem->loadMissing(['tecnico', 'cliente']);
-            $this->notificacoes->registrarTecnico($ordem, 'finalizacao', "{$ordem->numero_formatado} foi conferida e finalizada pela central.");
-            $this->notificacoes->registrarCliente($ordem, 'finalizacao', "{$ordem->numero_formatado}: o atendimento de {$ordem->tipo->label()} foi concluído.");
+            $this->notificacoes->registrarFinalizacaoTecnico($ordem);
+            $this->notificacoes->registrarFinalizacaoCliente($ordem);
         });
     }
 
@@ -221,10 +218,10 @@ class OrdemServicoService
         ], $motivo);
         $ordem->refresh()->loadMissing(['tecnico', 'cliente']);
         if ($ordem->tecnico_id) {
-            $this->notificacoes->registrarTecnico($ordem, 'cancelamento', "{$ordem->numero_formatado} foi cancelada pela central. Motivo: {$motivo}");
+            $this->notificacoes->registrarCancelamentoTecnico($ordem, $motivo);
         }
         if ($ordem->aceita_em) {
-            $this->notificacoes->registrarCliente($ordem, 'cancelamento', "{$ordem->numero_formatado}: o atendimento foi cancelado.");
+            $this->notificacoes->registrarCancelamentoCliente($ordem);
         }
     }
 
@@ -233,8 +230,7 @@ class OrdemServicoService
         if ($ordem->status->isFinal() || blank($ordem->token_credencial) || blank($ordem->tecnico_id)) {
             throw ValidationException::withMessages(['status' => 'Não há link ativo para reenviar.']);
         }
-        $ordem->loadMissing('tecnico');
-        $this->notificacoes->registrarTecnico($ordem, 'reenvio_link', "{$ordem->numero_formatado}: acesse a ordem pelo link ".$this->notificacoes->link($ordem->token_credencial));
+        $this->notificacoes->registrarReenvioTecnico($ordem);
     }
 
     public function cadastroCorrigido(OrdemServico $ordem, User $operador): void
@@ -245,7 +241,7 @@ class OrdemServicoService
         }
         $ordem->update(['rastreador_anterior_id' => $ordem->veiculo->rastreador_id, 'chip_anterior_id' => $ordem->veiculo->rastreador->chip_id]);
         $this->transicionarOperador($ordem, OrdemServicoStatus::AGUARDANDO_CORRECAO_CADASTRAL, OrdemServicoStatus::EM_ATENDIMENTO, 'correcao_cadastral', $operador);
-        $this->notificacoes->registrarTecnico($ordem->refresh()->load('tecnico'), 'correcao_cadastral', "O cadastro da {$ordem->numero_formatado} foi corrigido. Retome o atendimento pelo mesmo link.");
+        $this->notificacoes->registrarCorrecaoCadastralTecnico($ordem->refresh());
     }
 
     private function movimentarEquipamentos(OrdemServico $ordem): void

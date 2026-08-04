@@ -36,7 +36,9 @@ class OrdemServicoFlowTest extends TestCase
         CarbonImmutable::setTestNow('2026-08-03 08:00:00');
         [$operador, $cliente, $veiculo, $tecnico] = $this->cenarioBase();
         $service = app(OrdemServicoService::class);
-        $ordem = $service->criar($this->dadosOrdem($cliente, $veiculo), $operador)['ordem'];
+        $dadosOrdem = $this->dadosOrdem($cliente, $veiculo);
+        $dadosOrdem['notificar_cliente'] = true;
+        $ordem = $service->criar($dadosOrdem, $operador)['ordem'];
 
         $this->assertSame(1, $ordem->numero);
         $this->assertSame(OrdemServicoStatus::ABERTA, $ordem->status);
@@ -53,6 +55,14 @@ class OrdemServicoFlowTest extends TestCase
         $this->assertNotSame($resultado['token'], $resultado['ordem']->token_hash);
         $this->assertSame($resultado['ordem']->id, $service->porToken($resultado['token'])->id);
         $this->assertDatabaseHas('ordem_servico_notificacoes', ['ordem_servico_id' => $ordem->id, 'evento' => 'atribuicao']);
+        $mensagemTecnico = $ordem->notificacoes()->where('evento', 'atribuicao')->value('mensagem');
+        $this->assertStringContainsString('Olá, Técnico OS! Tudo bem?', $mensagemTecnico);
+        $this->assertStringContainsString('*OS 000001 — Instalação*', $mensagemTecnico);
+        $this->assertStringContainsString('Cliente: Cliente OS', $mensagemTecnico);
+        $this->assertStringContainsString('Veículo: Automóvel — OSX-0001', $mensagemTecnico);
+        $this->assertStringContainsString('Data: 04/08/2026', $mensagemTecnico);
+        $this->assertStringContainsString('Endereço: Rua de Teste, 1', $mensagemTecnico);
+        $this->assertStringContainsString($resultado['token'], $mensagemTecnico);
 
         $this->get(route('ordens-servico.tecnico', $resultado['token']))
             ->assertOk()
@@ -65,6 +75,11 @@ class OrdemServicoFlowTest extends TestCase
         $this->assertSame(OrdemServicoStatus::ENVIADA, $resultado['ordem']->fresh()->status);
 
         $service->aceitar($resultado['ordem']);
+        $mensagemCliente = $ordem->notificacoes()->where('evento', 'aceite')->value('mensagem');
+        $this->assertStringContainsString('Olá, Cliente OS!', $mensagemCliente);
+        $this->assertStringContainsString('Seu atendimento foi confirmado.', $mensagemCliente);
+        $this->assertStringContainsString('👤 Técnico responsável: Técnico OS', $mensagemCliente);
+        $this->assertStringContainsString('*Conectta Rastreamento*', $mensagemCliente);
         $service->iniciar($resultado['ordem']->fresh(), -16.6869, -49.2648);
         $this->assertSame(OrdemServicoStatus::EM_ATENDIMENTO, $resultado['ordem']->fresh()->status);
     }

@@ -84,10 +84,10 @@ Artisan::command('ordens-servico:enviar-notificacoes {--limit=50}', function (Or
 })->purpose('Envia notificações pendentes das ordens de serviço.');
 
 Schedule::call(function (): void {
-    OrdemServico::query()->with('tecnico')->where('status', 'aceita')
+    OrdemServico::query()->with(['cliente', 'veiculo', 'tecnico'])->where('status', 'aceita')
         ->whereBetween('agendado_em', [now()->addMinutes(115), now()->addMinutes(125)])
         ->whereDoesntHave('notificacoes', fn ($q) => $q->where('evento', 'lembrete_2h'))
-        ->each(fn (OrdemServico $ordem) => app(OrdemServicoNotificacaoService::class)->registrarTecnico($ordem, 'lembrete_2h', "Lembrete: {$ordem->numero_formatado} está agendada para {$ordem->agendado_em->format('d/m/Y H:i')}."));
+        ->each(fn (OrdemServico $ordem) => app(OrdemServicoNotificacaoService::class)->registrarLembreteTecnico($ordem));
 })->name('ordens-servico:lembretes')->everyFiveMinutes()->withoutOverlapping();
 
 Schedule::command('ordens-servico:enviar-notificacoes')->everyMinute()->withoutOverlapping();
