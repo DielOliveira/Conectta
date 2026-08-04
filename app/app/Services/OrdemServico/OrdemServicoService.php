@@ -180,7 +180,6 @@ class OrdemServicoService
             ]);
             $this->historico($ordem, 'cancelamento_agendamento', $anterior, OrdemServicoStatus::ABERTA, $operador, $tecnicoId);
             $this->notificacoes->registrarTecnico($ordem, 'cancelamento_agendamento', "O agendamento da {$ordem->numero_formatado} foi cancelado pela central.");
-            $this->notificacoes->registrarCliente($ordem, 'cancelamento_agendamento', "{$ordem->numero_formatado}: o agendamento foi cancelado e será remarcado pela central.");
         });
     }
 
