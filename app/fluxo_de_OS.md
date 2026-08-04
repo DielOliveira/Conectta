@@ -522,7 +522,7 @@ Os itens substituidos sao transferidos para o estoque do tecnico que realizou o 
 - Equipamentos selecionados durante o atendimento nao sao reservados; a movimentacao definitiva ocorre na finalizacao.
 - O estoque individual ja e controlado pelo vinculo do item ao tecnico; o fluxo de OS reutiliza essa implementacao e nao adiciona historico de abastecimento.
 - Na instalacao, o chip vinculado ao rastreador e preenchido automaticamente; a selecao manual ocorre apenas quando o rastreador nao possui chip.
-- Quando o rastreador ja possui chip, esse vinculo e obrigatorio na instalacao e o tecnico nao pode substitui-lo pela tela da OS.
+- Na instalacao e na manutencao, ao selecionar um rastreador que ja possui chip vinculado, o chip e preenchido automaticamente e nao pode ser substituido pela tela da OS.
 - A aplicabilidade do teste de bloqueio e decidida manualmente pelo operador durante a conferencia.
 - O painel ganha um novo grupo de menu chamado `Ordens de Servico`.
 - O modulo tera apenas as permissoes `OS_Leitura` e `OS_Escrita`; nao havera exclusao definitiva de OS.

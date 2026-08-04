@@ -69,7 +69,7 @@ class OrdemServicoTecnicoController extends Controller
             if ($ordem->tipo === OrdemServicoTipo::INSTALACAO && ! $rastreador) {
                 return back()->withErrors(['rastreador_novo_id' => 'Selecione o rastreador que será instalado.'])->withInput();
             }
-            if ($ordem->tipo === OrdemServicoTipo::INSTALACAO && $rastreador?->chip_id) {
+            if ($rastreador?->chip_id) {
                 $chipId = $rastreador->chip_id;
             }
             $chipValido = ! $chipId
