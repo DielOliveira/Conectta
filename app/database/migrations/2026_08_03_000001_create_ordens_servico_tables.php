@@ -63,8 +63,8 @@ return new class extends Migration
             $table->foreignId('chip_anterior_id')->nullable()->constrained('chips')->restrictOnDelete();
             $table->foreignId('rastreador_novo_id')->nullable()->constrained('rastreadores')->restrictOnDelete();
             $table->foreignId('chip_novo_id')->nullable()->constrained('chips')->restrictOnDelete();
-            $table->boolean('check_funcionamento')->default(false);
-            $table->boolean('check_pos_chave')->default(false);
+            $table->boolean('check_funcionamento')->nullable();
+            $table->boolean('check_pos_chave')->nullable();
             $table->string('check_bloqueio', 20)->nullable();
             $table->timestamps();
             $table->index(['status', 'agendado_em']);

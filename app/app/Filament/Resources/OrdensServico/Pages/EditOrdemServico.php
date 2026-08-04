@@ -83,12 +83,13 @@ class EditOrdemServico extends EditRecord
                     ToggleButtons::make('check_funcionamento')->label('Funcionamento do equipamento')->options([1 => 'Conferido', 0 => 'Não conferido'])->inline()->grouped()->required(),
                     ToggleButtons::make('check_pos_chave')->label('Pós-chave')->options([1 => 'Conferido', 0 => 'Não conferido'])->inline()->grouped()->required(),
                     ToggleButtons::make('check_bloqueio')->label('Bloqueio do veículo')->options(['conferido' => 'Conferido', 'nao_se_aplica' => 'Não se aplica'])->inline()->grouped()->required(),
+                ])->fillForm(fn (): array => $this->record->tipo->value === 'retirada' ? [] : [
+                    'check_funcionamento' => null,
+                    'check_pos_chave' => null,
+                    'check_bloqueio' => null,
                 ])->requiresConfirmation()
                 ->action(function (array $data): void {
-                    if ($data !== []) {
-                        $this->record->update($data);
-                    }
-                    app(OrdemServicoService::class)->finalizar($this->record, auth()->user());
+                    app(OrdemServicoService::class)->finalizar($this->record, auth()->user(), $data);
                     Notification::make()->title('Ordem finalizada.')->success()->send();
                     $this->redirect(OrdemServicoResource::getUrl());
                 }),

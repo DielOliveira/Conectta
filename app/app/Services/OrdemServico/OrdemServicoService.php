@@ -158,12 +158,19 @@ class OrdemServicoService
         $this->notificacoes->registrarTecnico($ordem, 'pendencia', "{$ordem->numero_formatado} ficou pendente. Motivo: {$motivo}. Acesse novamente pelo link recebido.");
     }
 
-    public function finalizar(OrdemServico $ordem, User $operador): void
+    public function finalizar(OrdemServico $ordem, User $operador, array $checklist = []): void
     {
-        DB::transaction(function () use ($ordem, $operador): void {
+        DB::transaction(function () use ($ordem, $operador, $checklist): void {
             $ordem = OrdemServico::query()->with(['veiculo', 'rastreadorNovo'])->lockForUpdate()->findOrFail($ordem->id);
             if ($ordem->status !== OrdemServicoStatus::EM_CONFERENCIA) {
                 throw ValidationException::withMessages(['status' => 'A ordem não está em conferência.']);
+            }
+            if ($ordem->tipo !== OrdemServicoTipo::RETIRADA) {
+                $ordem->update([
+                    'check_funcionamento' => (bool) ($checklist['check_funcionamento'] ?? false),
+                    'check_pos_chave' => (bool) ($checklist['check_pos_chave'] ?? false),
+                    'check_bloqueio' => in_array($checklist['check_bloqueio'] ?? null, ['conferido', 'nao_se_aplica'], true) ? $checklist['check_bloqueio'] : null,
+                ]);
             }
             if ($ordem->tipo !== OrdemServicoTipo::RETIRADA && (! $ordem->check_funcionamento || ! $ordem->check_pos_chave || ! in_array($ordem->check_bloqueio, ['conferido', 'nao_se_aplica'], true))) {
                 throw ValidationException::withMessages(['checklist' => 'Conclua todos os itens obrigatórios da conferência.']);
