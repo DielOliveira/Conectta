@@ -14,7 +14,6 @@ use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\ToggleButtons;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
@@ -81,8 +80,8 @@ class EditOrdemServico extends EditRecord
             Action::make('finalizar')->label('Aprovar e finalizar')->icon(Heroicon::OutlinedCheckCircle)->color('success')
                 ->visible($podeEscrever && $this->record->status === OrdemServicoStatus::EM_CONFERENCIA)
                 ->schema(fn (): array => $this->record->tipo->value === 'retirada' ? [] : [
-                    Toggle::make('check_funcionamento')->label('Funcionamento do equipamento')->required(),
-                    Toggle::make('check_pos_chave')->label('Pós-chave')->required(),
+                    ToggleButtons::make('check_funcionamento')->label('Funcionamento do equipamento')->options([1 => 'Conferido', 0 => 'Não conferido'])->inline()->grouped()->required(),
+                    ToggleButtons::make('check_pos_chave')->label('Pós-chave')->options([1 => 'Conferido', 0 => 'Não conferido'])->inline()->grouped()->required(),
                     ToggleButtons::make('check_bloqueio')->label('Bloqueio do veículo')->options(['conferido' => 'Conferido', 'nao_se_aplica' => 'Não se aplica'])->inline()->grouped()->required(),
                 ])->requiresConfirmation()
                 ->action(function (array $data): void {

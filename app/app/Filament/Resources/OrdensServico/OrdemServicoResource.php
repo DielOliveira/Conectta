@@ -91,8 +91,8 @@ class OrdemServicoResource extends Resource
             ])->columnSpanFull(),
             Section::make('Conferência da central')->schema([
                 Grid::make(3)->schema([
-                    Toggle::make('check_funcionamento')->label('Funcionamento do equipamento')->disabled(),
-                    Toggle::make('check_pos_chave')->label('Pós-chave')->disabled(),
+                    ToggleButtons::make('check_funcionamento')->label('Funcionamento do equipamento')->options([1 => 'Conferido', 0 => 'Não conferido'])->inline()->grouped()->disabled(),
+                    ToggleButtons::make('check_pos_chave')->label('Pós-chave')->options([1 => 'Conferido', 0 => 'Não conferido'])->inline()->grouped()->disabled(),
                     ToggleButtons::make('check_bloqueio')->label('Bloqueio do veículo')->options(['conferido' => 'Conferido', 'nao_se_aplica' => 'Não se aplica'])->inline()->grouped()->disabled(),
                 ]),
                 Textarea::make('motivo_pendencia')->label('Última pendência')->disabled()->dehydrated(false),
