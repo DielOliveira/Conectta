@@ -4,15 +4,21 @@ namespace App\Filament\Pages;
 
 use App\Enums\OrdemServicoStatus;
 use App\Filament\Resources\OrdensServico\OrdemServicoResource;
+use App\Models\OrdemServico;
 use App\Models\OrdemServicoDisponibilidade;
 use App\Models\Permission;
 use App\Models\Tecnico;
 use App\Services\OrdemServico\OrdemServicoAgendaService;
+use App\Services\OrdemServico\OrdemServicoService;
 use Carbon\CarbonImmutable;
+use Filament\Actions\Action;
+use Filament\Forms\Components\Select;
+use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Collection;
+use Illuminate\Validation\ValidationException;
 use UnitEnum;
 
 class AgendaOrdensServico extends Page
@@ -47,6 +53,11 @@ class AgendaOrdensServico extends Page
     public static function canAccess(): bool
     {
         return auth()->user()?->hasPermission(Permission::OS_LEITURA) ?? false;
+    }
+
+    public function podeAtribuir(): bool
+    {
+        return auth()->user()?->hasPermission(Permission::OS_ESCRITA) ?? false;
     }
 
     public function anterior(): void
@@ -115,6 +126,74 @@ class AgendaOrdensServico extends Page
         }
 
         return $grade;
+    }
+
+    public function atribuirAction(): Action
+    {
+        return Action::make('atribuir')
+            ->modalHeading('Agendar ordem de serviço')
+            ->modalDescription(fn (array $arguments): string => 'Horário: '.CarbonImmutable::parse($arguments['horario'])->format('d/m/Y H:i'))
+            ->modalSubmitActionLabel('Agendar e enviar')
+            ->fillForm(['ordem_servico_id' => null, 'tecnico_id' => null])
+            ->schema([
+                Select::make('ordem_servico_id')
+                    ->label('Ordem de serviço')
+                    ->options(fn (): array => OrdemServico::query()
+                        ->with(['cliente', 'veiculo'])
+                        ->where('status', OrdemServicoStatus::ABERTA->value)
+                        ->whereNull('tecnico_id')
+                        ->orderBy('numero')
+                        ->get()
+                        ->mapWithKeys(fn (OrdemServico $ordem): array => [
+                            $ordem->id => $ordem->numero_formatado.' — '.$ordem->cliente->nome.' — '.($ordem->veiculo->placa ?: 'Sem placa'),
+                        ])->all())
+                    ->searchable()
+                    ->preload()
+                    ->noOptionsMessage('Não existem ordens abertas aguardando atribuição.')
+                    ->required(),
+                Select::make('tecnico_id')
+                    ->label('Técnico livre')
+                    ->options(fn (array $arguments): array => $this->disponibilidadesLivres(CarbonImmutable::parse($arguments['horario']))
+                        ->mapWithKeys(fn (OrdemServicoDisponibilidade $disponibilidade): array => [
+                            $disponibilidade->tecnico_id => $disponibilidade->tecnico->nome,
+                        ])->all())
+                    ->noOptionsMessage('O horário não possui mais técnicos livres.')
+                    ->required(),
+            ])
+            ->action(function (array $data, array $arguments): void {
+                abort_unless(auth()->user()?->hasPermission(Permission::OS_ESCRITA), 403);
+
+                $horario = CarbonImmutable::parse($arguments['horario']);
+                $ordem = OrdemServico::query()
+                    ->where('status', OrdemServicoStatus::ABERTA->value)
+                    ->whereNull('tecnico_id')
+                    ->findOrFail((int) $data['ordem_servico_id']);
+                $disponibilidade = $this->disponibilidadesLivres($horario)
+                    ->firstWhere('tecnico_id', (int) $data['tecnico_id']);
+
+                if (! $disponibilidade) {
+                    throw ValidationException::withMessages(['tecnico_id' => 'Este técnico não está mais livre no horário selecionado.']);
+                }
+
+                app(OrdemServicoService::class)->agendar($ordem, $disponibilidade, $horario, auth()->user());
+                Notification::make()->title('OS agendada e enviada ao técnico.')->success()->send();
+            });
+    }
+
+    private function disponibilidadesLivres(CarbonImmutable $horario): Collection
+    {
+        return OrdemServicoDisponibilidade::query()
+            ->with('tecnico')
+            ->whereDate('data', $horario->toDateString())
+            ->where('hora_inicio', '<=', $horario->format('H:i:s'))
+            ->where('hora_fim', '>=', $horario->addMinutes(OrdemServicoAgendaService::DURACAO_MINUTOS)->format('H:i:s'))
+            ->when($this->tecnicoId, fn ($query) => $query->where('tecnico_id', $this->tecnicoId))
+            ->get()
+            ->filter(fn (OrdemServicoDisponibilidade $disponibilidade): bool => app(OrdemServicoAgendaService::class)
+                ->blocos($disponibilidade)
+                ->contains(fn (CarbonImmutable $bloco): bool => $bloco->equalTo($horario)))
+            ->unique('tecnico_id')
+            ->values();
     }
 
     public function urlOrdem(int $id): string
