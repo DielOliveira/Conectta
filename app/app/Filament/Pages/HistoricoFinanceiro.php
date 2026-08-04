@@ -11,6 +11,7 @@ use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use UnitEnum;
 
 class HistoricoFinanceiro extends Page
@@ -35,6 +36,8 @@ class HistoricoFinanceiro extends Page
 
     public string $data = '';
 
+    public string $cliente = '';
+
     public int $pagina = 1;
 
     public int $porPagina = 10;
@@ -51,7 +54,7 @@ class HistoricoFinanceiro extends Page
 
     public function updated(string $property): void
     {
-        if (in_array($property, ['data', 'porPagina'], true)) {
+        if (in_array($property, ['data', 'cliente', 'porPagina'], true)) {
             $this->pagina = 1;
         }
     }
@@ -59,6 +62,7 @@ class HistoricoFinanceiro extends Page
     public function limparFiltros(): void
     {
         $this->data = now()->toDateString();
+        $this->cliente = '';
         $this->pagina = 1;
     }
 
@@ -189,8 +193,16 @@ class HistoricoFinanceiro extends Page
 
     private function registrosFiltrados(): Collection
     {
+        $cliente = Str::lower(trim($this->cliente));
+
         return $this->mapearLogs($this->logsQuery()->with('user')->get())
             ->filter(fn (array $registro): bool => $registro['alterou_valor_efetivado'] || $registro['alterou_data_lancamento'])
+            ->when(
+                $cliente !== '',
+                fn (Collection $registros): Collection => $registros->filter(
+                    fn (array $registro): bool => Str::contains(Str::lower($registro['cliente']), $cliente)
+                )
+            )
             ->values();
     }
 

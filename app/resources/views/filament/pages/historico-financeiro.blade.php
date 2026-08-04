@@ -10,8 +10,8 @@
             align-items: end;
             display: grid;
             gap: 14px;
-            grid-template-columns: 220px 90px 96px;
-            max-width: 520px;
+            grid-template-columns: minmax(220px, 320px) 220px 90px 96px;
+            max-width: 780px;
         }
 
         .ct-history-field {
@@ -137,6 +137,13 @@
             color: #cbd5e1;
             cursor: not-allowed;
         }
+
+        @media (max-width: 720px) {
+            .ct-history-filterbar {
+                grid-template-columns: 1fr 1fr;
+                max-width: none;
+            }
+        }
     </style>
 
     @php
@@ -149,6 +156,16 @@
 
     <div class="ct-history-page">
         <div class="ct-history-filterbar">
+            <label class="ct-history-field">
+                <span class="ct-history-label">Cliente</span>
+                <input
+                    type="search"
+                    wire:model.live.debounce.300ms="cliente"
+                    class="ct-history-input"
+                    placeholder="Pesquisar pelo nome"
+                />
+            </label>
+
             <label class="ct-history-field">
                 <span class="ct-history-label">Data</span>
                 <input type="date" wire:model.live="data" class="ct-history-input" />
