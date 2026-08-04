@@ -44,9 +44,9 @@ class EditOrdemServico extends EditRecord
                     Notification::make()->title('Cadastro validado; atendimento liberado.')->success()->send();
                     $this->refreshFormData(['status', 'rastreador_anterior_id', 'chip_anterior_id']);
                 }),
-            Action::make('agendar')->label($this->record->tecnico_id ? 'Reagendar' : 'Atribuir técnico')
+            Action::make('agendar')->label('Atribuir técnico')
                 ->icon(Heroicon::OutlinedCalendarDays)->color('primary')
-                ->visible($podeEscrever && in_array($this->record->status, [OrdemServicoStatus::ABERTA, OrdemServicoStatus::ENVIADA, OrdemServicoStatus::ACEITA], true))
+                ->visible($podeEscrever && $this->record->status === OrdemServicoStatus::ABERTA && $this->record->tecnico_id === null)
                 ->schema([
                     Select::make('disponibilidade_id')->label('Disponibilidade')->options(fn () => OrdemServicoDisponibilidade::query()->with('tecnico')->where('data', '>=', today())->orderBy('data')->get()->mapWithKeys(fn ($d) => [$d->id => $d->tecnico->nome.' — '.$d->data->format('d/m/Y').' '.substr($d->hora_inicio, 0, 5).' às '.substr($d->hora_fim, 0, 5)])->all())
                         ->searchable()

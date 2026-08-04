@@ -187,6 +187,37 @@ class AgendaOrdensServico extends Page
             });
     }
 
+    public function agendamentoAction(): Action
+    {
+        return Action::make('agendamento')
+            ->modalHeading(fn (array $arguments): string => OrdemServico::query()->findOrFail((int) $arguments['ordem'])->numero_formatado)
+            ->modalDescription('Escolha o que deseja fazer com este agendamento.')
+            ->color('danger')
+            ->modalSubmitAction(fn (Action $action, array $arguments): Action|false => $this->podeCancelarAgendamento((int) $arguments['ordem'])
+                ? $action->label('Cancelar agendamento')
+                : false)
+            ->extraModalFooterActions(fn (array $arguments): array => [
+                Action::make('verOrdem')
+                    ->label('Ver ordem de serviço')
+                    ->color('gray')
+                    ->url($this->urlOrdem((int) $arguments['ordem'])),
+            ])
+            ->action(function (array $arguments): void {
+                abort_unless($this->podeCancelarAgendamento((int) $arguments['ordem']), 403);
+                $ordem = OrdemServico::query()->findOrFail((int) $arguments['ordem']);
+                app(OrdemServicoService::class)->cancelarAgendamento($ordem, auth()->user());
+                Notification::make()->title('Agendamento cancelado; o horário foi liberado.')->success()->send();
+            });
+    }
+
+    private function podeCancelarAgendamento(int $ordemId): bool
+    {
+        return $this->podeAtribuir() && OrdemServico::query()
+            ->whereKey($ordemId)
+            ->whereIn('status', [OrdemServicoStatus::ENVIADA->value, OrdemServicoStatus::ACEITA->value])
+            ->exists();
+    }
+
     private function disponibilidadesLivres(CarbonImmutable $horario): Collection
     {
         return OrdemServicoDisponibilidade::query()

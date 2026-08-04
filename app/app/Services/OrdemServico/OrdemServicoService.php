@@ -158,6 +158,32 @@ class OrdemServicoService
         $this->notificacoes->registrarTecnico($ordem, 'pendencia', "{$ordem->numero_formatado} ficou pendente. Motivo: {$motivo}. Acesse novamente pelo link recebido.");
     }
 
+    public function cancelarAgendamento(OrdemServico $ordem, User $operador): void
+    {
+        DB::transaction(function () use ($ordem, $operador): void {
+            $ordem = OrdemServico::query()->with(['tecnico', 'cliente'])->lockForUpdate()->findOrFail($ordem->id);
+            if (! in_array($ordem->status, [OrdemServicoStatus::ENVIADA, OrdemServicoStatus::ACEITA], true)) {
+                throw ValidationException::withMessages(['status' => 'Este agendamento não pode mais ser cancelado.']);
+            }
+
+            $anterior = $ordem->status;
+            $tecnicoId = $ordem->tecnico_id;
+            $ordem->update([
+                'status' => OrdemServicoStatus::ABERTA,
+                'tecnico_id' => null,
+                'disponibilidade_id' => null,
+                'agendado_em' => null,
+                'aceita_em' => null,
+                'token_invalidado_em' => now(),
+                'token_hash' => null,
+                'token_credencial' => null,
+            ]);
+            $this->historico($ordem, 'cancelamento_agendamento', $anterior, OrdemServicoStatus::ABERTA, $operador, $tecnicoId);
+            $this->notificacoes->registrarTecnico($ordem, 'cancelamento_agendamento', "O agendamento da {$ordem->numero_formatado} foi cancelado pela central.");
+            $this->notificacoes->registrarCliente($ordem, 'cancelamento_agendamento', "{$ordem->numero_formatado}: o agendamento foi cancelado e será remarcado pela central.");
+        });
+    }
+
     public function finalizar(OrdemServico $ordem, User $operador, array $checklist = []): void
     {
         DB::transaction(function () use ($ordem, $operador, $checklist): void {
