@@ -553,6 +553,7 @@ Os itens substituidos sao transferidos para o estoque do tecnico que realizou o 
 - Cada OS atende somente um veiculo; clientes com frota exigem ordens separadas.
 - A tela mobile mostra o telefone do cliente e oferece atalhos para ligar e abrir o WhatsApp.
 - Os atalhos de telefone, WhatsApp e rota sao apresentados como botoes de acao com icones, adequados para toque no celular.
+- A divergencia cadastral de IMEI ou chip e informada em uma modal responsiva, aberta por um botao separado do formulario principal do atendimento.
 - A lista da central possui um painel de filtros acima da tabela, seguindo o padrao das demais telas, para filtrar por status, tipo, tecnico e periodo e buscar por numero da OS, cliente ou placa.
 - A visao diaria da agenda usa uma linha por hora, cards vermelhos para OS agendadas e um unico card verde com os nomes dos tecnicos livres.
 - A agenda pode ser alternada entre visao diaria e semanal.
