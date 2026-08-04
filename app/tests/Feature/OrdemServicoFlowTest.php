@@ -50,6 +50,16 @@ class OrdemServicoFlowTest extends TestCase
         $this->assertSame($resultado['ordem']->id, $service->porToken($resultado['token'])->id);
         $this->assertDatabaseHas('ordem_servico_notificacoes', ['ordem_servico_id' => $ordem->id, 'evento' => 'atribuicao']);
 
+        $this->get(route('ordens-servico.tecnico', $resultado['token']))
+            ->assertOk()
+            ->assertSee('modal-rejeicao', false)
+            ->assertSee('Confirmar rejeição')
+            ->assertSee('contact-button whatsapp', false);
+
+        $this->post(route('ordens-servico.tecnico.action', $resultado['token']), ['acao' => 'rejeitar'])
+            ->assertSessionHasErrors('motivo');
+        $this->assertSame(OrdemServicoStatus::ENVIADA, $resultado['ordem']->fresh()->status);
+
         $service->aceitar($resultado['ordem']);
         $service->iniciar($resultado['ordem']->fresh(), -16.6869, -49.2648);
         $this->assertSame(OrdemServicoStatus::EM_ATENDIMENTO, $resultado['ordem']->fresh()->status);

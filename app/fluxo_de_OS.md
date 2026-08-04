@@ -506,6 +506,7 @@ Os itens substituidos sao transferidos para o estoque do tecnico que realizou o 
 - A agenda aceita multiplos intervalos nao sobrepostos no mesmo dia.
 - As disponibilidades sao cadastradas para datas especificas, sem recorrencia semanal.
 - A rejeicao exige uma observacao do tecnico; a OS volta para `Aberta` e o motivo permanece no historico.
+- Na tela mobile, `Rejeitar OS` abre uma modal responsiva; a rejeicao somente e efetivada depois que o tecnico preenche o motivo e confirma a acao.
 - Um unico link com hash e enviado por WhatsApp quando a OS entra em `Enviada`; ele serve para aceitar ou rejeitar e, depois do aceite, para executar o atendimento.
 - O link com hash nao exige login nem expira por tempo. Apos a finalizacao, permite apenas consulta, sem novas acoes.
 - O operador da central usa as rotas autenticadas normais do sistema, identificadas pelo ID da OS.
@@ -550,6 +551,7 @@ Os itens substituidos sao transferidos para o estoque do tecnico que realizou o 
 - Os modelos de mensagem da OS ficam fixos no codigo nesta primeira versao.
 - Cada OS atende somente um veiculo; clientes com frota exigem ordens separadas.
 - A tela mobile mostra o telefone do cliente e oferece atalhos para ligar e abrir o WhatsApp.
+- Os atalhos de telefone, WhatsApp e rota sao apresentados como botoes de acao com icones, adequados para toque no celular.
 - A lista da central possui um painel de filtros acima da tabela, seguindo o padrao das demais telas, para filtrar por status, tipo, tecnico e periodo e buscar por numero da OS, cliente ou placa.
 - A visao diaria da agenda usa uma linha por hora, cards vermelhos para OS agendadas e um unico card verde com os nomes dos tecnicos livres.
 - A agenda pode ser alternada entre visao diaria e semanal.
