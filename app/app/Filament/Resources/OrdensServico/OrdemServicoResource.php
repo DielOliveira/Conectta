@@ -9,6 +9,7 @@ use App\Filament\Resources\OrdensServico\Pages\EditOrdemServico;
 use App\Filament\Resources\OrdensServico\Pages\ListOrdensServico;
 use App\Filament\Resources\OrdensServico\RelationManagers\FotosRelationManager;
 use App\Filament\Resources\OrdensServico\RelationManagers\HistoricosRelationManager;
+use App\Filament\Resources\OrdensServico\RelationManagers\MensagensGeradasRelationManager;
 use App\Models\Cliente;
 use App\Models\OrdemServico;
 use App\Models\Permission;
@@ -137,6 +138,6 @@ class OrdemServicoResource extends Resource
 
     public static function getRelations(): array
     {
-        return [FotosRelationManager::class, HistoricosRelationManager::class];
+        return [MensagensGeradasRelationManager::class, FotosRelationManager::class, HistoricosRelationManager::class];
     }
 }
