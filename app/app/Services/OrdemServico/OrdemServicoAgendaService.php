@@ -30,7 +30,7 @@ class OrdemServicoAgendaService
             $disponibilidade = OrdemServicoDisponibilidade::query()->lockForUpdate()->findOrFail($disponibilidade->id);
             [$inicio, $fim] = $this->validarIntervalo($tecnicoId, $data, $horaInicio, $horaFim, $disponibilidade->id);
 
-            $ordensOcupando = $disponibilidade->ordens()->whereNotIn('status', ['cancelada', 'finalizada'])->whereNotNull('agendado_em')->get();
+            $ordensOcupando = $disponibilidade->ordens()->whereNotNull('agendado_em')->get();
             foreach ($ordensOcupando as $ordem) {
                 $agendado = CarbonImmutable::parse($ordem->agendado_em);
                 $preservaBloco = $tecnicoId === (int) $disponibilidade->tecnico_id
@@ -39,7 +39,7 @@ class OrdemServicoAgendaService
                     && $agendado->addMinutes(self::DURACAO_MINUTOS)->lessThanOrEqualTo($fim)
                     && $inicio->diffInMinutes($agendado) % self::DURACAO_MINUTOS === 0;
                 if (! $preservaBloco) {
-                    throw ValidationException::withMessages(['hora_inicio' => 'A alteração removeria um bloco ocupado. Reagende ou cancele a OS antes de alterar o intervalo.']);
+                    throw ValidationException::withMessages(['hora_inicio' => 'A alteração removeria um bloco já usado por uma OS. A data, o técnico e os horários desse atendimento precisam ser preservados.']);
                 }
             }
 

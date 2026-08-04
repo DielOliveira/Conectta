@@ -84,7 +84,7 @@ class DisponibilidadeResource extends Resource
 
     public static function canDelete($record): bool
     {
-        return (auth()->user()?->hasPermission(Permission::OS_ESCRITA) ?? false) && ! $record->ordens()->whereNotIn('status', ['cancelada', 'finalizada'])->exists();
+        return (auth()->user()?->hasPermission(Permission::OS_ESCRITA) ?? false) && ! $record->ordens()->exists();
     }
 
     public static function getPages(): array
