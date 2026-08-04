@@ -98,6 +98,25 @@ class AgendaOrdensServico extends Page
             });
     }
 
+    public function horariosDia(Collection $agenda): Collection
+    {
+        if ($agenda->isEmpty()) {
+            return collect();
+        }
+
+        $horarios = $agenda->pluck('horario')->sortBy(fn (CarbonImmutable $horario) => $horario->timestamp)->values();
+        $atual = $horarios->first();
+        $ultimo = $horarios->last();
+        $grade = collect();
+
+        while ($atual->lessThanOrEqualTo($ultimo)) {
+            $grade->push($atual);
+            $atual = $atual->addMinutes(OrdemServicoAgendaService::DURACAO_MINUTOS);
+        }
+
+        return $grade;
+    }
+
     public function urlOrdem(int $id): string
     {
         return OrdemServicoResource::getUrl('edit', ['record' => $id]);
