@@ -11,7 +11,7 @@
             @foreach($horarios as $horario)
                 @php($itensHorario=$itensAgenda->filter(fn($item)=>$item['horario']->format('H:i')===$horario->format('H:i')))
                 @php($ocupados=$itensHorario->filter(fn($item)=>$item['ordem']))
-                        @php($tecnicosLivres=$itensHorario->reject(fn($item)=>$item['ordem'])->pluck('disponibilidade.tecnico.nome')->unique()->sort()->values())
+                @php($tecnicosLivres=$itensHorario->reject(fn($item)=>$item['ordem'])->filter(fn($item)=>$horario->isFuture() && $this->tecnicoPodeReceberOs($item['disponibilidade']->tecnico))->pluck('disponibilidade.tecnico.nome')->unique()->sort()->values())
                 <div class="os-hour-row">
                     <div class="os-hour">{{ $horario->format('H:i') }}<div class="os-muted">{{ $horario->addHour()->format('H:i') }}</div></div>
                     <div class="os-hour-content">
@@ -21,7 +21,7 @@
                         @if($tecnicosLivres->isNotEmpty())
                             @if($this->podeAtribuir())<button type="button" class="os-free" wire:click="mountAction('atribuir', { horario: '{{ $horario->format('Y-m-d H:i:s') }}' })"><div class="os-free-title">Livre</div><div class="os-free-names">{{ $tecnicosLivres->implode(', ') }}</div></button>@else<div class="os-free"><div class="os-free-title">Livre</div><div class="os-free-names">{{ $tecnicosLivres->implode(', ') }}</div></div>@endif
                         @elseif($ocupados->isEmpty())
-                            <div class="os-unavailable">Nenhum técnico disponível.</div>
+                            <div class="os-unavailable">{{ $horario->isPast() ? 'Horário encerrado.' : 'Nenhum técnico disponível para atribuição.' }}</div>
                         @endif
                     </div>
                 </div>

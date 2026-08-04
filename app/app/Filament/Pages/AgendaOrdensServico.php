@@ -62,6 +62,11 @@ class AgendaOrdensServico extends Page
         return auth()->user()?->hasPermission(Permission::OS_ESCRITA) ?? false;
     }
 
+    public function tecnicoPodeReceberOs(Tecnico $tecnico): bool
+    {
+        return strlen(preg_replace('/\D+/', '', (string) $tecnico->telefone) ?? '') >= 10;
+    }
+
     public function anterior(): void
     {
         $this->data = CarbonImmutable::parse($this->data)->subDays($this->modo === 'semana' ? 7 : 1)->toDateString();
@@ -167,22 +172,29 @@ class AgendaOrdensServico extends Page
                     ->noOptionsMessage('O horário não possui mais técnicos livres.')
                     ->required(),
             ])
-            ->action(function (array $data, array $arguments): void {
+            ->action(function (array $data, array $arguments, Action $action): void {
                 abort_unless(auth()->user()?->hasPermission(Permission::OS_ESCRITA), 403);
 
-                $horario = CarbonImmutable::parse($arguments['horario']);
-                $ordem = OrdemServico::query()
-                    ->where('status', OrdemServicoStatus::ABERTA->value)
-                    ->whereNull('tecnico_id')
-                    ->findOrFail((int) $data['ordem_servico_id']);
-                $disponibilidade = $this->disponibilidadesLivres($horario)
-                    ->firstWhere('tecnico_id', (int) $data['tecnico_id']);
+                try {
+                    $horario = CarbonImmutable::parse($arguments['horario']);
+                    $ordem = OrdemServico::query()
+                        ->where('status', OrdemServicoStatus::ABERTA->value)
+                        ->whereNull('tecnico_id')
+                        ->findOrFail((int) $data['ordem_servico_id']);
+                    $disponibilidade = $this->disponibilidadesLivres($horario)
+                        ->firstWhere('tecnico_id', (int) $data['tecnico_id']);
 
-                if (! $disponibilidade) {
-                    throw ValidationException::withMessages(['tecnico_id' => 'Este técnico não está mais livre no horário selecionado.']);
+                    if (! $disponibilidade) {
+                        throw ValidationException::withMessages(['tecnico_id' => 'Este técnico não está mais livre no horário selecionado.']);
+                    }
+
+                    app(OrdemServicoService::class)->agendar($ordem, $disponibilidade, $horario, auth()->user());
+                } catch (ValidationException $exception) {
+                    Notification::make()->title('Não foi possível agendar a OS.')->body(collect($exception->errors())->flatten()->first())->danger()->send();
+                    $action->halt();
+
+                    return;
                 }
-
-                app(OrdemServicoService::class)->agendar($ordem, $disponibilidade, $horario, auth()->user());
                 Notification::make()->title('OS agendada e enviada ao técnico.')->success()->send();
             });
     }
@@ -220,6 +232,10 @@ class AgendaOrdensServico extends Page
 
     private function disponibilidadesLivres(CarbonImmutable $horario): Collection
     {
+        if ($horario->isPast()) {
+            return collect();
+        }
+
         return OrdemServicoDisponibilidade::query()
             ->with('tecnico')
             ->whereDate('data', $horario->toDateString())
@@ -227,6 +243,7 @@ class AgendaOrdensServico extends Page
             ->where('hora_fim', '>=', $horario->addMinutes(OrdemServicoAgendaService::DURACAO_MINUTOS)->format('H:i:s'))
             ->when($this->tecnicoId, fn ($query) => $query->where('tecnico_id', $this->tecnicoId))
             ->get()
+            ->filter(fn (OrdemServicoDisponibilidade $disponibilidade): bool => $this->tecnicoPodeReceberOs($disponibilidade->tecnico))
             ->filter(fn (OrdemServicoDisponibilidade $disponibilidade): bool => app(OrdemServicoAgendaService::class)
                 ->blocos($disponibilidade)
                 ->contains(fn (CarbonImmutable $bloco): bool => $bloco->equalTo($horario)))
