@@ -56,7 +56,13 @@ class OrdemServicoResource extends Resource
         return $schema->components([
             Section::make('Ordem de serviço')->schema([
                 Grid::make(12)->schema([
-                    TextInput::make('numero_formatado')->label('Número')->disabled()->dehydrated(false)->visibleOn('edit')->columnSpan(2),
+                    TextInput::make('numero')
+                        ->label('Número')
+                        ->formatStateUsing(fn ($state): string => 'OS '.str_pad((string) $state, 6, '0', STR_PAD_LEFT))
+                        ->disabled()
+                        ->dehydrated(false)
+                        ->visibleOn('edit')
+                        ->columnSpan(2),
                     Select::make('tipo')->label('Tipo')->options(collect(OrdemServicoTipo::cases())->mapWithKeys(fn ($v) => [$v->value => $v->label()]))->required()->columnSpan(3),
                     Hidden::make('status'),
                     Select::make('cliente_id')->label('Cliente')->options(fn () => Cliente::query()->orderBy('nome')->pluck('nome', 'id')->all())
