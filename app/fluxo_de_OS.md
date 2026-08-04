@@ -542,6 +542,7 @@ Os itens substituidos sao transferidos para o estoque do tecnico que realizou o 
 - Uma OS `Aceita` permanece nesse status quando o horario passa e pode ser iniciada posteriormente, sem penalidade ou transicao automatica.
 - Os anexos do tecnico aceitam somente imagens da camera ou galeria, sem PDF ou outros documentos.
 - Cada OS aceita no maximo quatro fotos de atendimento.
+- Cada foto aceita os formatos JPG, PNG ou WEBP e pode ter no maximo 5 MB; o servidor deve aceitar uma requisicao de ate 24 MB para comportar as quatro fotos.
 - A implementacao deve preferir compactacao automatica simples; caso contrario, deve limitar o tamanho do upload.
 - Sem compactacao automatica, cada imagem fica limitada a 5 MB.
 - Ao corrigir uma divergencia cadastral de retirada, a central dispara um aviso de WhatsApp para o tecnico retomar a OS pelo mesmo link.

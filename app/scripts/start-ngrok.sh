@@ -75,5 +75,5 @@ else
     echo "Subindo Laravel em ${APP_URL}..."
     echo
     cd "${ROOT_DIR}"
-    php artisan serve --host=127.0.0.1 --port="${PORT}"
+    php -d upload_max_filesize=6M -d post_max_size=24M artisan serve --host=127.0.0.1 --port="${PORT}"
 fi
