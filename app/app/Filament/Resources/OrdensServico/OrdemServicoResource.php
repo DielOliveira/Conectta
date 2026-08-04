@@ -21,6 +21,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Forms\Components\ToggleButtons;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
@@ -92,7 +93,7 @@ class OrdemServicoResource extends Resource
                 Grid::make(3)->schema([
                     Toggle::make('check_funcionamento')->label('Funcionamento do equipamento')->disabled(),
                     Toggle::make('check_pos_chave')->label('Pós-chave')->disabled(),
-                    Select::make('check_bloqueio')->label('Bloqueio do veículo')->options(['conferido' => 'Conferido', 'nao_se_aplica' => 'Não se aplica'])->disabled(),
+                    ToggleButtons::make('check_bloqueio')->label('Bloqueio do veículo')->options(['conferido' => 'Conferido', 'nao_se_aplica' => 'Não se aplica'])->inline()->grouped()->disabled(),
                 ]),
                 Textarea::make('motivo_pendencia')->label('Última pendência')->disabled()->dehydrated(false),
             ])->visibleOn('edit')->columnSpanFull(),

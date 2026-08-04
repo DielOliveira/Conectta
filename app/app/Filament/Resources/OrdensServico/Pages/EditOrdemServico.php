@@ -15,6 +15,7 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\Toggle;
+use Filament\Forms\Components\ToggleButtons;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Schemas\Components\Utilities\Get;
@@ -82,7 +83,7 @@ class EditOrdemServico extends EditRecord
                 ->schema(fn (): array => $this->record->tipo->value === 'retirada' ? [] : [
                     Toggle::make('check_funcionamento')->label('Funcionamento do equipamento')->required(),
                     Toggle::make('check_pos_chave')->label('Pós-chave')->required(),
-                    Select::make('check_bloqueio')->label('Bloqueio do veículo')->options(['conferido' => 'Conferido', 'nao_se_aplica' => 'Não se aplica'])->required(),
+                    ToggleButtons::make('check_bloqueio')->label('Bloqueio do veículo')->options(['conferido' => 'Conferido', 'nao_se_aplica' => 'Não se aplica'])->inline()->grouped()->required(),
                 ])->requiresConfirmation()
                 ->action(function (array $data): void {
                     if ($data !== []) {
