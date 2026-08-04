@@ -30,10 +30,7 @@ use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\Filter;
-use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
 use UnitEnum;
 
 class OrdemServicoResource extends Resource
@@ -102,21 +99,19 @@ class OrdemServicoResource extends Resource
 
     public static function table(Table $table): Table
     {
-        return $table->columns([
-            TextColumn::make('numero')->label('OS')->formatStateUsing(fn ($state) => 'OS '.str_pad((string) $state, 6, '0', STR_PAD_LEFT))->searchable()->sortable(),
-            TextColumn::make('cliente.nome')->label('Cliente')->searchable()->sortable(),
-            TextColumn::make('veiculo.placa')->label('Placa')->searchable()->sortable(),
-            TextColumn::make('tipo')->label('Tipo')->formatStateUsing(fn (OrdemServicoTipo $state) => $state->label())->badge()->sortable(),
-            TextColumn::make('status')->label('Status')->formatStateUsing(fn (OrdemServicoStatus $state) => $state->label())->badge()->sortable(),
-            TextColumn::make('tecnico.nome')->label('Técnico')->placeholder('Não atribuído')->sortable(),
-            TextColumn::make('agendado_em')->label('Atendimento')->dateTime('d/m/Y H:i')->placeholder('Não agendado')->sortable(),
-        ])->filters([
-            SelectFilter::make('status')->options(collect(OrdemServicoStatus::cases())->mapWithKeys(fn ($v) => [$v->value => $v->label()])),
-            SelectFilter::make('tipo')->options(collect(OrdemServicoTipo::cases())->mapWithKeys(fn ($v) => [$v->value => $v->label()])),
-            SelectFilter::make('tecnico_id')->label('Técnico')->relationship('tecnico', 'nome')->searchable()->preload(),
-            Filter::make('periodo')->schema([DateTimePicker::make('inicio')->label('De'), DateTimePicker::make('fim')->label('Até')])
-                ->query(fn (Builder $query, array $data) => $query->when($data['inicio'] ?? null, fn ($q, $v) => $q->where('agendado_em', '>=', $v))->when($data['fim'] ?? null, fn ($q, $v) => $q->where('agendado_em', '<=', $v))),
-        ])->defaultSort('created_at', 'desc');
+        return $table
+            ->header(view('filament.resources.ordens-servico.table-toolbar-filters'))
+            ->columns([
+                TextColumn::make('numero')->label('OS')->formatStateUsing(fn ($state) => 'OS '.str_pad((string) $state, 6, '0', STR_PAD_LEFT))->sortable(),
+                TextColumn::make('cliente.nome')->label('Cliente')->sortable(),
+                TextColumn::make('veiculo.placa')->label('Placa')->sortable(),
+                TextColumn::make('tipo')->label('Tipo')->formatStateUsing(fn (OrdemServicoTipo $state) => $state->label())->badge()->sortable(),
+                TextColumn::make('status')->label('Status')->formatStateUsing(fn (OrdemServicoStatus $state) => $state->label())->badge()->sortable(),
+                TextColumn::make('tecnico.nome')->label('Técnico')->placeholder('Não atribuído')->sortable(),
+                TextColumn::make('agendado_em')->label('Atendimento')->dateTime('d/m/Y H:i')->placeholder('Não agendado')->sortable(),
+            ])
+            ->modifyQueryUsing(fn ($query, ListOrdensServico $livewire) => $livewire->aplicarFiltrosOrdensServico($query))
+            ->defaultSort('created_at', 'desc');
     }
 
     public static function canViewAny(): bool

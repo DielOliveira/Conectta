@@ -548,7 +548,7 @@ Os itens substituidos sao transferidos para o estoque do tecnico que realizou o 
 - Os modelos de mensagem da OS ficam fixos no codigo nesta primeira versao.
 - Cada OS atende somente um veiculo; clientes com frota exigem ordens separadas.
 - A tela mobile mostra o telefone do cliente e oferece atalhos para ligar e abrir o WhatsApp.
-- A lista da central permite filtrar por status, tipo, tecnico e periodo, e buscar por numero da OS, cliente ou placa.
+- A lista da central possui um painel de filtros acima da tabela, seguindo o padrao das demais telas, para filtrar por status, tipo, tecnico e periodo e buscar por numero da OS, cliente ou placa.
 - A visao diaria da agenda usa uma linha por hora, cards vermelhos para OS agendadas e um unico card verde com os nomes dos tecnicos livres.
 - A agenda pode ser alternada entre visao diaria e semanal.
 - Disponibilidades ja usadas por uma OS preservam data, tecnico e horarios compativeis com o bloco historico, inclusive depois da finalizacao, e nao podem ser excluidas.
