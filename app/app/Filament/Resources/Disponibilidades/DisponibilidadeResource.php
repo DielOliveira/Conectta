@@ -41,7 +41,7 @@ class DisponibilidadeResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
-        return $schema->components([Section::make('Intervalo disponível')->schema([Grid::make(4)->schema([
+        return $schema->components([Section::make('Intervalo disponível')->schema([Grid::make(5)->schema([
             Select::make('tecnico_id')->label('Técnico')->relationship(
                 'tecnico',
                 'nome',
