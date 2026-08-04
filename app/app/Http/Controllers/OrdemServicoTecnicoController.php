@@ -7,9 +7,9 @@ use App\Enums\OrdemServicoTipo;
 use App\Models\Chip;
 use App\Models\OrdemServicoFoto;
 use App\Models\Rastreador;
+use App\Services\OrdemServico\OrdemServicoFotoStorage;
 use App\Services\OrdemServico\OrdemServicoService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class OrdemServicoTecnicoController extends Controller
@@ -27,7 +27,7 @@ class OrdemServicoTecnicoController extends Controller
         return view('ordens-servico.tecnico', compact('ordem', 'token', 'rastreadores', 'chips'));
     }
 
-    public function action(Request $request, string $token, OrdemServicoService $service)
+    public function action(Request $request, string $token, OrdemServicoService $service, OrdemServicoFotoStorage $fotoStorage)
     {
         $ordem = $service->porToken($token);
         $acao = $request->string('acao')->toString();
@@ -50,7 +50,7 @@ class OrdemServicoTecnicoController extends Controller
             if ($ordem->fotos()->count() + count($request->file('fotos', [])) > 4) {
                 return back()->withErrors(['fotos' => 'A OS aceita no máximo quatro fotos.']);
             }
-            $this->armazenarFotos($ordem, $request->file('fotos', []));
+            $this->armazenarFotos($ordem, $request->file('fotos', []), $fotoStorage);
             $ordem->update(['status' => OrdemServicoStatus::AGUARDANDO_CORRECAO_CADASTRAL]);
             $ordem->historicos()->create(['evento' => 'divergencia_cadastral', 'status_anterior' => $anterior->value, 'status_novo' => OrdemServicoStatus::AGUARDANDO_CORRECAO_CADASTRAL->value, 'tecnico_id' => $ordem->tecnico_id, 'observacao' => $request->string('observacao')]);
         } elseif ($acao === 'conferencia') {
@@ -90,12 +90,12 @@ class OrdemServicoTecnicoController extends Controller
             $ordem->update(['rastreador_novo_id' => $rastreadorId, 'chip_novo_id' => $chipId,
                 'resultado_manutencao' => $request->input('resultado_manutencao'), 'descricao_atendimento' => $request->input('descricao_atendimento'),
                 'equipamentos_confirmados' => $request->boolean('equipamentos_confirmados')]);
-            $this->armazenarFotos($ordem, $request->file('fotos', []));
+            $this->armazenarFotos($ordem, $request->file('fotos', []), $fotoStorage);
             $service->solicitarConferencia($ordem->fresh());
         } elseif ($acao === 'remover_foto') {
             abort_unless(in_array($ordem->status, [OrdemServicoStatus::EM_ATENDIMENTO, OrdemServicoStatus::PENDENTE], true), 409);
             $foto = $ordem->fotos()->findOrFail($request->integer('foto_id'));
-            Storage::disk('local')->delete($foto->caminho);
+            $fotoStorage->excluir($foto->caminho);
             $foto->delete();
         } else {
             abort(400);
@@ -104,19 +104,24 @@ class OrdemServicoTecnicoController extends Controller
         return redirect()->route('ordens-servico.tecnico', ['token' => $token])->with('status', 'Ação registrada com sucesso.');
     }
 
-    public function foto(string $token, OrdemServicoFoto $foto, OrdemServicoService $service)
+    public function foto(string $token, OrdemServicoFoto $foto, OrdemServicoService $service, OrdemServicoFotoStorage $fotoStorage)
     {
         $ordem = $service->porToken($token);
         abort_unless((int) $foto->ordem_servico_id === (int) $ordem->id, 404);
 
-        return Storage::disk('local')->response($foto->caminho, $foto->nome_original, ['Content-Type' => $foto->mime_type]);
+        return $fotoStorage->resposta($foto->caminho, $foto->nome_original, $foto->mime_type);
     }
 
-    private function armazenarFotos($ordem, array $fotos): void
+    private function armazenarFotos($ordem, array $fotos, OrdemServicoFotoStorage $fotoStorage): void
     {
         foreach ($fotos as $foto) {
-            $caminho = $foto->store('ordens-servico/'.$ordem->id, 'local');
-            $ordem->fotos()->create(['caminho' => $caminho, 'nome_original' => $foto->getClientOriginalName(), 'mime_type' => $foto->getMimeType(), 'tamanho' => $foto->getSize()]);
+            $caminho = $fotoStorage->armazenar($foto, $ordem->id);
+            try {
+                $ordem->fotos()->create(['caminho' => $caminho, 'nome_original' => $foto->getClientOriginalName(), 'mime_type' => $foto->getMimeType(), 'tamanho' => $foto->getSize()]);
+            } catch (\Throwable $exception) {
+                $fotoStorage->excluir($caminho);
+                throw $exception;
+            }
         }
     }
 

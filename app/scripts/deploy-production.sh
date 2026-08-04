@@ -119,6 +119,28 @@ COMPOSER_ALLOW_SUPERUSER=1 composer install --no-dev --optimize-autoloader --no-
 npm install --no-audit --no-fund
 npm run build
 php artisan migrate --force
+
+install -d -m 750 -o root -g www-data /etc/conectta
+if [[ -f /root/.config/rclone/rclone.conf ]]; then
+    install -m 640 -o root -g www-data /root/.config/rclone/rclone.conf /etc/conectta/rclone.conf
+fi
+
+set_env_value() {
+    local key="$1"
+    local value="$2"
+
+    if grep -qE "^${key}=" .env; then
+        sed -i "s#^${key}=.*#${key}=${value}#" .env
+    else
+        printf '\n%s=%s\n' "${key}" "${value}" >> .env
+    fi
+}
+
+set_env_value ORDENS_SERVICO_FOTOS_DRIVER rclone
+set_env_value ORDENS_SERVICO_FOTOS_RCLONE_CONFIG /etc/conectta/rclone.conf
+set_env_value ORDENS_SERVICO_FOTOS_RCLONE_REMOTE gdrive
+set_env_value ORDENS_SERVICO_FOTOS_RCLONE_PATH Conectta/ordens-servico
+
 bump_app_version
 php artisan optimize:clear
 php artisan config:cache

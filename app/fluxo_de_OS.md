@@ -172,6 +172,11 @@ Regras da localizacao:
 
 ## Fotos do atendimento
 
+- Em producao, as fotos sao armazenadas diretamente em uma pasta privada do Google Drive da Conectta, usando a integracao rclone configurada na VPS.
+- A VPS usa somente o arquivo temporario recebido durante o upload e nao mantem uma copia local permanente das novas fotos.
+- O banco armazena o caminho remoto de cada foto, e a visualizacao continua passando pela rota protegida da OS; o Google Drive nao e exposto diretamente ao tecnico ou a central.
+- Ao remover uma foto antes da conferencia, o arquivo correspondente tambem e excluido do Google Drive.
+- Fotos antigas que ja estejam no armazenamento privado local continuam acessiveis, sem migracao obrigatoria imediata.
 - Os anexos enviados pelo tecnico aceitam somente imagens da camera ou da galeria do dispositivo.
 - Formatos de imagem web compativeis, como JPG, PNG e WEBP, podem ser aceitos.
 - PDF e outros tipos de documento nao sao permitidos.
