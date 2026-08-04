@@ -3,10 +3,13 @@
 namespace App\Filament\Resources\Disponibilidades;
 
 use App\Filament\Resources\Disponibilidades\Pages\CreateDisponibilidade;
+use App\Filament\Resources\Disponibilidades\Pages\EditDisponibilidade;
 use App\Filament\Resources\Disponibilidades\Pages\ListDisponibilidades;
 use App\Models\OrdemServicoDisponibilidade;
 use App\Models\Permission;
 use BackedEnum;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -58,6 +61,9 @@ class DisponibilidadeResource extends Resource
             TextColumn::make('hora_inicio')->label('Início')->formatStateUsing(fn (?string $state): string => substr((string) $state, 0, 5)),
             TextColumn::make('hora_fim')->label('Fim')->formatStateUsing(fn (?string $state): string => substr((string) $state, 0, 5)),
             TextColumn::make('ordens_count')->counts('ordens')->label('OS vinculadas'),
+        ])->recordActions([
+            EditAction::make()->label('Editar'),
+            DeleteAction::make()->label('Excluir')->requiresConfirmation()->modalDescription('Deseja excluir esta disponibilidade?'),
         ])->defaultSort('data');
     }
 
@@ -73,7 +79,7 @@ class DisponibilidadeResource extends Resource
 
     public static function canEdit($record): bool
     {
-        return false;
+        return auth()->user()?->hasPermission(Permission::OS_ESCRITA) ?? false;
     }
 
     public static function canDelete($record): bool
@@ -83,6 +89,6 @@ class DisponibilidadeResource extends Resource
 
     public static function getPages(): array
     {
-        return ['index' => ListDisponibilidades::route('/'), 'create' => CreateDisponibilidade::route('/create')];
+        return ['index' => ListDisponibilidades::route('/'), 'create' => CreateDisponibilidade::route('/create'), 'edit' => EditDisponibilidade::route('/{record}/edit')];
     }
 }

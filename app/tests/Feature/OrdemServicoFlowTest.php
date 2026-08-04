@@ -82,6 +82,22 @@ class OrdemServicoFlowTest extends TestCase
         $this->assertCount(1, app(OrdemServicoAgendaService::class)->blocos($disponibilidade));
     }
 
+    public function test_permite_editar_intervalo_livre_e_bloqueia_remocao_de_bloco_ocupado(): void
+    {
+        CarbonImmutable::setTestNow('2026-08-03 08:00:00');
+        [$operador, $cliente, $veiculo, $tecnico] = $this->cenarioBase();
+        $agenda = app(OrdemServicoAgendaService::class);
+        $disponibilidade = $agenda->criarDisponibilidade($tecnico->id, '2026-08-04', '08:00', '10:00');
+        $disponibilidade = $agenda->atualizarDisponibilidade($disponibilidade, $tecnico->id, '2026-08-04', '08:00', '11:00');
+        $this->assertSame('11:00:00', $disponibilidade->hora_fim);
+
+        $ordem = app(OrdemServicoService::class)->criar($this->dadosOrdem($cliente, $veiculo), $operador)['ordem'];
+        app(OrdemServicoService::class)->agendar($ordem, $disponibilidade, CarbonImmutable::parse('2026-08-04 09:20'), $operador);
+
+        $this->expectException(ValidationException::class);
+        $agenda->atualizarDisponibilidade($disponibilidade, $tecnico->id, '2026-08-04', '08:00', '09:00');
+    }
+
     private function cenarioBase(): array
     {
         $operador = User::factory()->create(['is_admin' => true]);
