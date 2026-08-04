@@ -114,7 +114,6 @@ class OrdemServicoFlowTest extends TestCase
     private function dadosOrdem(Cliente $cliente, Veiculo $veiculo): array
     {
         return ['tipo' => 'instalacao', 'cliente_id' => $cliente->id, 'veiculo_id' => $veiculo->id,
-            'atendimento_desejado_em' => '2026-08-04 08:00:00', 'endereco' => 'Rua de Teste, 1',
-            'descricao' => 'Instalar equipamento', 'notificar_cliente' => false];
+            'endereco' => 'Rua de Teste, 1', 'descricao' => 'Instalar equipamento', 'notificar_cliente' => false];
     }
 }

@@ -75,10 +75,10 @@ Em retiradas ou manutencoes com divergencia de IMEI ou chip, a OS sai de `Em ate
 - Exemplo: uma disponibilidade de 08:00 a 12:00 gera quatro blocos, iniciados as 08:00, 09:00, 10:00 e 11:00.
 - O operador vincula a OS a um horario disponivel da agenda.
 - A OS pode ser criada como `Aberta` sem tecnico atribuido.
-- Nesse caso, a data e o horario registrados representam o atendimento desejado.
+- Enquanto nao for atribuida, a OS permanece sem data e horario.
 - A OS somente passa para `Enviada` quando a central atribui um tecnico e a vincula a um bloco disponivel da agenda dele.
 - Ao atribuir o tecnico, o operador deve escolher obrigatoriamente um bloco livre de 1 hora da agenda.
-- A data e o horario do bloco escolhido substituem a data e o horario inicialmente desejados na OS.
+- A data e o horario do bloco escolhido passam a ser o horario efetivo da OS.
 - A atribuicao exige que o tecnico possua um telefone valido no cadastro para receber o link por WhatsApp.
 - Sem telefone valido, a atribuicao e recusada, nenhum bloco e ocupado e a OS permanece `Aberta`.
 - A tela orienta a central a corrigir o telefone no cadastro do tecnico.
@@ -108,7 +108,6 @@ O operador deve preencher:
 - Cliente.
 - Veiculo.
 - Endereco do atendimento.
-- Data e horario do atendimento.
 - Motivo ou descricao do servico.
 - Observacoes.
 - Localizacao do atendimento recebida pelo WhatsApp, opcional.
@@ -199,8 +198,9 @@ Regras da localizacao:
 
 Regras de edicao:
 
-- A partir de `Em atendimento`, a central nao pode alterar tipo, cliente, veiculo nem tecnico.
-- Nesse ponto, permanecem disponiveis apenas observacoes, a correcao cadastral prevista para retirada, a conferencia e o cancelamento com motivo.
+- Tipo, cliente e veiculo ficam bloqueados assim que a OS e criada e nao podem ser alterados posteriormente.
+- O tecnico, a data e o horario sao definidos exclusivamente pela atribuicao de um bloco livre da agenda.
+- A partir de `Em atendimento`, permanecem disponiveis apenas observacoes, a correcao cadastral prevista para retirada, a conferencia e o cancelamento com motivo.
 - Cancelamento do agendamento e nova atribuicao devem ocorrer antes do inicio do atendimento.
 - Depois de `Finalizada`, a OS fica totalmente bloqueada para edicao tambem na central.
 - Uma OS finalizada permite apenas consultar dados, equipamentos, fotos, checklist e historico.
@@ -498,7 +498,9 @@ Os itens substituidos sao transferidos para o estoque do tecnico que realizou o 
 - Itens de substituicao devem pertencer ao estoque do tecnico, e o vinculo do veiculo deve refletir os novos itens depois da finalizacao.
 - Na manutencao com troca, os itens antigos entram automaticamente no estoque do tecnico que executou a OS.
 - Toda manutencao exige descricao do servico ou diagnostico e pelo menos uma foto antes da solicitacao de conferencia.
-- Na abertura da OS sao informados tipo, cliente, veiculo, endereco, data e horario, motivo ou descricao, observacoes e localizacao recebida pelo WhatsApp.
+- Na abertura da OS sao informados tipo, cliente, veiculo, endereco, motivo ou descricao, observacoes e localizacao recebida pelo WhatsApp.
+- Depois da criacao, tipo, cliente e veiculo ficam bloqueados permanentemente para preservar a identidade e o historico da OS.
+- A OS nao possui data ou horario desejado; o horario efetivo nasce somente quando a ordem e vinculada a um bloco livre da agenda.
 - A localizacao e opcional; o sistema armazena o link recebido e extrai latitude e longitude quando possivel.
 - A agenda usa intervalos cadastrados pela central e gera blocos de atendimento com duracao fixa de 1 hora.
 - A agenda aceita multiplos intervalos nao sobrepostos no mesmo dia.

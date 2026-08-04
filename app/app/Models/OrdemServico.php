@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable(['numero', 'tipo', 'status', 'cliente_id', 'veiculo_id', 'tecnico_id', 'disponibilidade_id',
-    'atendimento_desejado_em', 'agendado_em', 'endereco', 'descricao', 'observacoes', 'localizacao_url',
+    'agendado_em', 'endereco', 'descricao', 'observacoes', 'localizacao_url',
     'localizacao_latitude', 'localizacao_longitude', 'notificar_cliente', 'token_hash', 'token_credencial', 'token_invalidado_em',
     'aceita_em', 'iniciada_em', 'inicio_latitude', 'inicio_longitude', 'termino_tecnico_em', 'finalizada_em',
     'finalizada_por', 'cancelada_em', 'cancelada_por', 'motivo_cancelamento', 'motivo_pendencia',
@@ -26,7 +26,7 @@ class OrdemServico extends Model
         return [
             'tipo' => OrdemServicoTipo::class, 'status' => OrdemServicoStatus::class,
             'token_credencial' => 'encrypted',
-            'atendimento_desejado_em' => 'datetime', 'agendado_em' => 'datetime', 'token_invalidado_em' => 'datetime',
+            'agendado_em' => 'datetime', 'token_invalidado_em' => 'datetime',
             'aceita_em' => 'datetime', 'iniciada_em' => 'datetime', 'termino_tecnico_em' => 'datetime',
             'finalizada_em' => 'datetime', 'cancelada_em' => 'datetime', 'notificar_cliente' => 'boolean',
             'equipamentos_confirmados' => 'boolean', 'check_funcionamento' => 'boolean', 'check_pos_chave' => 'boolean',

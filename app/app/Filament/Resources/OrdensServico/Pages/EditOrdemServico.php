@@ -3,11 +3,9 @@
 namespace App\Filament\Resources\OrdensServico\Pages;
 
 use App\Enums\OrdemServicoStatus;
-use App\Enums\OrdemServicoTipo;
 use App\Filament\Resources\OrdensServico\OrdemServicoResource;
 use App\Models\OrdemServicoDisponibilidade;
 use App\Models\Permission;
-use App\Models\Veiculo;
 use App\Services\OrdemServico\OrdemServicoAgendaService;
 use App\Services\OrdemServico\OrdemServicoService;
 use Carbon\CarbonImmutable;
@@ -104,6 +102,8 @@ class EditOrdemServico extends EditRecord
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
+        unset($data['tipo'], $data['cliente_id'], $data['veiculo_id']);
+
         if (! (auth()->user()?->hasPermission(Permission::OS_ESCRITA) ?? false) || $this->record->status->isFinal()) {
             return [];
         }
@@ -111,25 +111,9 @@ class EditOrdemServico extends EditRecord
             return ['observacoes' => $data['observacoes'] ?? $this->record->observacoes];
         }
 
-        $veiculo = Veiculo::query()->with('rastreador.chip')->findOrFail($data['veiculo_id']);
-        if ((int) $veiculo->cliente_id !== (int) $data['cliente_id']) {
-            throw ValidationException::withMessages(['data.veiculo_id' => 'O veículo não pertence ao cliente selecionado.']);
-        }
-        if (($data['notificar_cliente'] ?? false) && strlen(preg_replace('/\D+/', '', (string) $veiculo->cliente?->telefone1) ?? '') < 10) {
+        if (($data['notificar_cliente'] ?? false) && strlen(preg_replace('/\D+/', '', (string) $this->record->cliente?->telefone1) ?? '') < 10) {
             throw ValidationException::withMessages(['data.notificar_cliente' => 'Corrija o telefone do cliente antes de ativar as notificações.']);
         }
-        if ($this->record->newQuery()->ativas()->where('veiculo_id', $veiculo->id)->whereKeyNot($this->record->id)->exists()) {
-            throw ValidationException::withMessages(['data.veiculo_id' => 'Este veículo já possui outra ordem de serviço ativa.']);
-        }
-        $tipo = OrdemServicoTipo::from($data['tipo']);
-        if ($tipo === OrdemServicoTipo::INSTALACAO && $veiculo->rastreador_id !== null) {
-            throw ValidationException::withMessages(['data.tipo' => 'A instalação exige um veículo sem rastreador vinculado.']);
-        }
-        if ($tipo !== OrdemServicoTipo::INSTALACAO && ($veiculo->rastreador_id === null || $veiculo->rastreador?->chip_id === null)) {
-            throw ValidationException::withMessages(['data.tipo' => 'Retirada e manutenção exigem rastreador e chip vinculados.']);
-        }
-        $data['rastreador_anterior_id'] = $veiculo->rastreador_id;
-        $data['chip_anterior_id'] = $veiculo->rastreador?->chip_id;
 
         return $data;
     }
