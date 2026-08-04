@@ -231,8 +231,18 @@ class OrdemServicoService
         }
         if ($ordem->chip_novo_id !== null) {
             $chip = $ordem->chipNovo()->lockForUpdate()->firstOrFail();
-            if ((int) $chip->tecnico_id !== (int) $ordem->tecnico_id) {
+            $chipJaVinculadoAoRastreador = $ordem->tipo === OrdemServicoTipo::INSTALACAO && $rastreador->chip_id === $chip->id;
+            if (! $chipJaVinculadoAoRastreador && (int) $chip->tecnico_id !== (int) $ordem->tecnico_id) {
                 throw ValidationException::withMessages(['chip_novo_id' => 'O chip não está mais disponível no estoque do técnico.']);
+            }
+            if ($ordem->tipo === OrdemServicoTipo::INSTALACAO) {
+                $rastreadorDoChip = Rastreador::query()->where('chip_id', $chip->id)->lockForUpdate()->first();
+                if ($rastreadorDoChip && $rastreadorDoChip->id !== $ordem->rastreador_novo_id) {
+                    throw ValidationException::withMessages(['chip_novo_id' => 'O chip foi vinculado a outro rastreador. Retorne a OS ao técnico para escolher outro chip.']);
+                }
+                if ($rastreador->chip_id !== null && $rastreador->chip_id !== $chip->id) {
+                    throw ValidationException::withMessages(['chip_novo_id' => 'Use o chip que já está vinculado ao rastreador selecionado.']);
+                }
             }
             Rastreador::query()->where('chip_id', $chip->id)->when($ordem->rastreador_novo_id, fn ($q) => $q->whereKeyNot($ordem->rastreador_novo_id))->update(['chip_id' => null]);
         }
