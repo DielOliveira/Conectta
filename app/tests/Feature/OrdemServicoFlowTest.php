@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\OrdemServicoStatus;
 use App\Filament\Resources\Disponibilidades\DisponibilidadeResource;
+use App\Filament\Resources\OrdensServico\Pages\CreateOrdemServico;
 use App\Models\Chip;
 use App\Models\Cliente;
 use App\Models\Rastreador;
@@ -16,6 +17,7 @@ use App\Services\OrdemServico\OrdemServicoService;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
+use Livewire\Livewire;
 use Tests\TestCase;
 
 class OrdemServicoFlowTest extends TestCase
@@ -75,6 +77,25 @@ class OrdemServicoFlowTest extends TestCase
 
         $this->expectException(ValidationException::class);
         $service->criar($this->dadosOrdem($cliente, $veiculo), $operador);
+    }
+
+    public function test_exibe_no_formulario_o_motivo_que_impede_criar_a_ordem(): void
+    {
+        [$operador, $cliente, $veiculo] = $this->cenarioBase();
+        $rastreador = Rastreador::query()->create([
+            'imei' => '860000000000009',
+            'status_rastreador_id' => StatusRastreador::query()->where('label', 'Ativo')->value('id'),
+        ]);
+        $veiculo->update(['rastreador_id' => $rastreador->id]);
+        $this->actingAs($operador);
+
+        Livewire::test(CreateOrdemServico::class)
+            ->fillForm($this->dadosOrdem($cliente, $veiculo))
+            ->call('create')
+            ->assertHasErrors(['data.tipo'])
+            ->assertNotified('Não foi possível salvar a ordem de serviço.');
+
+        $this->assertDatabaseCount('ordens_servico', 0);
     }
 
     public function test_rejeicao_libera_a_agenda_e_invalida_o_token(): void
