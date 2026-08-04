@@ -58,7 +58,6 @@ class OrdemServicoResource extends Resource
             OrdemServicoStatus::ENVIADA,
             OrdemServicoStatus::ACEITA,
         ], true);
-        $bloquearConferencia = fn (?OrdemServico $record): bool => $record?->status !== OrdemServicoStatus::EM_CONFERENCIA;
 
         return $schema->components([
             Section::make('Ordem de serviço')->schema([
@@ -91,9 +90,9 @@ class OrdemServicoResource extends Resource
             ])->columnSpanFull(),
             Section::make('Conferência da central')->schema([
                 Grid::make(3)->schema([
-                    Toggle::make('check_funcionamento')->label('Funcionamento do equipamento')->disabled($bloquearConferencia),
-                    Toggle::make('check_pos_chave')->label('Pós-chave')->disabled($bloquearConferencia),
-                    Select::make('check_bloqueio')->label('Bloqueio do veículo')->options(['conferido' => 'Conferido', 'nao_se_aplica' => 'Não se aplica'])->disabled($bloquearConferencia),
+                    Toggle::make('check_funcionamento')->label('Funcionamento do equipamento')->disabled(),
+                    Toggle::make('check_pos_chave')->label('Pós-chave')->disabled(),
+                    Select::make('check_bloqueio')->label('Bloqueio do veículo')->options(['conferido' => 'Conferido', 'nao_se_aplica' => 'Não se aplica'])->disabled(),
                 ]),
                 Textarea::make('motivo_pendencia')->label('Última pendência')->disabled()->dehydrated(false),
             ])->visibleOn('edit')->columnSpanFull(),
