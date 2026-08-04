@@ -106,6 +106,14 @@ class EditOrdemServico extends EditRecord
         if (! (auth()->user()?->hasPermission(Permission::OS_ESCRITA) ?? false) || $this->record->status->isFinal()) {
             return [];
         }
+        if ($this->record->status === OrdemServicoStatus::EM_CONFERENCIA) {
+            return [
+                'observacoes' => $data['observacoes'] ?? $this->record->observacoes,
+                'check_funcionamento' => (bool) ($data['check_funcionamento'] ?? false),
+                'check_pos_chave' => (bool) ($data['check_pos_chave'] ?? false),
+                'check_bloqueio' => in_array($data['check_bloqueio'] ?? null, ['conferido', 'nao_se_aplica'], true) ? $data['check_bloqueio'] : null,
+            ];
+        }
         if (! in_array($this->record->status, [OrdemServicoStatus::ABERTA, OrdemServicoStatus::ENVIADA, OrdemServicoStatus::ACEITA], true)) {
             return ['observacoes' => $data['observacoes'] ?? $this->record->observacoes];
         }
