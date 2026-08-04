@@ -74,6 +74,11 @@ if curl -fsS "${APP_URL}" >/dev/null 2>&1; then
 else
     echo "Subindo Laravel em ${APP_URL}..."
     echo
-    cd "${ROOT_DIR}"
-    php -d upload_max_filesize=6M -d post_max_size=24M artisan serve --host=127.0.0.1 --port="${PORT}"
+    cd "${ROOT_DIR}/public"
+    php \
+        -d upload_max_filesize=6M \
+        -d post_max_size=24M \
+        -S "127.0.0.1:${PORT}" \
+        -t . \
+        ../vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php
 fi
