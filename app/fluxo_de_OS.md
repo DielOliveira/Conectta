@@ -68,16 +68,16 @@ Em retiradas ou manutencoes com divergencia de IMEI ou chip, a OS sai de `Em ate
 - Cada disponibilidade pertence a uma data especifica; nao havera cadastro recorrente por dia da semana.
 - A central pode cadastrar mais de um intervalo para o mesmo tecnico no mesmo dia, por exemplo 08:00 a 12:00 e 14:00 a 18:00.
 - Intervalos do mesmo tecnico no mesmo dia nao podem se sobrepor.
-- O sistema divide cada intervalo em blocos consecutivos de 40 minutos.
-- Cada OS ocupa um bloco de 40 minutos na agenda.
-- Quando o intervalo terminar com uma sobra inferior a 40 minutos, essa sobra e ignorada.
-- Exemplo: 08:00 a 09:00 gera apenas o bloco 08:00 a 08:40.
-- Exemplo: uma disponibilidade de 08:00 a 12:00 gera seis blocos, iniciados as 08:00, 08:40, 09:20, 10:00, 10:40 e 11:20.
+- O sistema divide cada intervalo em blocos consecutivos de 1 hora.
+- Cada OS ocupa um bloco de 1 hora na agenda.
+- Quando o intervalo terminar com uma sobra inferior a 1 hora, essa sobra e ignorada.
+- Exemplo: 08:00 a 09:00 gera um bloco, iniciado as 08:00.
+- Exemplo: uma disponibilidade de 08:00 a 12:00 gera quatro blocos, iniciados as 08:00, 09:00, 10:00 e 11:00.
 - O operador vincula a OS a um horario disponivel da agenda.
 - A OS pode ser criada como `Aberta` sem tecnico atribuido.
 - Nesse caso, a data e o horario registrados representam o atendimento desejado.
 - A OS somente passa para `Enviada` quando a central atribui um tecnico e a vincula a um bloco disponivel da agenda dele.
-- Ao atribuir o tecnico, o operador deve escolher obrigatoriamente um bloco livre de 40 minutos da agenda.
+- Ao atribuir o tecnico, o operador deve escolher obrigatoriamente um bloco livre de 1 hora da agenda.
 - A data e o horario do bloco escolhido substituem a data e o horario inicialmente desejados na OS.
 - A atribuicao exige que o tecnico possua um telefone valido no cadastro para receber o link por WhatsApp.
 - Sem telefone valido, a atribuicao e recusada, nenhum bloco e ocupado e a OS permanece `Aberta`.
@@ -212,7 +212,7 @@ Regras de edicao:
 - O operador pode alternar para ordenar pelo horario de atendimento mais proximo.
 - O modulo possui uma visualizacao de agenda ou calendario por tecnico.
 - A agenda oferece visoes por dia e por semana.
-- A agenda mostra os blocos livres de 40 minutos e as OS agendadas.
+- A agenda mostra os blocos livres de 1 hora e as OS agendadas.
 - A central pode abrir a OS a partir de um bloco ocupado e usar os blocos livres durante a atribuicao.
 - Nesta primeira versao, nao havera geracao de PDF nem layout especifico para impressao da OS.
 
@@ -484,7 +484,7 @@ Os itens substituidos sao transferidos para o estoque do tecnico que realizou o 
 - Toda manutencao exige descricao do servico ou diagnostico e pelo menos uma foto antes da solicitacao de conferencia.
 - Na abertura da OS sao informados tipo, cliente, veiculo, endereco, data e horario, motivo ou descricao, observacoes e localizacao recebida pelo WhatsApp.
 - A localizacao e opcional; o sistema armazena o link recebido e extrai latitude e longitude quando possivel.
-- A agenda usa intervalos informados pelo tecnico e gera blocos de atendimento com duracao fixa de 40 minutos.
+- A agenda usa intervalos informados pelo tecnico e gera blocos de atendimento com duracao fixa de 1 hora.
 - A agenda aceita multiplos intervalos nao sobrepostos no mesmo dia.
 - As disponibilidades sao cadastradas para datas especificas, sem recorrencia semanal.
 - A rejeicao exige uma observacao do tecnico; a OS volta para `Aberta` e o motivo permanece no historico.
@@ -537,7 +537,7 @@ Os itens substituidos sao transferidos para o estoque do tecnico que realizou o 
 - A agenda pode ser alternada entre visao diaria e semanal.
 - Disponibilidades com blocos ocupados nao podem ser reduzidas ou excluidas ate que as OS afetadas sejam reagendadas ou canceladas.
 - Agenda e agendamento nao aceitam datas ou horarios passados, sem bloquear o inicio tardio de uma OS ja aceita.
-- Sobras inferiores a 40 minutos no fim de uma disponibilidade nao geram bloco de agenda.
+- Sobras inferiores a 1 hora no fim de uma disponibilidade nao geram bloco de agenda.
 - O aceite nao tem prazo automatico; uma OS pode permanecer `Enviada` ate a central intervir.
 - A central nao recebe alertas internos; acompanha o fluxo pela listagem, agenda e historico.
 - A listagem ordena por criacao mais recente por padrao e oferece ordenacao pelo atendimento mais proximo.

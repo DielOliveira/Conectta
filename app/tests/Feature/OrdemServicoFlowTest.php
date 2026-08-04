@@ -42,9 +42,9 @@ class OrdemServicoFlowTest extends TestCase
         $this->assertSame('08:00:00', $disponibilidade->hora_inicio);
         $this->assertSame('10:00:00', $disponibilidade->hora_fim);
         $blocos = app(OrdemServicoAgendaService::class)->blocos($disponibilidade);
-        $this->assertSame(['08:00', '08:40', '09:20'], $blocos->map->format('H:i')->all());
+        $this->assertSame(['08:00', '09:00'], $blocos->map->format('H:i')->all());
 
-        $resultado = $service->agendar($ordem, $disponibilidade, CarbonImmutable::parse('2026-08-04 08:40'), $operador);
+        $resultado = $service->agendar($ordem, $disponibilidade, CarbonImmutable::parse('2026-08-04 09:00'), $operador);
         $this->assertSame(64, strlen($resultado['token']));
         $this->assertNotSame($resultado['token'], $resultado['ordem']->token_hash);
         $this->assertSame($resultado['ordem']->id, $service->porToken($resultado['token'])->id);
@@ -92,7 +92,7 @@ class OrdemServicoFlowTest extends TestCase
         $this->assertSame('11:00:00', $disponibilidade->hora_fim);
 
         $ordem = app(OrdemServicoService::class)->criar($this->dadosOrdem($cliente, $veiculo), $operador)['ordem'];
-        app(OrdemServicoService::class)->agendar($ordem, $disponibilidade, CarbonImmutable::parse('2026-08-04 09:20'), $operador);
+        app(OrdemServicoService::class)->agendar($ordem, $disponibilidade, CarbonImmutable::parse('2026-08-04 09:00'), $operador);
 
         $this->expectException(ValidationException::class);
         $agenda->atualizarDisponibilidade($disponibilidade, $tecnico->id, '2026-08-04', '08:00', '09:00');

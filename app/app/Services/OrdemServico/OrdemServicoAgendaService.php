@@ -11,7 +11,7 @@ use Illuminate\Validation\ValidationException;
 
 class OrdemServicoAgendaService
 {
-    public const DURACAO_MINUTOS = 40;
+    public const DURACAO_MINUTOS = 60;
 
     public function criarDisponibilidade(int $tecnicoId, string $data, string $horaInicio, string $horaFim): OrdemServicoDisponibilidade
     {
@@ -54,7 +54,7 @@ class OrdemServicoAgendaService
         $inicio = CarbonImmutable::parse("{$data} {$horaInicio}");
         $fim = CarbonImmutable::parse("{$data} {$horaFim}");
         if ($inicio->isPast() || $fim->lessThanOrEqualTo($inicio) || $inicio->diffInMinutes($fim) < self::DURACAO_MINUTOS) {
-            throw ValidationException::withMessages(['hora_inicio' => 'Informe um intervalo futuro com pelo menos 40 minutos.']);
+            throw ValidationException::withMessages(['hora_inicio' => 'Informe um intervalo futuro com pelo menos 1 hora.']);
         }
 
         $sobrepoe = OrdemServicoDisponibilidade::query()->where('tecnico_id', $tecnicoId)->whereDate('data', $data)

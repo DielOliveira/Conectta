@@ -7,6 +7,7 @@ use App\Filament\Resources\OrdensServico\OrdemServicoResource;
 use App\Models\OrdemServicoDisponibilidade;
 use App\Models\Permission;
 use App\Models\Tecnico;
+use App\Services\OrdemServico\OrdemServicoAgendaService;
 use Carbon\CarbonImmutable;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
@@ -88,9 +89,9 @@ class AgendaOrdensServico extends Page
                 $inicio = CarbonImmutable::parse($disponibilidade->data->format('Y-m-d').' '.$disponibilidade->hora_inicio);
                 $fim = CarbonImmutable::parse($disponibilidade->data->format('Y-m-d').' '.$disponibilidade->hora_fim);
                 $blocos = collect();
-                while ($inicio->addMinutes(40)->lessThanOrEqualTo($fim)) {
+                while ($inicio->addMinutes(OrdemServicoAgendaService::DURACAO_MINUTOS)->lessThanOrEqualTo($fim)) {
                     $blocos->push(['horario' => $inicio, 'disponibilidade' => $disponibilidade, 'ordem' => $ocupados->get($inicio->format('Y-m-d H:i:s'))]);
-                    $inicio = $inicio->addMinutes(40);
+                    $inicio = $inicio->addMinutes(OrdemServicoAgendaService::DURACAO_MINUTOS);
                 }
 
                 return $blocos;
