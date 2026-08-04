@@ -36,6 +36,8 @@ class OrdemServicoTecnicoController extends Controller
         } elseif ($acao === 'rejeitar') {
             $request->validate(['motivo' => ['required', 'string', 'max:2000']]);
             $service->rejeitar($ordem, $request->string('motivo'));
+
+            return redirect()->route('ordens-servico.tecnico.rejeicao-confirmada');
         } elseif ($acao === 'iniciar') {
             $service->iniciar($ordem, $request->float('latitude') ?: null, $request->float('longitude') ?: null);
         } elseif ($acao === 'divergencia') {

@@ -84,12 +84,18 @@ class OrdemServicoFlowTest extends TestCase
         $disponibilidade = app(OrdemServicoAgendaService::class)->criarDisponibilidade($tecnico->id, '2026-08-04', '08:00', '09:00');
         $resultado = $service->agendar($ordem, $disponibilidade, CarbonImmutable::parse('2026-08-04 08:00'), $operador);
 
-        $service->rejeitar($resultado['ordem'], 'Não conseguirei atender nessa data.');
+        $this->post(route('ordens-servico.tecnico.action', $resultado['token']), [
+            'acao' => 'rejeitar',
+            'motivo' => 'Não conseguirei atender nessa data.',
+        ])->assertRedirect(route('ordens-servico.tecnico.rejeicao-confirmada'));
         $ordem = $ordem->fresh();
         $this->assertSame(OrdemServicoStatus::ABERTA, $ordem->status);
         $this->assertNull($ordem->tecnico_id);
         $this->assertNull($ordem->token_hash);
         $this->assertCount(1, app(OrdemServicoAgendaService::class)->blocos($disponibilidade));
+        $this->get(route('ordens-servico.tecnico.rejeicao-confirmada'))
+            ->assertOk()
+            ->assertSee('Atendimento rejeitado');
     }
 
     public function test_permite_editar_intervalo_livre_e_bloqueia_remocao_de_bloco_ocupado(): void

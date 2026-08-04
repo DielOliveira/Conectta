@@ -507,6 +507,7 @@ Os itens substituidos sao transferidos para o estoque do tecnico que realizou o 
 - As disponibilidades sao cadastradas para datas especificas, sem recorrencia semanal.
 - A rejeicao exige uma observacao do tecnico; a OS volta para `Aberta` e o motivo permanece no historico.
 - Na tela mobile, `Rejeitar OS` abre uma modal responsiva; a rejeicao somente e efetivada depois que o tecnico preenche o motivo e confirma a acao.
+- Depois da confirmacao, o token e invalidado e o tecnico e direcionado para uma tela de sucesso que informa que a central recebeu a rejeicao.
 - Um unico link com hash e enviado por WhatsApp quando a OS entra em `Enviada`; ele serve para aceitar ou rejeitar e, depois do aceite, para executar o atendimento.
 - O link com hash nao exige login nem expira por tempo. Apos a finalizacao, permite apenas consulta, sem novas acoes.
 - O operador da central usa as rotas autenticadas normais do sistema, identificadas pelo ID da OS.
