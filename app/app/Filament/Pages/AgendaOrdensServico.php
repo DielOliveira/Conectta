@@ -12,9 +12,11 @@ use App\Services\OrdemServico\OrdemServicoAgendaService;
 use App\Services\OrdemServico\OrdemServicoService;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Collection;
@@ -134,8 +136,13 @@ class AgendaOrdensServico extends Page
             ->modalHeading('Agendar ordem de serviço')
             ->modalDescription(fn (array $arguments): string => 'Horário: '.CarbonImmutable::parse($arguments['horario'])->format('d/m/Y H:i'))
             ->modalSubmitActionLabel('Agendar e enviar')
-            ->fillForm(['ordem_servico_id' => null, 'tecnico_id' => null])
+            ->fillForm(fn (array $arguments): array => [
+                'horario' => $arguments['horario'],
+                'ordem_servico_id' => null,
+                'tecnico_id' => null,
+            ])
             ->schema([
+                Hidden::make('horario'),
                 Select::make('ordem_servico_id')
                     ->label('Ordem de serviço')
                     ->options(fn (): array => OrdemServico::query()
@@ -153,10 +160,10 @@ class AgendaOrdensServico extends Page
                     ->required(),
                 Select::make('tecnico_id')
                     ->label('Técnico livre')
-                    ->options(fn (array $arguments): array => $this->disponibilidadesLivres(CarbonImmutable::parse($arguments['horario']))
+                    ->options(fn (Get $get): array => filled($get('horario')) ? $this->disponibilidadesLivres(CarbonImmutable::parse($get('horario')))
                         ->mapWithKeys(fn (OrdemServicoDisponibilidade $disponibilidade): array => [
                             $disponibilidade->tecnico_id => $disponibilidade->tecnico->nome,
-                        ])->all())
+                        ])->all() : [])
                     ->noOptionsMessage('O horário não possui mais técnicos livres.')
                     ->required(),
             ])
