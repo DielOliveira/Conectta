@@ -475,6 +475,32 @@ Principio operacional: conter, diagnosticar, preservar evidencias, corrigir de f
 - `canAccessPanel()` retorna true para usuarios autenticados; o controle real fica em `canAccess`, `canCreate`, `canEdit`, `canDelete` e visibilidade de actions/resources.
 - Catalogo central de permissoes: `App\Models\Permission::catalogo()`. Seeders/migrations recentes garantem `Tecnico` e `Coordenador`.
 
+## Ordens De Servico
+
+- O fluxo funcional completo esta documentado em `app/fluxo_de_OS.md`; este arquivo e a fonte principal para regras, status, agenda, atendimento tecnico, conferencia, estoque, mensagens e cancelamentos.
+- O modulo de OS foi integrado a `main` e publicado em producao em 2026-08-04.
+- Grupo de menu: `Ordens de Servico`, com `Ordens de servico`, `Disponibilidades` e `Agenda de OS`.
+- Permissoes: `OS_Leitura` e `OS_Escrita`; admin continua com acesso total.
+- Cada disponibilidade gera blocos fixos de 1 hora. A atribuicao ocorre pela agenda e envia ao tecnico um link publico unico protegido por token.
+- O tecnico aceita ou rejeita, inicia o atendimento, informa equipamentos e fotos e solicita conferencia. A central aprova, devolve como pendencia ou cancela.
+- Tipo, cliente e veiculo ficam bloqueados depois da criacao. Uma OS ativa por veiculo e preservada; OS nao e excluida definitivamente.
+- Instalacao, retirada e manutencao movimentam rastreadores e chips pelo fluxo da OS, reduzindo atualizacoes manuais do estoque.
+- O historico da OS preserva eventos, fotos e todas as mensagens geradas para tecnico e cliente.
+- Mensagens de OS ficam fixas e centralizadas em `App\Services\OrdemServico\OrdemServicoNotificacaoService`; usam saudacao, dados do atendimento e formatacao adequada ao WhatsApp.
+- `Enviada` no historico de mensagens significa que a Z-API aceitou a chamada sem erro; nao confirma entrega nem leitura. Webhooks de entregue/lida nao fazem parte da primeira versao.
+- O scheduler executa `ordens-servico:enviar-notificacoes` a cada minuto e o lembrete da OS a cada cinco minutos.
+- O tratamento atual de mensagens com erro deve permanecer como esta ate nova decisao explicita; nao implementar retentativa automaticamente.
+- Em producao, novas fotos sao gravadas diretamente em `gdrive:Conectta/ordens-servico` via rclone, usando configuracao privada `/etc/conectta/rclone.conf` com permissao `root:www-data 640`.
+- O banco guarda o caminho remoto e a visualizacao continua pela rota protegida da OS; o Drive nao e exposto diretamente.
+- A unica foto criada antes dessa correcao continua local em `storage/app/private/ordens-servico/1/` e com caminho local no banco. Sua migracao para o Drive exige autorizacao explicita do usuario por envolver arquivo real de producao.
+- Em desenvolvimento, o driver de fotos permanece `local` por padrao. Em producao, o `.env` usa `ORDENS_SERVICO_FOTOS_DRIVER=rclone`.
+- Ultimos commits do modulo: `df3f3ea` (primeira versao), `cf26028` (validacao visivel ao criar), `da301a7` (mensagens aprimoradas) e `d19afa2` (fotos no Google Drive).
+- Producao foi validada no commit `d19afa2`, versao `1.1.3`, sem migrations pendentes.
+- Testes relevantes: `tests/Feature/OrdemServicoFlowTest.php` e `tests/Unit/OrdemServicoFotoStorageTest.php`.
+- Materiais de apresentacao gerados localmente:
+  - `/home/diel_/Conectta/tmp/banner-fluxo-ordem-servico-conectta.png`;
+  - `/home/diel_/Conectta/tmp/banner-vantagens-ordem-servico-conectta.png`.
+
 ## Identidade Visual
 
 - O favicon do painel Filament usa `public/favicon.svg`, um marcador de mapa cinza.
@@ -488,7 +514,8 @@ Principio operacional: conter, diagnosticar, preservar evidencias, corrigir de f
 
 ## Estado Atual Importante
 
-- Ultimo commit conhecido em `main`/`origin/main`: `58cc7e1 Vincula chips aos rastreadores`.
+- Ultimo commit funcional conhecido em `main`/GitHub/producao: `d19afa2 Armazena fotos das ordens de servico no Drive`.
+- Em 2026-08-04, producao estava na versao `1.1.3`, commit `d19afa2`, com o modulo de OS ativo e sem migrations pendentes.
 - Em 2026-07-08, producao estava no commit `58cc7e1`; deploy validado com `/admin/login` HTTP 200 e `php artisan migrate:status --pending` sem pendencias.
 - Em 2026-07-08, a migracao de chips para rastreadores foi aplicada em producao. Validacao: `rastreadores.chip_id` existe, 4.259 rastreadores ficaram com chip migrado, e nao restaram chips compartilhados entre rastreadores ativos.
 - Em 2026-07-08, antes da migracao em producao, 12 chips ainda estavam compartilhados. Foi mantido o vinculo no registro mais recente e 12 rastreadores ficaram sem chip para verificacao manual:
