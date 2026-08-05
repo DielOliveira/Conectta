@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Models\AuditLog;
 use App\Models\Cliente;
 use App\Models\Permission;
+use App\Models\User;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
@@ -38,6 +39,8 @@ class HistoricoFinanceiro extends Page
 
     public string $cliente = '';
 
+    public string $operador = '';
+
     public int $pagina = 1;
 
     public int $porPagina = 10;
@@ -54,7 +57,7 @@ class HistoricoFinanceiro extends Page
 
     public function updated(string $property): void
     {
-        if (in_array($property, ['data', 'cliente', 'porPagina'], true)) {
+        if (in_array($property, ['data', 'cliente', 'operador', 'porPagina'], true)) {
             $this->pagina = 1;
         }
     }
@@ -63,7 +66,21 @@ class HistoricoFinanceiro extends Page
     {
         $this->data = now()->toDateString();
         $this->cliente = '';
+        $this->operador = '';
         $this->pagina = 1;
+    }
+
+    public function operadores(): Collection
+    {
+        $operadores = User::query()
+            ->orderBy('name')
+            ->pluck('name', 'id');
+
+        if (AuditLog::query()->whereIn('acao', $this->acoesFinanceiras())->whereNull('user_id')->exists()) {
+            $operadores->put('sistema', 'Sistema');
+        }
+
+        return $operadores;
     }
 
     public function paginaAnterior(): void
@@ -180,15 +197,28 @@ class HistoricoFinanceiro extends Page
     private function logsQuery(): Builder
     {
         return AuditLog::query()
-            ->whereIn('acao', [
-                'financeiro.lancamento_criado',
-                'financeiro.lancamento_editado',
-                'financeiro.parcelamento_criado',
-                'financeiro.parcelamento_excluido',
-            ])
+            ->whereIn('acao', $this->acoesFinanceiras())
             ->when($this->data !== '', fn (Builder $query): Builder => $query->whereDate('created_at', $this->data))
+            ->when(
+                $this->operador === 'sistema',
+                fn (Builder $query): Builder => $query->whereNull('user_id')
+            )
+            ->when(
+                $this->operador !== '' && $this->operador !== 'sistema',
+                fn (Builder $query): Builder => $query->where('user_id', (int) $this->operador)
+            )
             ->latest('created_at')
             ->latest('id');
+    }
+
+    private function acoesFinanceiras(): array
+    {
+        return [
+            'financeiro.lancamento_criado',
+            'financeiro.lancamento_editado',
+            'financeiro.parcelamento_criado',
+            'financeiro.parcelamento_excluido',
+        ];
     }
 
     private function registrosFiltrados(): Collection
