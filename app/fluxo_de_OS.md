@@ -107,6 +107,7 @@ O operador deve preencher:
 - Tipo da OS.
 - Cliente.
 - Veiculo.
+- Indicacao booleana `Associado`, desativada por padrao.
 - Endereco do atendimento.
 - Motivo ou descricao do servico.
 - Observacoes.
@@ -133,6 +134,20 @@ Ao selecionar o cliente:
 - O endereco da OS e preenchido automaticamente a partir do cadastro do cliente.
 - O operador pode alterar o endereco somente para aquela OS.
 - A alteracao do endereco na OS nao modifica o cadastro principal do cliente.
+
+Atendimento para associado:
+
+- O campo booleano `Associado` fica a direita da selecao do veiculo na abertura da OS.
+- Ao marcar `Associado`, a tela exibe na linha seguinte o nome do associado e o contato cadastrados no veiculo.
+- Esses dois campos sao somente leitura na OS e devem ser alterados exclusivamente no cadastro do veiculo.
+- Nome e contato sao obrigatorios para criar uma OS de associado; se qualquer um estiver ausente ou o contato for invalido, a abertura e bloqueada e o operador deve corrigir o veiculo.
+- O contato do associado possui pais/DDI e numero normalizado no cadastro do veiculo, seguindo o mesmo padrao de telefone usado nos demais cadastros.
+- Ao marcar `Associado`, o endereco preenchido a partir do cliente e limpo para que o operador informe o local do associado.
+- Ao desmarcar `Associado` antes de criar a OS, o endereco original do cliente e restaurado automaticamente.
+- A OS continua vinculada tecnicamente ao cliente proprietario e ao veiculo, mas o nome apresentado como cliente do atendimento passa a ser o associado.
+- Na listagem, pesquisa, agenda, pagina do tecnico e mensagens da OS, o nome do atendimento e o nome do associado.
+- Ligacoes, WhatsApp e notificacoes destinadas ao cliente usam o contato e o DDI do veiculo quando a OS for de associado.
+- A escolha de atendimento para associado fica persistida na OS.
 
 Regras da localizacao:
 
@@ -289,10 +304,10 @@ Regras de edicao:
 - A mensagem de finalizacao pode incluir o mesmo link, que passa a permitir somente consulta.
 - As notificacoes ao cliente sao opcionais por OS e ficam desativadas por padrao na abertura.
 - O cliente somente recebe mensagens quando o operador ativar deliberadamente `Notificar cliente pelo WhatsApp`.
-- O numero destinatario e preenchido automaticamente a partir do telefone do cadastro do cliente.
-- O telefone nao pode ser alterado somente na OS; as mensagens usam obrigatoriamente o numero atual do cadastro.
-- Se o numero estiver incorreto, ele deve ser corrigido no cadastro do cliente.
-- Sem telefone valido no cadastro, o operador nao pode ativar `Notificar cliente pelo WhatsApp`.
+- O numero destinatario e preenchido automaticamente a partir do telefone do cadastro do cliente ou, em uma OS de associado, do contato e DDI cadastrados no veiculo.
+- O telefone nao pode ser alterado somente na OS; as mensagens usam obrigatoriamente o numero atual do cadastro correspondente.
+- Se o numero estiver incorreto, ele deve ser corrigido no cadastro do cliente ou, para associado, no cadastro do veiculo.
+- Sem telefone valido no cadastro correspondente, o operador nao pode ativar `Notificar cliente pelo WhatsApp`.
 - Nesse caso, a tela orienta o operador a corrigir o cadastro do cliente.
 - A falta de telefone nao impede a criacao da OS quando a opcao de notificacao estiver desligada.
 - Com a opcao ativa, o cliente recebe uma mensagem quando o tecnico aceitar a OS.
@@ -513,6 +528,8 @@ Os itens substituidos sao transferidos para o estoque do tecnico que realizou o 
 - Na manutencao com troca, os itens antigos entram automaticamente no estoque do tecnico que executou a OS.
 - Toda manutencao exige descricao do servico ou diagnostico e pelo menos uma foto antes da solicitacao de conferencia.
 - Na abertura da OS sao informados tipo, cliente, veiculo, endereco, motivo ou descricao, observacoes e localizacao recebida pelo WhatsApp.
+- A abertura permite marcar a OS como atendimento de associado; nesse caso, exige nome, contato e DDI no veiculo e usa esses dados em toda comunicacao e apresentacao do cliente do atendimento.
+- Ao marcar associado, o endereco automatico do cliente e limpo; ao desmarcar, o endereco original e restaurado.
 - Depois da criacao, tipo, cliente e veiculo ficam bloqueados permanentemente para preservar a identidade e o historico da OS.
 - A OS nao possui data ou horario desejado; o horario efetivo nasce somente quando a ordem e vinculada a um bloco livre da agenda.
 - A localizacao e opcional; o sistema armazena o link recebido e extrai latitude e longitude quando possivel.

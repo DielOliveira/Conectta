@@ -3,9 +3,13 @@
 namespace App\Filament\Resources\OrdensServico\Pages;
 
 use App\Filament\Resources\OrdensServico\OrdemServicoResource;
+use App\Models\OrdemServico;
+use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Builder;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ListOrdensServico extends ListRecords
 {
@@ -70,8 +74,61 @@ class ListOrdensServico extends ListRecords
             });
     }
 
+    public function exportarCsv(): StreamedResponse
+    {
+        $query = $this->aplicarFiltrosOrdensServico(
+            OrdemServico::query()->with(['cliente', 'veiculo', 'tecnico'])
+        );
+
+        $this->applySortingToTableQuery($query);
+
+        $ordensServico = $query
+            ->limit(10000)
+            ->get();
+
+        $fileName = 'ordens-servico-'.now()->format('Y-m-d-His').'.csv';
+
+        return response()->streamDownload(function () use ($ordensServico): void {
+            $handle = fopen('php://output', 'w');
+
+            fwrite($handle, "\xEF\xBB\xBF");
+            fputcsv($handle, [
+                'OS',
+                'Cliente',
+                'Placa',
+                'Tipo',
+                'Status',
+                'Técnico',
+                'Atendimento',
+            ], ';');
+
+            foreach ($ordensServico as $ordemServico) {
+                fputcsv($handle, [
+                    $ordemServico->numero_formatado,
+                    $ordemServico->nome_atendimento,
+                    $ordemServico->veiculo?->placa,
+                    $ordemServico->tipo->label(),
+                    $ordemServico->status->label(),
+                    $ordemServico->tecnico?->nome,
+                    $ordemServico->agendado_em?->format('d/m/Y H:i'),
+                ], ';');
+            }
+
+            fclose($handle);
+        }, $fileName, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
     protected function getHeaderActions(): array
     {
-        return [CreateAction::make()->label('Nova ordem de serviço')];
+        return [
+            Action::make('exportar')
+                ->label('Exportar')
+                ->icon(Heroicon::ArrowDownTray)
+                ->color('gray')
+                ->action('exportarCsv'),
+            CreateAction::make()->label('Nova ordem de serviço'),
+        ];
     }
 }
