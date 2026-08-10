@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 #[Fillable([
     'integracao',
     'ambiente',
+    'driver',
     'base_url',
     'client_id',
     'client_secret',
@@ -118,6 +119,50 @@ class ConfiguracaoIntegracao extends Model
             ],
         );
     }
+    public static function whatsapp(): self
+    {
+        return self::query()->firstOrCreate(
+            ['integracao' => 'whatsapp', 'ambiente' => 'global'],
+            ['driver' => config('services.whatsapp.driver', 'zapi'), 'ativo' => true],
+        );
+    }
+
+    public static function whatsappDriver(): string
+    {
+        $driver = (string) self::whatsapp()->driver;
+
+        return in_array($driver, ['zapi', 'japi'], true) ? $driver : 'zapi';
+    }
+
+    public static function japiAtiva(): self
+    {
+        $ativa = self::query()->where('integracao', 'japi')->where('ativo', true)->first();
+
+        if ($ativa) {
+            return $ativa;
+        }
+
+        $producao = self::japiAmbiente('producao');
+        $producao->forceFill(['ativo' => true])->save();
+
+        return $producao;
+    }
+
+    public static function japiAmbiente(string $ambiente): self
+    {
+        $temAmbienteAtivo = self::query()->where('integracao', 'japi')->where('ativo', true)->exists();
+
+        return self::query()->firstOrCreate(
+            ['integracao' => 'japi', 'ambiente' => $ambiente],
+            [
+                'base_url' => config('services.whatsapp.japi.base_url', 'http://127.0.0.1:3001'),
+                'client_id' => config('services.whatsapp.japi.session', 'default'),
+                'timeout' => (int) config('services.whatsapp.japi.timeout', 60),
+                'ativo' => $ambiente === 'producao' && ! $temAmbienteAtivo,
+            ],
+        );
+    }
+
     public static function lytex(): self
     {
         return self::lytexAtiva();

@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Services\Whatsapp\WhatsappManager;
+use App\Services\Whatsapp\WhatsappService;
 use App\Models\Chip;
 use App\Models\Cliente;
 use App\Models\Contrato;
@@ -21,7 +23,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(WhatsappService::class, WhatsappManager::class);
     }
 
     /**

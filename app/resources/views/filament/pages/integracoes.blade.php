@@ -410,6 +410,86 @@
         </div>
     </form>
 
+    <form class="ct-integrations" wire:submit.prevent="salvarWhatsappDriver">
+        <section class="ct-integration-card">
+            <div class="ct-integration-header">
+                <div>
+                    <h2 class="ct-integration-title">Driver do WhatsApp</h2>
+                    <div class="ct-integration-subtitle">Escolha qual servico sera usado nas cobrancas e notificacoes de ordens de servico. A troca e imediata e preserva as duas configuracoes.</div>
+                </div>
+                <div class="ct-status-pill is-active">{{ $whatsappDriver === 'japi' ? 'J-API ativo' : 'Z-API ativa' }}</div>
+            </div>
+            <div class="ct-form-grid">
+                <label class="ct-field ct-col-6">
+                    <span class="ct-label">Servico ativo</span>
+                    <select class="ct-select" wire:model="whatsappDriver">
+                        <option value="zapi">Z-API</option>
+                        <option value="japi">J-API proprio</option>
+                    </select>
+                    @error('whatsappDriver') <span class="ct-error">{{ $message }}</span> @enderror
+                </label>
+            </div>
+        </section>
+        <div class="ct-actions">
+            <button class="ct-btn ct-btn-primary" type="submit">Usar driver selecionado</button>
+        </div>
+    </form>
+
+    <form class="ct-integrations" wire:submit.prevent="salvarJapi">
+        <section class="ct-integration-card">
+            <div class="ct-integration-header">
+                <div>
+                    <h2 class="ct-integration-title">J-API WhatsApp</h2>
+                    <div class="ct-integration-subtitle">Servico proprio acessado pela VPS em localhost. Configure a sessao e o ambiente usados pelo Conectta.</div>
+                </div>
+            </div>
+            <div class="ct-form-grid">
+                <label class="ct-field ct-col-4">
+                    <span class="ct-label">Ambiente ativo</span>
+                    <select class="ct-select" wire:model="japiAmbienteAtivo">
+                        <option value="homologacao">Homologacao</option>
+                        <option value="producao">Producao</option>
+                    </select>
+                </label>
+            </div>
+        </section>
+
+        <div class="ct-env-grid">
+            @foreach ([['Homologacao', 'homologacao'], ['Producao', 'producao']] as [$label, $ambiente])
+                @php
+                    $prefix = $ambiente === 'producao' ? 'japiProducao' : 'japiHomologacao';
+                    $isActive = $japiAmbienteAtivo === $ambiente;
+                @endphp
+                <section class="ct-env-card {{ $isActive ? 'is-active' : '' }}">
+                    <div class="ct-integration-header">
+                        <h3 class="ct-integration-title">{{ $label }}</h3>
+                        <div class="ct-status-pill {{ $isActive ? 'is-active' : '' }}">{{ $isActive ? 'Ativo' : 'Inativo' }}</div>
+                    </div>
+                    <div class="ct-form-grid">
+                        <label class="ct-field ct-col-12">
+                            <span class="ct-label">URL base</span>
+                            <input class="ct-input" type="url" wire:model="{{ $prefix }}BaseUrl" placeholder="http://127.0.0.1:3001">
+                            @error($prefix . 'BaseUrl') <span class="ct-error">{{ $message }}</span> @enderror
+                        </label>
+                        <label class="ct-field ct-col-6">
+                            <span class="ct-label">Sessao</span>
+                            <input class="ct-input" type="text" wire:model="{{ $prefix }}Session" placeholder="default">
+                            @error($prefix . 'Session') <span class="ct-error">{{ $message }}</span> @enderror
+                        </label>
+                        <label class="ct-field ct-col-4">
+                            <span class="ct-label">Timeout</span>
+                            <input class="ct-input" type="number" min="5" max="120" wire:model="{{ $prefix }}Timeout">
+                            @error($prefix . 'Timeout') <span class="ct-error">{{ $message }}</span> @enderror
+                        </label>
+                    </div>
+                </section>
+            @endforeach
+        </div>
+        <div class="ct-actions">
+            <button class="ct-btn ct-btn-primary" type="submit">Salvar J-API</button>
+        </div>
+    </form>
+
     <form class="ct-integrations" wire:submit.prevent="salvarZapi">
         <section class="ct-integration-card">
             <div class="ct-integration-header">

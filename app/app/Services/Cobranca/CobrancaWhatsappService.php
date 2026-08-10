@@ -11,13 +11,13 @@ use App\Services\Lytex\LytexException;
 use App\Services\Lytex\LytexInvoiceData;
 use App\Services\Lytex\LytexInvoiceService;
 use App\Services\Whatsapp\WhatsappException;
-use App\Services\Whatsapp\ZapiWhatsappService;
+use App\Services\Whatsapp\WhatsappService;
 use Illuminate\Database\Eloquent\Builder;
 
 class CobrancaWhatsappService
 {
     public function __construct(
-        private readonly ZapiWhatsappService $whatsapp,
+        private readonly WhatsappService $whatsapp,
         private readonly LytexInvoiceService $lytex,
     )
     {

@@ -172,6 +172,8 @@ Observacao: a VPS pode emitir `Deprecation Notice` do Composer por usar Composer
 
 ## Integracoes
 
+Para tarefas envolvendo o serviço próprio de WhatsApp, envio de PIX ou boleto/PDF pelo J-API, ler primeiro [`J-API.md`](J-API.md). Esse guia documenta endpoints localhost, payloads, segurança, limitações do WhatsApp Web, estado de produção e o fluxo recomendado de migração com rollback para Z-API. Não iniciar a migração apenas por encontrar o documento; aguardar pedido explícito do usuário.
+
 Endpoints de producao para webhooks:
 
 ```text

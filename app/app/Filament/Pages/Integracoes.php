@@ -8,6 +8,9 @@ use App\Models\TokenLytex;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Contracts\Encryption\DecryptException;
+use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\DB;
 use UnitEnum;
 
 class Integracoes extends Page
@@ -105,6 +108,15 @@ class Integracoes extends Page
     public bool $zapiHomologacaoTokenCadastrado = false;
     public bool $zapiHomologacaoClientTokenCadastrado = false;
 
+    public string $whatsappDriver = 'zapi';
+    public string $japiAmbienteAtivo = 'producao';
+    public string $japiProducaoBaseUrl = 'http://127.0.0.1:3001';
+    public string $japiProducaoSession = 'default';
+    public int $japiProducaoTimeout = 60;
+    public string $japiHomologacaoBaseUrl = 'http://127.0.0.1:3001';
+    public string $japiHomologacaoSession = 'default';
+    public int $japiHomologacaoTimeout = 60;
+
     public function mount(): void
     {
         $producao = ConfiguracaoIntegracao::lytexAmbiente('producao');
@@ -118,6 +130,9 @@ class Integracoes extends Page
         $zapiProducao = ConfiguracaoIntegracao::zapiAmbiente('producao');
         $zapiHomologacao = ConfiguracaoIntegracao::zapiAmbiente('homologacao');
         $zapiAtiva = ConfiguracaoIntegracao::zapiAtiva();
+        $japiProducao = ConfiguracaoIntegracao::japiAmbiente('producao');
+        $japiHomologacao = ConfiguracaoIntegracao::japiAmbiente('homologacao');
+        $japiAtiva = ConfiguracaoIntegracao::japiAtiva();
 
         $this->lytexAmbienteAtivo = (string) $ativa->ambiente;
         $this->carregarAmbiente('producao', $producao);
@@ -130,6 +145,85 @@ class Integracoes extends Page
         $this->zapiAmbienteAtivo = (string) $zapiAtiva->ambiente;
         $this->carregarZapiAmbiente('producao', $zapiProducao);
         $this->carregarZapiAmbiente('homologacao', $zapiHomologacao);
+
+        $this->whatsappDriver = ConfiguracaoIntegracao::whatsappDriver();
+        $this->japiAmbienteAtivo = (string) $japiAtiva->ambiente;
+        $this->carregarJapiAmbiente('producao', $japiProducao);
+        $this->carregarJapiAmbiente('homologacao', $japiHomologacao);
+    }
+
+    public function salvarWhatsappDriver(): void
+    {
+        if (! auth()->user()?->isAdmin()) {
+            Notification::make()->title('Voce nao tem permissao para esta acao.')->danger()->send();
+
+            return;
+        }
+
+        $data = $this->validate(
+            ['whatsappDriver' => ['required', 'in:zapi,japi']],
+            ['whatsappDriver.in' => 'Selecione um driver de WhatsApp valido.'],
+        );
+
+        ConfiguracaoIntegracao::whatsapp()->update(['driver' => $data['whatsappDriver']]);
+
+        Notification::make()
+            ->title('Driver de WhatsApp alterado para '.($data['whatsappDriver'] === 'japi' ? 'J-API' : 'Z-API').'.')
+            ->success()
+            ->send();
+    }
+
+    public function salvarJapi(): void
+    {
+        if (! auth()->user()?->isAdmin()) {
+            Notification::make()->title('Voce nao tem permissao para esta acao.')->danger()->send();
+
+            return;
+        }
+
+        $data = $this->validate([
+            'japiAmbienteAtivo' => ['required', 'in:producao,homologacao'],
+            'japiProducaoBaseUrl' => ['required', 'url', 'max:255'],
+            'japiProducaoSession' => ['required', 'regex:/^[a-z0-9_-]{1,32}$/'],
+            'japiProducaoTimeout' => ['required', 'integer', 'min:5', 'max:120'],
+            'japiHomologacaoBaseUrl' => ['required', 'url', 'max:255'],
+            'japiHomologacaoSession' => ['required', 'regex:/^[a-z0-9_-]{1,32}$/'],
+            'japiHomologacaoTimeout' => ['required', 'integer', 'min:5', 'max:120'],
+        ], [
+            'required' => 'O campo :attribute e obrigatorio.',
+            'url' => 'O campo :attribute deve ser uma URL valida.',
+            'regex' => 'A sessao aceita apenas letras minusculas, numeros, _ e -.',
+        ]);
+
+        $producao = $this->salvarJapiAmbiente('producao', $data, 'Producao');
+        $homologacao = $this->salvarJapiAmbiente('homologacao', $data, 'Homologacao');
+
+        ConfiguracaoIntegracao::query()->where('integracao', 'japi')->update(['ativo' => false]);
+        ConfiguracaoIntegracao::query()
+            ->whereKey($data['japiAmbienteAtivo'] === 'producao' ? $producao->id : $homologacao->id)
+            ->update(['ativo' => true]);
+
+        Notification::make()->title('Configuracao do J-API salva.')->success()->send();
+    }
+
+    private function carregarJapiAmbiente(string $ambiente, ConfiguracaoIntegracao $configuracao): void
+    {
+        $prefixo = $ambiente === 'producao' ? 'japiProducao' : 'japiHomologacao';
+        $this->{$prefixo.'BaseUrl'} = (string) $configuracao->base_url;
+        $this->{$prefixo.'Session'} = (string) ($configuracao->client_id ?: 'default');
+        $this->{$prefixo.'Timeout'} = (int) ($configuracao->timeout ?: 60);
+    }
+
+    private function salvarJapiAmbiente(string $ambiente, array $data, string $sufixo): ConfiguracaoIntegracao
+    {
+        return $this->atualizarOuCriarConfiguracao(
+            ['integracao' => 'japi', 'ambiente' => $ambiente],
+            [
+                'base_url' => rtrim($data["japi{$sufixo}BaseUrl"], '/'),
+                'client_id' => trim($data["japi{$sufixo}Session"]),
+                'timeout' => (int) $data["japi{$sufixo}Timeout"],
+            ],
+        );
     }
 
     public function salvarLytex(): void
@@ -206,10 +300,10 @@ class Integracoes extends Page
         $this->lytexHomologacaoClientSecret = '';
         $this->lytexProducaoCallbackSecret = '';
         $this->lytexHomologacaoCallbackSecret = '';
-        $this->lytexProducaoClientSecretCadastrado = filled($producao->client_secret);
-        $this->lytexHomologacaoClientSecretCadastrado = filled($homologacao->client_secret);
-        $this->lytexProducaoCallbackSecretCadastrado = filled($producao->callback_secret);
-        $this->lytexHomologacaoCallbackSecretCadastrado = filled($homologacao->callback_secret);
+        $this->lytexProducaoClientSecretCadastrado = $this->segredoCadastrado($producao, 'client_secret');
+        $this->lytexHomologacaoClientSecretCadastrado = $this->segredoCadastrado($homologacao, 'client_secret');
+        $this->lytexProducaoCallbackSecretCadastrado = $this->segredoCadastrado($producao, 'callback_secret');
+        $this->lytexHomologacaoCallbackSecretCadastrado = $this->segredoCadastrado($homologacao, 'callback_secret');
 
         if ($mudouAmbienteAtivo || ($data['lytexAmbienteAtivo'] === 'producao' && $mudouProducao) || ($data['lytexAmbienteAtivo'] === 'homologacao' && $mudouHomologacao)) {
             TokenLytex::query()->delete();
@@ -229,8 +323,8 @@ class Integracoes extends Page
         $this->{$prefixo . 'ClientId'} = (string) $configuracao->client_id;
         $this->{$prefixo . 'AuthScheme'} = (string) ($configuracao->auth_scheme ?: 'Bearer');
         $this->{$prefixo . 'Timeout'} = (int) ($configuracao->timeout ?: 30);
-        $this->{$prefixo . 'ClientSecretCadastrado'} = filled($configuracao->client_secret);
-        $this->{$prefixo . 'CallbackSecretCadastrado'} = filled($configuracao->callback_secret);
+        $this->{$prefixo . 'ClientSecretCadastrado'} = $this->segredoCadastrado($configuracao, 'client_secret');
+        $this->{$prefixo . 'CallbackSecretCadastrado'} = $this->segredoCadastrado($configuracao, 'callback_secret');
     }
 
     private function salvarAmbiente(string $ambiente, array $data, string $sufixo): ConfiguracaoIntegracao
@@ -250,7 +344,7 @@ class Integracoes extends Page
             $dados['callback_secret'] = trim($data["lytex{$sufixo}CallbackSecret"]);
         }
 
-        return ConfiguracaoIntegracao::query()->updateOrCreate(
+        return $this->atualizarOuCriarConfiguracao(
             [
                 'integracao' => 'lytex',
                 'ambiente' => $ambiente,
@@ -324,10 +418,10 @@ class Integracoes extends Page
         $this->zapsignHomologacaoToken = '';
         $this->zapsignProducaoCallbackSecret = '';
         $this->zapsignHomologacaoCallbackSecret = '';
-        $this->zapsignProducaoTokenCadastrado = filled($producao->token);
-        $this->zapsignHomologacaoTokenCadastrado = filled($homologacao->token);
-        $this->zapsignProducaoCallbackSecretCadastrado = filled($producao->callback_secret);
-        $this->zapsignHomologacaoCallbackSecretCadastrado = filled($homologacao->callback_secret);
+        $this->zapsignProducaoTokenCadastrado = $this->segredoCadastrado($producao, 'token');
+        $this->zapsignHomologacaoTokenCadastrado = $this->segredoCadastrado($homologacao, 'token');
+        $this->zapsignProducaoCallbackSecretCadastrado = $this->segredoCadastrado($producao, 'callback_secret');
+        $this->zapsignHomologacaoCallbackSecretCadastrado = $this->segredoCadastrado($homologacao, 'callback_secret');
 
         Notification::make()->title('Configuracao da ZapSign salva.')->success()->send();
     }
@@ -342,8 +436,8 @@ class Integracoes extends Page
         $this->{$prefixo . 'TemplatePrincipalId'} = (string) $configuracao->template_principal_id;
         $this->{$prefixo . 'TemplateAditivoId'} = (string) $configuracao->template_aditivo_id;
         $this->{$prefixo . 'TemplateComodatoId'} = (string) $configuracao->template_comodato_id;
-        $this->{$prefixo . 'TokenCadastrado'} = filled($configuracao->token);
-        $this->{$prefixo . 'CallbackSecretCadastrado'} = filled($configuracao->callback_secret);
+        $this->{$prefixo . 'TokenCadastrado'} = $this->segredoCadastrado($configuracao, 'token');
+        $this->{$prefixo . 'CallbackSecretCadastrado'} = $this->segredoCadastrado($configuracao, 'callback_secret');
     }
 
     private function salvarZapSignAmbiente(string $ambiente, array $data, string $sufixo): ConfiguracaoIntegracao
@@ -365,7 +459,7 @@ class Integracoes extends Page
             $dados['callback_secret'] = trim($data["zapsign{$sufixo}CallbackSecret"]);
         }
 
-        return ConfiguracaoIntegracao::query()->updateOrCreate(
+        return $this->atualizarOuCriarConfiguracao(
             ['integracao' => 'zapsign', 'ambiente' => $ambiente],
             $dados,
         );
@@ -425,10 +519,10 @@ class Integracoes extends Page
         $this->zapiHomologacaoToken = '';
         $this->zapiProducaoClientToken = '';
         $this->zapiHomologacaoClientToken = '';
-        $this->zapiProducaoTokenCadastrado = filled($producao->token);
-        $this->zapiHomologacaoTokenCadastrado = filled($homologacao->token);
-        $this->zapiProducaoClientTokenCadastrado = filled($producao->client_secret);
-        $this->zapiHomologacaoClientTokenCadastrado = filled($homologacao->client_secret);
+        $this->zapiProducaoTokenCadastrado = $this->segredoCadastrado($producao, 'token');
+        $this->zapiHomologacaoTokenCadastrado = $this->segredoCadastrado($homologacao, 'token');
+        $this->zapiProducaoClientTokenCadastrado = $this->segredoCadastrado($producao, 'client_secret');
+        $this->zapiHomologacaoClientTokenCadastrado = $this->segredoCadastrado($homologacao, 'client_secret');
 
         Notification::make()->title('Configuracao da Z-API salva.')->success()->send();
     }
@@ -441,8 +535,8 @@ class Integracoes extends Page
         $this->{$prefixo . 'InstanceId'} = (string) $configuracao->client_id;
         $this->{$prefixo . 'Timeout'} = (int) ($configuracao->timeout ?: 30);
         $this->{$prefixo . 'PixEndpoint'} = (string) ($configuracao->pix_endpoint ?: 'send-button-pix');
-        $this->{$prefixo . 'TokenCadastrado'} = filled($configuracao->token);
-        $this->{$prefixo . 'ClientTokenCadastrado'} = filled($configuracao->client_secret);
+        $this->{$prefixo . 'TokenCadastrado'} = $this->segredoCadastrado($configuracao, 'token');
+        $this->{$prefixo . 'ClientTokenCadastrado'} = $this->segredoCadastrado($configuracao, 'client_secret');
     }
 
     private function salvarZapiAmbiente(string $ambiente, array $data, string $sufixo): ConfiguracaoIntegracao
@@ -462,9 +556,46 @@ class Integracoes extends Page
             $dados['client_secret'] = trim($data["zapi{$sufixo}ClientToken"]);
         }
 
-        return ConfiguracaoIntegracao::query()->updateOrCreate(
+        return $this->atualizarOuCriarConfiguracao(
             ['integracao' => 'zapi', 'ambiente' => $ambiente],
             $dados,
         );
+    }
+
+    private function segredoCadastrado(ConfiguracaoIntegracao $configuracao, string $campo): bool
+    {
+        try {
+            return filled($configuracao->getAttribute($campo));
+        } catch (DecryptException) {
+            return false;
+        }
+    }
+
+    /**
+     * Atualiza pela query para nao tentar descriptografar o valor anterior ao
+     * substituir credenciais importadas de uma instalacao com outra APP_KEY.
+     *
+     * @param array<string, mixed> $chaves
+     * @param array<string, mixed> $dados
+     */
+    private function atualizarOuCriarConfiguracao(array $chaves, array $dados): ConfiguracaoIntegracao
+    {
+        $configuracao = ConfiguracaoIntegracao::query()->where($chaves)->first();
+
+        if (! $configuracao) {
+            return ConfiguracaoIntegracao::query()->create([...$chaves, ...$dados]);
+        }
+
+        foreach (['client_secret', 'callback_secret', 'token'] as $campoCriptografado) {
+            if (array_key_exists($campoCriptografado, $dados) && $dados[$campoCriptografado] !== null) {
+                $dados[$campoCriptografado] = Crypt::encryptString((string) $dados[$campoCriptografado]);
+            }
+        }
+
+        DB::table($configuracao->getTable())
+            ->where('id', $configuracao->id)
+            ->update([...$dados, 'updated_at' => now()]);
+
+        return ConfiguracaoIntegracao::query()->findOrFail($configuracao->id);
     }
 }

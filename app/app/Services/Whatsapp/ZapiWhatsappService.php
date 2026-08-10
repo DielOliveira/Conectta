@@ -6,7 +6,7 @@ use App\Models\ConfiguracaoIntegracao;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 
-class ZapiWhatsappService
+class ZapiWhatsappService implements WhatsappService
 {
     /**
      * @return array<string, mixed>

@@ -53,6 +53,12 @@ return [
     ],
 
     'whatsapp' => [
+        'driver' => env('WHATSAPP_DRIVER', 'zapi'),
+        'japi' => [
+            'base_url' => env('WHATSAPP_JAPI_BASE_URL', 'http://127.0.0.1:3001'),
+            'session' => env('WHATSAPP_JAPI_SESSION', 'default'),
+            'timeout' => env('WHATSAPP_JAPI_TIMEOUT', 60),
+        ],
         'zapi' => [
             'base_url' => env('WHATSAPP_ZAPI_BASE_URL', 'https://api.z-api.io'),
             'instance_id' => env('WHATSAPP_ZAPI_INSTANCE_ID'),

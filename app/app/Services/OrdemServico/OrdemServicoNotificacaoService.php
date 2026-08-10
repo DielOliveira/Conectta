@@ -5,13 +5,13 @@ namespace App\Services\OrdemServico;
 use App\Models\OrdemServico;
 use App\Models\OrdemServicoNotificacao;
 use App\Models\Pais;
-use App\Services\Whatsapp\ZapiWhatsappService;
+use App\Services\Whatsapp\WhatsappService;
 use Carbon\CarbonInterface;
 use Throwable;
 
 class OrdemServicoNotificacaoService
 {
-    public function __construct(private readonly ZapiWhatsappService $whatsapp) {}
+    public function __construct(private readonly WhatsappService $whatsapp) {}
 
     public function registrarTecnico(OrdemServico $ordem, string $evento, string $mensagem): void
     {
