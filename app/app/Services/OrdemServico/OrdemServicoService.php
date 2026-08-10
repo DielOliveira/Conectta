@@ -31,7 +31,11 @@ class OrdemServicoService
             if (OrdemServico::query()->ativas()->where('veiculo_id', $veiculo->id)->lockForUpdate()->exists()) {
                 throw ValidationException::withMessages(['veiculo_id' => 'Este veículo já possui uma ordem de serviço ativa.']);
             }
-            if (($dados['notificar_cliente'] ?? false) && ! $this->telefoneValido($veiculo->cliente?->telefone1)) {
+            if (($dados['associado'] ?? false) && (blank($veiculo->associado) || ! $this->telefoneValido($veiculo->contato))) {
+                throw ValidationException::withMessages(['associado' => 'Preencha o nome e o contato do associado no cadastro do veículo antes de prosseguir.']);
+            }
+            $telefoneAtendimento = ($dados['associado'] ?? false) ? $veiculo->contato : $veiculo->cliente?->telefone1;
+            if (($dados['notificar_cliente'] ?? false) && ! $this->telefoneValido($telefoneAtendimento)) {
                 throw ValidationException::withMessages(['notificar_cliente' => 'Corrija o telefone do cliente antes de ativar as notificações.']);
             }
 

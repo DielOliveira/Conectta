@@ -31,6 +31,7 @@ use Illuminate\Validation\ValidationException;
     'valor_instalacao',
     'associado',
     'contato',
+    'contato_pais',
     'observacao',
     'data_exclusao',
 ])]
@@ -49,6 +50,8 @@ class Veiculo extends Model
     protected static function booted(): void
     {
         static::saving(function (Veiculo $veiculo): void {
+            $veiculo->contato = preg_replace('/\D+/', '', (string) $veiculo->contato) ?: null;
+            $veiculo->contato_pais = Pais::normalizarCodigoTelefone($veiculo->contato_pais) ?: 'BR';
             $veiculo->validateRastreadorRules();
             $veiculo->syncInstaladorFromRastreador();
         });

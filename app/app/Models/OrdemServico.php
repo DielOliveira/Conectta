@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['numero', 'tipo', 'status', 'cliente_id', 'veiculo_id', 'tecnico_id', 'disponibilidade_id',
+#[Fillable(['numero', 'tipo', 'status', 'cliente_id', 'veiculo_id', 'associado', 'tecnico_id', 'disponibilidade_id',
     'agendado_em', 'endereco', 'descricao', 'observacoes', 'localizacao_url',
     'localizacao_latitude', 'localizacao_longitude', 'notificar_cliente', 'token_hash', 'token_credencial', 'token_invalidado_em',
     'aceita_em', 'iniciada_em', 'inicio_latitude', 'inicio_longitude', 'termino_tecnico_em', 'finalizada_em',
@@ -25,6 +25,7 @@ class OrdemServico extends Model
     {
         return [
             'tipo' => OrdemServicoTipo::class, 'status' => OrdemServicoStatus::class,
+            'associado' => 'boolean',
             'token_credencial' => 'encrypted',
             'agendado_em' => 'datetime', 'token_invalidado_em' => 'datetime',
             'aceita_em' => 'datetime', 'iniciada_em' => 'datetime', 'termino_tecnico_em' => 'datetime',
@@ -98,5 +99,24 @@ class OrdemServico extends Model
     public function getNumeroFormatadoAttribute(): string
     {
         return 'OS '.str_pad((string) $this->numero, 6, '0', STR_PAD_LEFT);
+    }
+
+    public function getNomeAtendimentoAttribute(): string
+    {
+        return $this->associado
+            ? trim((string) $this->veiculo?->associado)
+            : trim((string) $this->cliente?->nome);
+    }
+
+    public function getTelefoneAtendimentoAttribute(): ?string
+    {
+        $telefone = $this->associado ? $this->veiculo?->contato : $this->cliente?->telefone1;
+
+        return filled($telefone) ? (string) $telefone : null;
+    }
+
+    public function getTelefonePaisAtendimentoAttribute(): string
+    {
+        return (string) ($this->associado ? ($this->veiculo?->contato_pais ?: 'BR') : ($this->cliente?->telefone1_pais ?: 'BR'));
     }
 }

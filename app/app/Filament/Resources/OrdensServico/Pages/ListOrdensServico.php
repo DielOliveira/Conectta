@@ -59,7 +59,9 @@ class ListOrdensServico extends ListRecords
                 $query->where(function (Builder $query) use ($search, $numero): void {
                     $query
                         ->whereHas('cliente', fn (Builder $query): Builder => $query->where('nome', 'like', '%'.$search.'%'))
-                        ->orWhereHas('veiculo', fn (Builder $query): Builder => $query->where('placa', 'like', '%'.$search.'%'));
+                        ->orWhereHas('veiculo', fn (Builder $query): Builder => $query
+                            ->where('placa', 'like', '%'.$search.'%')
+                            ->orWhere('associado', 'like', '%'.$search.'%'));
 
                     if ($numero !== '') {
                         $query->orWhere('numero', 'like', '%'.$numero.'%');

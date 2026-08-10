@@ -21,8 +21,8 @@ class OrdemServicoNotificacaoService
     public function registrarCliente(OrdemServico $ordem, string $evento, string $mensagem): void
     {
         if ($ordem->notificar_cliente) {
-            $ddi = Pais::codigoTelefone($ordem->cliente?->telefone1_pais ?: 'BR');
-            $this->registrar($ordem, 'cliente', $evento, $this->telefoneComDdi($ordem->cliente?->telefone1, $ddi), $mensagem);
+            $ddi = Pais::codigoTelefone($ordem->telefone_pais_atendimento);
+            $this->registrar($ordem, 'cliente', $evento, $this->telefoneComDdi($ordem->telefone_atendimento, $ddi), $mensagem);
         }
     }
 
@@ -35,7 +35,7 @@ class OrdemServicoNotificacaoService
             'Você recebeu uma nova ordem de serviço da *Conectta Rastreamento*.',
             '',
             "🔧 *{$ordem->numero_formatado} — {$ordem->tipo->label()}*",
-            "Cliente: {$ordem->cliente->nome}",
+            "Cliente: {$ordem->nome_atendimento}",
             'Veículo: '.$this->veiculo($ordem),
             'Data: '.$ordem->agendado_em->format('d/m/Y'),
             'Horário: '.$ordem->agendado_em->format('H:i'),
@@ -53,7 +53,7 @@ class OrdemServicoNotificacaoService
     {
         $ordem->loadMissing(['cliente', 'veiculo', 'tecnico']);
         $this->registrarCliente($ordem, 'aceite', implode("\n", [
-            "Olá, {$ordem->cliente->nome}!",
+            "Olá, {$ordem->nome_atendimento}!",
             'Aqui é da *Conectta Rastreamento*. Tudo bem?',
             '',
             'Seu atendimento foi confirmado.',
@@ -80,7 +80,7 @@ class OrdemServicoNotificacaoService
             '',
             "A central analisou a *{$ordem->numero_formatado}* e identificou uma pendência.",
             '',
-            "Cliente: {$ordem->cliente->nome}",
+            "Cliente: {$ordem->nome_atendimento}",
             'Veículo: '.$this->veiculo($ordem),
             "Pendência: {$motivo}",
             '',
@@ -97,7 +97,7 @@ class OrdemServicoNotificacaoService
             '',
             "Passando para lembrar que a *{$ordem->numero_formatado}* está próxima.",
             '',
-            "Cliente: {$ordem->cliente->nome}",
+            "Cliente: {$ordem->nome_atendimento}",
             'Veículo: '.$this->veiculo($ordem),
             'Data e horário: '.$ordem->agendado_em->format('d/m/Y \à\s H:i'),
             "Endereço: {$ordem->endereco}",
@@ -115,7 +115,7 @@ class OrdemServicoNotificacaoService
             '',
             "O seu agendamento da *{$ordem->numero_formatado}* foi cancelado pela central.",
             '',
-            "Cliente: {$ordem->cliente->nome}",
+            "Cliente: {$ordem->nome_atendimento}",
             'Veículo: '.$this->veiculo($ordem),
             'Data e horário anteriores: '.($agendadoEm?->format('d/m/Y \à\s H:i') ?? 'Não informado'),
             '',
@@ -131,7 +131,7 @@ class OrdemServicoNotificacaoService
             '',
             "A central realizou a conferência e finalizou a *{$ordem->numero_formatado}* com sucesso.",
             '',
-            "Cliente: {$ordem->cliente->nome}",
+            "Cliente: {$ordem->nome_atendimento}",
             'Veículo: '.$this->veiculo($ordem),
             "Serviço: {$ordem->tipo->label()}",
             '',
@@ -143,7 +143,7 @@ class OrdemServicoNotificacaoService
     {
         $ordem->loadMissing(['cliente', 'veiculo', 'tecnico']);
         $this->registrarCliente($ordem, 'finalizacao', implode("\n", [
-            "Olá, {$ordem->cliente->nome}!",
+            "Olá, {$ordem->nome_atendimento}!",
             'Aqui é da *Conectta Rastreamento*.',
             '',
             'Seu atendimento foi concluído com sucesso.',
@@ -169,7 +169,7 @@ class OrdemServicoNotificacaoService
             '',
             "A *{$ordem->numero_formatado}* foi cancelada pela central.",
             '',
-            "Cliente: {$ordem->cliente->nome}",
+            "Cliente: {$ordem->nome_atendimento}",
             'Veículo: '.$this->veiculo($ordem),
             "Motivo: {$motivo}",
             '',
@@ -181,7 +181,7 @@ class OrdemServicoNotificacaoService
     {
         $ordem->loadMissing(['cliente', 'veiculo']);
         $linhas = [
-            "Olá, {$ordem->cliente->nome}!",
+            "Olá, {$ordem->nome_atendimento}!",
             'Aqui é da *Conectta Rastreamento*.',
             '',
             "Informamos que o atendimento referente à *{$ordem->numero_formatado}* foi cancelado.",
@@ -210,7 +210,7 @@ class OrdemServicoNotificacaoService
             '',
             "Conforme solicitado, segue novamente o acesso à *{$ordem->numero_formatado}*.",
             '',
-            "Cliente: {$ordem->cliente->nome}",
+            "Cliente: {$ordem->nome_atendimento}",
             'Veículo: '.$this->veiculo($ordem),
             'Data e horário: '.$ordem->agendado_em->format('d/m/Y \à\s H:i'),
             '',
@@ -227,7 +227,7 @@ class OrdemServicoNotificacaoService
             '',
             "O cadastro de equipamento da *{$ordem->numero_formatado}* foi corrigido pela central.",
             '',
-            "Cliente: {$ordem->cliente->nome}",
+            "Cliente: {$ordem->nome_atendimento}",
             'Veículo: '.$this->veiculo($ordem),
             '',
             'Você já pode retomar o atendimento utilizando o mesmo link:',

@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Rastreadores\Schemas;
 
 use App\Models\Chip;
+use App\Models\Pais;
 use App\Models\Rastreador;
 use App\Models\StatusRastreador;
 use App\Models\Veiculo;
@@ -154,14 +155,38 @@ class RastreadorForm
                                 ->label('Associado / Cliente')
                                 ->maxLength(500)
                                 ->columnSpan(4),
+                            Select::make('contato_pais')
+                                ->label('DDI do contato')
+                                ->options(fn (): array => Pais::telefoneOptions())
+                                ->default('BR')
+                                ->formatStateUsing(fn ($state): string => Pais::normalizarCodigoTelefone($state) ?? 'BR')
+                                ->dehydrateStateUsing(fn ($state): string => Pais::normalizarCodigoTelefone($state) ?? 'BR')
+                                ->searchable()
+                                ->preload()
+                                ->live()
+                                ->required()
+                                ->columnSpan(3),
                             TextInput::make('contato')
                                 ->label('Contato')
+                                ->placeholder(fn (Get $get): string => $get('contato_pais') === 'BR' ? '(62) 9.9999-9999' : 'Número sem código do país')
+                                ->mask(fn (Get $get): ?string => $get('contato_pais') === 'BR' ? '(99) 9.9999-9999' : null)
+                                ->dehydrateStateUsing(fn (?string $state): ?string => ($digits = preg_replace('/\D+/', '', $state ?? '')) !== '' ? $digits : null)
+                                ->formatStateUsing(fn ($state): ?string => self::formatTelefone($state))
                                 ->maxLength(50)
-                                ->columnSpan(4),
+                                ->columnSpan(5),
                         ]),
                     ])
                     ->columnSpanFull(),
             ]);
+    }
+
+    private static function formatTelefone(mixed $value): ?string
+    {
+        $digits = preg_replace('/\D+/', '', (string) $value);
+
+        return strlen($digits) === 11
+            ? preg_replace('/(\d{2})(\d)(\d{4})(\d{4})/', '($1) $2.$3-$4', $digits)
+            : (blank($value) ? null : (string) $value);
     }
 
     /**

@@ -9,12 +9,12 @@
 <body><main class="wrap">
 @if(session('status'))<p class="ok">{{ session('status') }}</p>@endif
 @if($errors->any())<div class="error">@foreach($errors->all() as $erro)<div>{{ $erro }}</div>@endforeach</div>@endif
-@php($telefoneCliente = preg_replace('/\D+/', '', (string) $ordem->cliente->telefone1))
-@php($ddiCliente = \App\Models\Pais::codigoTelefone($ordem->cliente->telefone1_pais ?: 'BR'))
+@php($telefoneCliente = preg_replace('/\D+/', '', (string) $ordem->telefone_atendimento))
+@php($ddiCliente = \App\Models\Pais::codigoTelefone($ordem->telefone_pais_atendimento))
 <section class="card os-hero">
 <header class="os-hero-head"><div><span class="os-kicker">Ordem de serviço</span><h1>{{ $ordem->numero_formatado }} · {{ $ordem->tipo->label() }}</h1></div><span class="badge">{{ $ordem->status->label() }}</span></header>
 <div class="os-details">
-<div class="os-detail"><div class="os-detail-label"><svg class="icon" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Cliente</div><div class="os-detail-value">{{ $ordem->cliente->nome }}</div></div>
+<div class="os-detail"><div class="os-detail-label"><svg class="icon" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Cliente</div><div class="os-detail-value">{{ $ordem->nome_atendimento }}</div></div>
 <div class="os-detail"><div class="os-detail-label"><svg class="icon" viewBox="0 0 24 24"><path d="M5 17h14M6 17l-1-5 2-5h10l2 5-1 5M7 17v2M17 17v2"/><circle cx="8" cy="13" r="1"/><circle cx="16" cy="13" r="1"/></svg>Veículo</div><div class="os-detail-value">{{ $ordem->veiculo->placa }} · {{ $ordem->veiculo->veiculo }}</div></div>
 <div class="os-detail"><div class="os-detail-label"><svg class="icon" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>Data</div><div class="os-detail-value">{{ $ordem->agendado_em?->format('d/m/Y') ?: '—' }}</div></div>
 <div class="os-detail"><div class="os-detail-label"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Horário</div><div class="os-detail-value">{{ $ordem->agendado_em?->format('H:i') ?: '—' }}</div></div>

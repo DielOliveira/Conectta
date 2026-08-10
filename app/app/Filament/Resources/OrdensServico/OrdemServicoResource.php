@@ -77,7 +77,30 @@ class OrdemServicoResource extends Resource
                         })->disabled($bloquearIdentificacao)->columnSpan(4),
                     Select::make('veiculo_id')->label('Veículo')->options(fn (Get $get) => Veiculo::query()->where('cliente_id', $get('cliente_id'))->orderBy('placa')->get()
                         ->mapWithKeys(fn (Veiculo $v) => [$v->id => trim(($v->placa ?: 'Sem placa').' - '.($v->veiculo ?: 'Veículo'))])->all())
-                        ->searchable()->disabled($bloquearIdentificacao)->required()->columnSpan(4),
+                        ->searchable()->live()->disabled($bloquearIdentificacao)->required()
+                        ->afterStateUpdated(function (Set $set, ?int $state): void {
+                            $veiculo = $state ? Veiculo::query()->find($state) : null;
+                            $set('veiculo_associado', $veiculo?->associado);
+                            $set('veiculo_contato', $veiculo?->contato);
+                        })->columnSpan(4),
+                    Toggle::make('associado')->label('Associado')->live()->default(false)
+                        ->afterStateUpdated(function (Set $set, Get $get, bool $state): void {
+                            if ($state) {
+                                $set('endereco', null);
+
+                                return;
+                            }
+
+                            $cliente = $get('cliente_id') ? Cliente::query()->find($get('cliente_id')) : null;
+                            $set('endereco', $cliente ? collect([$cliente->rua, $cliente->numero, $cliente->setor, $cliente->cidade])->filter()->implode(', ') : null);
+                        })
+                        ->disabled($bloquearIdentificacao)->required()->columnSpan(2),
+                    TextInput::make('veiculo_associado')->label('Associado do veículo')
+                        ->formatStateUsing(fn ($state, Get $get) => Veiculo::query()->find($get('veiculo_id'))?->associado)
+                        ->visible(fn (Get $get): bool => (bool) $get('associado'))->disabled()->dehydrated(false)->required()->columnSpan(6),
+                    TextInput::make('veiculo_contato')->label('Contato do associado')
+                        ->formatStateUsing(fn ($state, Get $get) => Veiculo::query()->find($get('veiculo_id'))?->contato)
+                        ->visible(fn (Get $get): bool => (bool) $get('associado'))->disabled()->dehydrated(false)->required()->columnSpan(6),
                     TextInput::make('endereco')->label('Endereço do atendimento')->disabled($bloquearDadosAbertura)->required()->maxLength(500)->columnSpanFull(),
                     Textarea::make('descricao')->label('Motivo ou descrição do serviço')->disabled($bloquearDadosAbertura)->required()->rows(3)->columnSpanFull(),
                     Textarea::make('observacoes')->label('Observações')->rows(3)->columnSpanFull(),
@@ -102,7 +125,7 @@ class OrdemServicoResource extends Resource
             ->header(view('filament.resources.ordens-servico.table-toolbar-filters'))
             ->columns([
                 TextColumn::make('numero')->label('OS')->formatStateUsing(fn ($state) => 'OS '.str_pad((string) $state, 6, '0', STR_PAD_LEFT))->sortable(),
-                TextColumn::make('cliente.nome')->label('Cliente')->sortable(),
+                TextColumn::make('cliente.nome')->label('Cliente')->formatStateUsing(fn ($state, OrdemServico $record): string => $record->nome_atendimento)->sortable(),
                 TextColumn::make('veiculo.placa')->label('Placa')->sortable(),
                 TextColumn::make('tipo')->label('Tipo')->formatStateUsing(fn (OrdemServicoTipo $state) => $state->label())->badge()->sortable(),
                 TextColumn::make('status')->label('Status')->formatStateUsing(fn (OrdemServicoStatus $state) => $state->label())->badge()->sortable(),

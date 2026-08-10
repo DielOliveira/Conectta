@@ -157,7 +157,7 @@ class AgendaOrdensServico extends Page
                         ->orderBy('numero')
                         ->get()
                         ->mapWithKeys(fn (OrdemServico $ordem): array => [
-                            $ordem->id => $ordem->numero_formatado.' — '.$ordem->cliente->nome.' — '.($ordem->veiculo->placa ?: 'Sem placa'),
+                            $ordem->id => $ordem->numero_formatado.' — '.$ordem->nome_atendimento.' — '.($ordem->veiculo->placa ?: 'Sem placa'),
                         ])->all())
                     ->searchable()
                     ->preload()

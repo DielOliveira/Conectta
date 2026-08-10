@@ -94,6 +94,69 @@ class OrdemServicoFlowTest extends TestCase
         $service->criar($this->dadosOrdem($cliente, $veiculo), $operador);
     }
 
+    public function test_exige_dados_do_associado_no_veiculo_antes_de_criar_a_os(): void
+    {
+        [$operador, $cliente, $veiculo] = $this->cenarioBase();
+        $dados = $this->dadosOrdem($cliente, $veiculo);
+        $dados['associado'] = true;
+
+        try {
+            app(OrdemServicoService::class)->criar($dados, $operador);
+            $this->fail('A OS deveria exigir os dados do associado.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('associado', $exception->errors());
+        }
+
+        $this->assertDatabaseCount('ordens_servico', 0);
+    }
+
+    public function test_toggle_de_associado_limpa_e_restaura_endereco_do_cliente(): void
+    {
+        [$operador, $cliente, $veiculo] = $this->cenarioBase();
+        $cliente->update([
+            'rua' => 'Rua Original',
+            'numero' => '123',
+            'setor' => 'Centro',
+            'cidade' => 'Goiânia',
+        ]);
+        $this->actingAs($operador);
+
+        Livewire::test(CreateOrdemServico::class)
+            ->fillForm(['cliente_id' => $cliente->id, 'veiculo_id' => $veiculo->id])
+            ->assertSchemaStateSet(['endereco' => 'Rua Original, 123, Centro, Goiânia'])
+            ->fillForm(['associado' => true])
+            ->assertSchemaStateSet(['endereco' => null])
+            ->fillForm(['associado' => false])
+            ->assertSchemaStateSet(['endereco' => 'Rua Original, 123, Centro, Goiânia']);
+    }
+
+    public function test_os_de_associado_usa_nome_contato_e_pais_do_veiculo(): void
+    {
+        CarbonImmutable::setTestNow('2026-08-03 08:00:00');
+        [$operador, $cliente, $veiculo, $tecnico] = $this->cenarioBase();
+        $veiculo->update([
+            'associado' => 'Associado da Silva',
+            'contato' => '(62) 9.7777-6666',
+            'contato_pais' => 'BR',
+        ]);
+        $this->assertSame('62977776666', $veiculo->fresh()->contato);
+
+        $dados = $this->dadosOrdem($cliente, $veiculo);
+        $dados['associado'] = true;
+        $dados['notificar_cliente'] = true;
+        $ordem = app(OrdemServicoService::class)->criar($dados, $operador)['ordem'];
+        $disponibilidade = app(OrdemServicoAgendaService::class)->criarDisponibilidade($tecnico->id, '2026-08-04', '08:00', '09:00');
+        app(OrdemServicoService::class)->agendar($ordem, $disponibilidade, CarbonImmutable::parse('2026-08-04 08:00'), $operador);
+
+        $mensagemTecnico = $ordem->notificacoes()->where('evento', 'atribuicao')->value('mensagem');
+        $this->assertStringContainsString('Cliente: Associado da Silva', $mensagemTecnico);
+
+        app(OrdemServicoService::class)->aceitar($ordem->fresh());
+        $notificacaoAssociado = $ordem->notificacoes()->where('evento', 'aceite')->firstOrFail();
+        $this->assertSame('5562977776666', $notificacaoAssociado->telefone);
+        $this->assertStringContainsString('Olá, Associado da Silva!', $notificacaoAssociado->mensagem);
+    }
+
     public function test_exibe_no_formulario_o_motivo_que_impede_criar_a_ordem(): void
     {
         [$operador, $cliente, $veiculo] = $this->cenarioBase();
@@ -109,6 +172,47 @@ class OrdemServicoFlowTest extends TestCase
             ->call('create')
             ->assertHasErrors(['data.tipo'])
             ->assertNotified('Não foi possível salvar a ordem de serviço.');
+
+        $this->assertDatabaseCount('ordens_servico', 0);
+    }
+
+    public function test_nao_permite_instalacao_em_veiculo_com_rastreador(): void
+    {
+        [$operador, $cliente, $veiculo] = $this->cenarioBase();
+        $rastreador = Rastreador::query()->create([
+            'imei' => '860000000000010',
+            'status_rastreador_id' => StatusRastreador::query()->where('label', 'Ativo')->value('id'),
+        ]);
+        $veiculo->update(['rastreador_id' => $rastreador->id]);
+
+        try {
+            app(OrdemServicoService::class)->criar($this->dadosOrdem($cliente, $veiculo), $operador);
+            $this->fail('A instalação deveria ser bloqueada para veículo com rastreador.');
+        } catch (ValidationException $exception) {
+            $this->assertSame(
+                'A instalação exige um veículo sem rastreador vinculado.',
+                $exception->errors()['tipo'][0],
+            );
+        }
+
+        $this->assertDatabaseCount('ordens_servico', 0);
+    }
+
+    public function test_nao_permite_retirada_em_veiculo_sem_rastreador_e_chip(): void
+    {
+        [$operador, $cliente, $veiculo] = $this->cenarioBase();
+        $dados = $this->dadosOrdem($cliente, $veiculo);
+        $dados['tipo'] = 'retirada';
+
+        try {
+            app(OrdemServicoService::class)->criar($dados, $operador);
+            $this->fail('A retirada deveria ser bloqueada para veículo sem rastreador e chip.');
+        } catch (ValidationException $exception) {
+            $this->assertSame(
+                'Retirada e manutenção exigem rastreador e chip vinculados ao veículo.',
+                $exception->errors()['tipo'][0],
+            );
+        }
 
         $this->assertDatabaseCount('ordens_servico', 0);
     }

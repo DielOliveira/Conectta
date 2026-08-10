@@ -102,7 +102,7 @@ class EditOrdemServico extends EditRecord
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        unset($data['tipo'], $data['cliente_id'], $data['veiculo_id']);
+        unset($data['tipo'], $data['cliente_id'], $data['veiculo_id'], $data['associado']);
 
         if (! (auth()->user()?->hasPermission(Permission::OS_ESCRITA) ?? false) || $this->record->status->isFinal()) {
             return [];
@@ -111,7 +111,7 @@ class EditOrdemServico extends EditRecord
             return ['observacoes' => $data['observacoes'] ?? $this->record->observacoes];
         }
 
-        if (($data['notificar_cliente'] ?? false) && strlen(preg_replace('/\D+/', '', (string) $this->record->cliente?->telefone1) ?? '') < 10) {
+        if (($data['notificar_cliente'] ?? false) && strlen(preg_replace('/\D+/', '', (string) $this->record->telefone_atendimento) ?? '') < 10) {
             throw ValidationException::withMessages(['data.notificar_cliente' => 'Corrija o telefone do cliente antes de ativar as notificações.']);
         }
 

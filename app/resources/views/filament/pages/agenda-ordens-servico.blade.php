@@ -16,7 +16,7 @@
                     <div class="os-hour">{{ $horario->format('H:i') }}<div class="os-muted">{{ $horario->addHour()->format('H:i') }}</div></div>
                     <div class="os-hour-content">
                         @foreach($ocupados as $item)
-                            <button type="button" class="os-appointment" wire:click="mountAction('agendamento', { ordem: {{ $item['ordem']->id }} })"><div class="os-appointment-title">{{ $item['ordem']->numero_formatado }}</div><div>{{ $item['disponibilidade']->tecnico->nome }}</div><div class="os-muted">{{ $item['ordem']->cliente->nome }} · {{ $item['ordem']->veiculo->placa }}</div></button>
+                            <button type="button" class="os-appointment" wire:click="mountAction('agendamento', { ordem: {{ $item['ordem']->id }} })"><div class="os-appointment-title">{{ $item['ordem']->numero_formatado }}</div><div>{{ $item['disponibilidade']->tecnico->nome }}</div><div class="os-muted">{{ $item['ordem']->nome_atendimento }} · {{ $item['ordem']->veiculo->placa }}</div></button>
                         @endforeach
                         @if($tecnicosLivres->isNotEmpty())
                             @if($this->podeAtribuir())<button type="button" class="os-free" wire:click="mountAction('atribuir', { horario: '{{ $horario->format('Y-m-d H:i:s') }}' })"><div class="os-free-title">Livre</div><div class="os-free-names">{{ $tecnicosLivres->implode(', ') }}</div></button>@else<div class="os-free"><div class="os-free-title">Livre</div><div class="os-free-names">{{ $tecnicosLivres->implode(', ') }}</div></div>@endif
@@ -31,6 +31,6 @@
 @else
     @php($agenda=$itensAgenda->groupBy(fn($item)=>$item['horario']->toDateString()))
     <div class="os-days">@foreach($this->dias() as $dia)<section class="os-day"><h3>{{ ucfirst($dia->locale('pt_BR')->translatedFormat('D, d/m')) }}</h3>
-    @forelse($agenda->get($dia->toDateString(),collect()) as $item)<div class="os-slot {{ $item['ordem']?'busy':'' }}"><div><strong>{{ $item['horario']->format('H:i') }}</strong> · {{ $item['disponibilidade']->tecnico->nome }}</div>@if($item['ordem'])<button type="button" class="os-week-appointment" wire:click="mountAction('agendamento', { ordem: {{ $item['ordem']->id }} })">{{ $item['ordem']->numero_formatado }}</button><div class="os-muted">{{ $item['ordem']->cliente->nome }} · {{ $item['ordem']->veiculo->placa }}</div>@else<div class="os-muted">Livre</div>@endif</div>@empty<p class="os-muted">Sem disponibilidade cadastrada.</p>@endforelse</section>@endforeach</div>
+    @forelse($agenda->get($dia->toDateString(),collect()) as $item)<div class="os-slot {{ $item['ordem']?'busy':'' }}"><div><strong>{{ $item['horario']->format('H:i') }}</strong> · {{ $item['disponibilidade']->tecnico->nome }}</div>@if($item['ordem'])<button type="button" class="os-week-appointment" wire:click="mountAction('agendamento', { ordem: {{ $item['ordem']->id }} })">{{ $item['ordem']->numero_formatado }}</button><div class="os-muted">{{ $item['ordem']->nome_atendimento }} · {{ $item['ordem']->veiculo->placa }}</div>@else<div class="os-muted">Livre</div>@endif</div>@empty<p class="os-muted">Sem disponibilidade cadastrada.</p>@endforelse</section>@endforeach</div>
 @endif
 </x-filament-panels::page>
