@@ -11,7 +11,7 @@ class ZapiWhatsappService implements WhatsappService
     /**
      * @return array<string, mixed>
      */
-    public function enviarTexto(string $telefone, string $mensagem): array
+    public function enviarTexto(string $telefone, string $mensagem, ?string $idempotencyKey = null): array
     {
         return $this->post('send-text', [
             'phone' => $telefone,
@@ -22,7 +22,7 @@ class ZapiWhatsappService implements WhatsappService
     /**
      * @return array<string, mixed>
      */
-    public function enviarDocumentoPdf(string $telefone, string $documentoUrl, string $nomeArquivo): array
+    public function enviarDocumentoPdf(string $telefone, string $documentoUrl, string $nomeArquivo, ?string $idempotencyKey = null): array
     {
         return $this->post('send-document/PDF', [
             'phone' => $telefone,
@@ -34,7 +34,7 @@ class ZapiWhatsappService implements WhatsappService
     /**
      * @return array<string, mixed>
      */
-    public function enviarPix(string $telefone, string $pixCopiaCola): array
+    public function enviarPix(string $telefone, string $pixCopiaCola, ?string $idempotencyKey = null): array
     {
         return $this->post($this->configuracao()->pix_endpoint ?: 'send-button-pix', [
             'phone' => $telefone,
@@ -44,7 +44,7 @@ class ZapiWhatsappService implements WhatsappService
     }
 
     /**
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
      */
     private function post(string $endpoint, array $payload): array

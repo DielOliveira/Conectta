@@ -11,6 +11,7 @@ use App\Services\Lytex\LytexException;
 use App\Services\Lytex\LytexInvoiceData;
 use App\Services\Lytex\LytexInvoiceService;
 use App\Services\Whatsapp\WhatsappException;
+use App\Services\Whatsapp\WhatsappJobService;
 use App\Services\Whatsapp\WhatsappService;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -19,9 +20,8 @@ class CobrancaWhatsappService
     public function __construct(
         private readonly WhatsappService $whatsapp,
         private readonly LytexInvoiceService $lytex,
-    )
-    {
-    }
+        private readonly WhatsappJobService $whatsappJobs,
+    ) {}
 
     /**
      * @return array{processados:int,enviados:int,simulados:int,erros:int}
@@ -90,17 +90,22 @@ class CobrancaWhatsappService
 
         $responses = [];
 
-        foreach ($etapas as $etapa) {
-            $responses[] = match ($etapa['tipo']) {
-                'texto' => $this->whatsapp->enviarTexto($etapa['telefone'], $etapa['mensagem']),
-                'documento' => $this->whatsapp->enviarDocumentoPdf($etapa['telefone'], $etapa['documento'], $etapa['nome_arquivo']),
-                'pix' => $this->whatsapp->enviarPix($etapa['telefone'], $etapa['pix']),
+        foreach ($etapas as $indice => $etapa) {
+            $idempotencyKey = "conectta-cobranca-{$envio->id}-{$indice}-{$etapa['tipo']}";
+            $response = match ($etapa['tipo']) {
+                'texto' => $this->whatsapp->enviarTexto($etapa['telefone'], $etapa['mensagem'], $idempotencyKey),
+                'documento' => $this->whatsapp->enviarDocumentoPdf($etapa['telefone'], $etapa['documento'], $etapa['nome_arquivo'], $idempotencyKey),
+                'pix' => $this->whatsapp->enviarPix($etapa['telefone'], $etapa['pix'], $idempotencyKey),
             };
+            $this->whatsappJobs->registrar($envio, "{$indice}-{$etapa['tipo']}", $idempotencyKey, $response);
+            $responses[] = $response;
         }
 
+        $enfileirado = collect($responses)->contains(fn (array $response): bool => isset($response['jobId']));
+
         $envio->update([
-            'status' => 'enviado',
-            'enviado_em' => now(),
+            'status' => $enfileirado ? 'enfileirado' : 'enviado',
+            'enviado_em' => $enfileirado ? null : now(),
             'processado_em' => now(),
             'erro' => null,
             'whatsapp_payload' => json_encode($etapas, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),

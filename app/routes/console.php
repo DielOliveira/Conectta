@@ -11,6 +11,7 @@ use App\Services\OrdemServico\OrdemServicoNotificacaoService;
 use App\Services\Tracksolid\TracksolidDiagnosticService;
 use App\Services\Tracksolid\TracksolidException;
 use App\Services\Tracksolid\TracksolidService;
+use App\Services\Whatsapp\WhatsappJobService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
@@ -91,6 +92,15 @@ Schedule::call(function (): void {
 })->name('ordens-servico:lembretes')->everyFiveMinutes()->withoutOverlapping();
 
 Schedule::command('ordens-servico:enviar-notificacoes')->everyMinute()->withoutOverlapping();
+
+Artisan::command('whatsapp:reconciliar-jobs {--limit=100}', function (WhatsappJobService $service) {
+    $resultado = $service->reconciliar(max(1, (int) $this->option('limit')));
+    $this->line('Processados: '.$resultado['processados'].'; enviados: '.$resultado['enviados'].'; falhos: '.$resultado['falhos'].'; pendentes: '.$resultado['pendentes'].'; erros: '.$resultado['erros'].'.');
+
+    return $resultado['erros'] ? self::FAILURE : self::SUCCESS;
+})->purpose('Reconcilia os jobs assincronos do J-API.');
+
+Schedule::command('whatsapp:reconciliar-jobs')->everyMinute()->withoutOverlapping();
 
 if (! app()->isProduction()) {
     Artisan::command('tracksolid:diagnostico {--base-url= : URL HTTPS do no Tracksolid} {--imei= : IMEI conhecido para validar detalhes} {--output= : Caminho relativo no storage privado}', function (TracksolidDiagnosticService $diagnostic) {

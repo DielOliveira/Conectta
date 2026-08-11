@@ -538,7 +538,7 @@ class CobrancaAutomaticaService
             ->where('lancamento_id', $lancamento->id)
             ->where('tipo', $tipo)
             ->whereDate('data_referencia', $dataReferencia->toDateString())
-            ->whereIn('status', ['enviado', 'pendente_whatsapp'])
+            ->whereIn('status', ['enviado', 'enfileirado', 'pendente_whatsapp'])
             ->exists();
     }
 

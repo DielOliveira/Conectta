@@ -11,19 +11,19 @@ class WhatsappManager implements WhatsappService
         private readonly JapiWhatsappService $japi,
     ) {}
 
-    public function enviarTexto(string $telefone, string $mensagem): array
+    public function enviarTexto(string $telefone, string $mensagem, ?string $idempotencyKey = null): array
     {
-        return $this->driver()->enviarTexto($telefone, $mensagem);
+        return $this->driver()->enviarTexto($telefone, $mensagem, $idempotencyKey);
     }
 
-    public function enviarDocumentoPdf(string $telefone, string $documento, string $nomeArquivo): array
+    public function enviarDocumentoPdf(string $telefone, string $documento, string $nomeArquivo, ?string $idempotencyKey = null): array
     {
-        return $this->driver()->enviarDocumentoPdf($telefone, $documento, $nomeArquivo);
+        return $this->driver()->enviarDocumentoPdf($telefone, $documento, $nomeArquivo, $idempotencyKey);
     }
 
-    public function enviarPix(string $telefone, string $pixCopiaCola): array
+    public function enviarPix(string $telefone, string $pixCopiaCola, ?string $idempotencyKey = null): array
     {
-        return $this->driver()->enviarPix($telefone, $pixCopiaCola);
+        return $this->driver()->enviarPix($telefone, $pixCopiaCola, $idempotencyKey);
     }
 
     private function driver(): WhatsappService

@@ -5,13 +5,14 @@ namespace App\Services\OrdemServico;
 use App\Models\OrdemServico;
 use App\Models\OrdemServicoNotificacao;
 use App\Models\Pais;
+use App\Services\Whatsapp\WhatsappJobService;
 use App\Services\Whatsapp\WhatsappService;
 use Carbon\CarbonInterface;
 use Throwable;
 
 class OrdemServicoNotificacaoService
 {
-    public function __construct(private readonly WhatsappService $whatsapp) {}
+    public function __construct(private readonly WhatsappService $whatsapp, private readonly WhatsappJobService $whatsappJobs) {}
 
     public function registrarTecnico(OrdemServico $ordem, string $evento, string $mensagem): void
     {
@@ -245,8 +246,11 @@ class OrdemServicoNotificacaoService
         $resultado = ['enviadas' => 0, 'erros' => 0];
         OrdemServicoNotificacao::query()->where('status', 'pendente')->oldest()->limit($limite)->get()->each(function (OrdemServicoNotificacao $item) use (&$resultado): void {
             try {
-                $this->whatsapp->enviarTexto((string) $item->telefone, $item->mensagem);
-                $item->update(['status' => 'enviada', 'enviada_em' => now(), 'tentativas' => $item->tentativas + 1, 'erro' => null]);
+                $idempotencyKey = "conectta-os-notificacao-{$item->id}-texto";
+                $response = $this->whatsapp->enviarTexto((string) $item->telefone, $item->mensagem, $idempotencyKey);
+                $this->whatsappJobs->registrar($item, 'texto', $idempotencyKey, $response);
+                $enfileirado = isset($response['jobId']);
+                $item->update(['status' => $enfileirado ? 'enfileirada' : 'enviada', 'enviada_em' => $enfileirado ? null : now(), 'tentativas' => $item->tentativas + 1, 'erro' => null]);
                 $resultado['enviadas']++;
             } catch (Throwable $e) {
                 $item->update(['status' => 'erro', 'tentativas' => $item->tentativas + 1, 'erro' => $e->getMessage()]);

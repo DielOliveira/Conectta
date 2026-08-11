@@ -8,12 +8,12 @@ use Illuminate\Support\Facades\Http;
 
 class JapiWhatsappService implements WhatsappService
 {
-    public function enviarTexto(string $telefone, string $mensagem): array
+    public function enviarTexto(string $telefone, string $mensagem, ?string $idempotencyKey = null): array
     {
-        return $this->post('send-text', ['phone' => $telefone, 'message' => $mensagem]);
+        return $this->post('send-text', ['phone' => $telefone, 'message' => $mensagem], $idempotencyKey);
     }
 
-    public function enviarDocumentoPdf(string $telefone, string $documento, string $nomeArquivo): array
+    public function enviarDocumentoPdf(string $telefone, string $documento, string $nomeArquivo, ?string $idempotencyKey = null): array
     {
         $origem = str_starts_with(strtolower($documento), 'https://')
             ? ['url' => $documento]
@@ -23,10 +23,10 @@ class JapiWhatsappService implements WhatsappService
             'phone' => $telefone,
             ...$origem,
             'filename' => $nomeArquivo,
-        ]);
+        ], $idempotencyKey);
     }
 
-    public function enviarPix(string $telefone, string $pixCopiaCola): array
+    public function enviarPix(string $telefone, string $pixCopiaCola, ?string $idempotencyKey = null): array
     {
         return $this->post('send-pix', [
             'phone' => $telefone,
@@ -34,11 +34,29 @@ class JapiWhatsappService implements WhatsappService
             'pix' => $pixCopiaCola,
             'merchantName' => 'Conectta',
             'keyType' => 'EVP',
-        ]);
+        ], $idempotencyKey);
+    }
+
+    /** @return array<string, mixed> */
+    public function consultarJob(string $jobId): array
+    {
+        return $this->request('get', 'queue/'.rawurlencode($jobId));
     }
 
     /** @param array<string, mixed> $payload @return array<string, mixed> */
-    private function post(string $endpoint, array $payload): array
+    private function post(string $endpoint, array $payload, ?string $idempotencyKey = null): array
+    {
+        $data = $this->request('post', $endpoint, $payload, $idempotencyKey);
+
+        if (($data['success'] ?? false) !== true || ! is_string($data['jobId'] ?? null) || trim($data['jobId']) === '') {
+            throw new WhatsappException('O J-API aceitou o envio sem informar o jobId.');
+        }
+
+        return $data;
+    }
+
+    /** @param array<string, mixed> $payload @return array<string, mixed> */
+    private function request(string $method, string $endpoint, array $payload = [], ?string $idempotencyKey = null): array
     {
         $configuracao = ConfiguracaoIntegracao::japiAtiva();
         $baseUrl = rtrim((string) $configuracao->base_url, '/');
@@ -51,11 +69,16 @@ class JapiWhatsappService implements WhatsappService
         $prefixo = $sessao === 'default' ? '' : '/sessions/'.$sessao;
 
         try {
-            $response = Http::baseUrl($baseUrl)
+            $request = Http::baseUrl($baseUrl)
                 ->acceptJson()
                 ->asJson()
-                ->timeout((int) ($configuracao->timeout ?: 60))
-                ->post($prefixo.'/'.ltrim($endpoint, '/'), $payload);
+                ->timeout((int) ($configuracao->timeout ?: 60));
+
+            if ($idempotencyKey !== null && trim($idempotencyKey) !== '') {
+                $request = $request->withHeaders(['Idempotency-Key' => $idempotencyKey]);
+            }
+
+            $response = $request->{$method}($prefixo.'/'.ltrim($endpoint, '/'), $payload);
         } catch (ConnectionException) {
             throw new WhatsappException('Nao foi possivel conectar com o J-API.');
         }
@@ -69,7 +92,7 @@ class JapiWhatsappService implements WhatsappService
                 : 'J-API retornou erro HTTP '.$response->status().'.');
         }
 
-        if (! is_array($data) || ($data['success'] ?? false) !== true) {
+        if (! is_array($data)) {
             throw new WhatsappException('O J-API retornou uma resposta invalida.');
         }
 

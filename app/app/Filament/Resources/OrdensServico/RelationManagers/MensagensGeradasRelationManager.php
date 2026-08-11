@@ -46,6 +46,7 @@ class MensagensGeradasRelationManager extends RelationManager
                     ->label('Situação')
                     ->formatStateUsing(fn (string $state): string => match ($state) {
                         'pendente' => 'Pendente',
+                        'enfileirada' => 'Enfileirada',
                         'enviada' => 'Enviada',
                         'erro' => 'Erro',
                         default => ucfirst($state),
