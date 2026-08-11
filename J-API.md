@@ -20,7 +20,7 @@ Não copie credenciais, sessões, QR Codes, telefones, links privados de boletos
 - Endpoint usado pelo Conectta na VPS: `http://127.0.0.1:3001`
 - Sessão existente: `default`
 - Branch de produção do J-API: `main`
-- Commit implantado em 2026-08-11: `843f4fa`
+- Commit implantado em 2026-08-11: `5f2c4ce`
 
 O serviço deve permanecer exclusivamente em `127.0.0.1`. Nunca alterar o bind para `0.0.0.0`, criar proxy público ou expor a porta 3001.
 
@@ -232,6 +232,8 @@ Em 2026-08-11:
 - PDFs passaram a ter cópia privada persistente enquanto aguardam envio.
 - Painel local `/admin/queue` e APIs de consulta foram disponibilizados.
 - Produção validada com serviço ativo, sessão `ready`, bind somente em localhost e painel/API da fila respondendo HTTP 200.
+- Limites de volume atualizados no commit `5f2c4ce`: `0` passou a desativar explicitamente os limites de envios por hora e por dia.
+- Produção usa intervalo aleatório de 5–12 segundos, até 30 contatos distintos por hora, sem teto de mensagens por hora/dia e fila máxima de 2.000 jobs. Retentativas e demais proteções técnicas permanecem ativas.
 
 ## Operação no Conectta
 
