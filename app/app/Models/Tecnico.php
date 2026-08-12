@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['nome', 'cpf', 'telefone', 'is_ativo'])]
+#[Fillable(['nome', 'cpf', 'telefone', 'is_ativo', 'agenda_token_hash', 'agenda_token_credencial'])]
 class Tecnico extends Model
 {
     protected $table = 'tecnicos';
@@ -24,6 +24,7 @@ class Tecnico extends Model
     {
         return [
             'is_ativo' => 'boolean',
+            'agenda_token_credencial' => 'encrypted',
         ];
     }
 
@@ -35,5 +36,16 @@ class Tecnico extends Model
     public function disponibilidadesOrdemServico(): HasMany
     {
         return $this->hasMany(OrdemServicoDisponibilidade::class);
+    }
+
+    public static function formatarCpf(?string $cpf): string
+    {
+        $digits = preg_replace('/\D+/', '', (string) $cpf) ?? '';
+
+        if (strlen($digits) !== 11) {
+            return (string) $cpf;
+        }
+
+        return preg_replace('/(\d{3})(\d{3})(\d{3})(\d{2})/', '$1.$2.$3-$4', $digits) ?? $digits;
     }
 }

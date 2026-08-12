@@ -94,10 +94,13 @@ Em retiradas ou manutencoes com divergencia de IMEI ou chip, a OS sai de `Em ate
 - Nao e permitido agendar uma OS para um bloco ja passado.
 - Essa validacao nao impede que uma OS `Aceita` e atrasada seja iniciada normalmente.
 
-Escopo futuro:
+Autoatendimento da agenda:
 
-- Posteriormente, cada tecnico podera ter um usuario proprio vinculado ao seu cadastro para manter a propria agenda.
-- O autoatendimento da agenda pelo tecnico nao faz parte desta primeira implementacao.
+- A lista de tecnicos possui a acao `Enviar Link`, que envia pelo WhatsApp um acesso pessoal e permanente protegido por hash.
+- O tecnico nao precisa de login e senha; o hash imprevisivel identifica seu cadastro.
+- Pela pagina publica, responsiva e priorizada para celular, o tecnico consulta, inclui e exclui seus proprios intervalos.
+- As mesmas regras de telefone, periodo futuro, duracao minima e sobreposicao usadas pela central valem no autoatendimento.
+- Um intervalo que possua qualquer OS vinculada nao pode ser excluido pelo tecnico.
 - Depois do cancelamento do agendamento, toda nova atribuicao gera outro hash e exige um novo aceite do tecnico.
 
 ## Abertura da OS

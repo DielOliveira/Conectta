@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Tecnicos\Schemas;
 
+use App\Models\Tecnico;
 use App\Rules\Cpf;
 use App\Support\ChipNumber;
 use Filament\Forms\Components\Checkbox;
@@ -26,8 +27,13 @@ class TecnicoForm
                                 ->columnSpan(6),
                             TextInput::make('cpf')
                                 ->label('CPF')
+                                ->placeholder('000.000.000-00')
+                                ->mask('999.999.999-99')
+                                ->stripCharacters(['.', '-'])
+                                ->formatStateUsing(fn (?string $state): string => Tecnico::formatarCpf($state))
+                                ->dehydrateStateUsing(fn (?string $state): ?string => filled($state) ? preg_replace('/\D+/', '', $state) : null)
                                 ->rules(['nullable', new Cpf])
-                                ->maxLength(50)
+                                ->maxLength(14)
                                 ->columnSpan(3),
                             TextInput::make('telefone')
                                 ->label('Telefone')

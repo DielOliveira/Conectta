@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Models\Veiculo;
 use App\Services\OrdemServico\OrdemServicoAgendaService;
 use App\Services\OrdemServico\OrdemServicoService;
+use App\Services\OrdemServico\TecnicoAgendaPublicaService;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
@@ -254,6 +255,48 @@ class OrdemServicoFlowTest extends TestCase
 
         $this->expectException(ValidationException::class);
         $agenda->atualizarDisponibilidade($disponibilidade, $tecnico->id, '2026-08-04', '08:00', '09:00');
+    }
+
+    public function test_tecnico_mantem_a_propria_agenda_pelo_link_publico(): void
+    {
+        CarbonImmutable::setTestNow('2026-08-03 08:00:00');
+        [, , , $tecnico] = $this->cenarioBase();
+        $token = app(TecnicoAgendaPublicaService::class)->gerarToken($tecnico);
+
+        $this->assertSame(64, strlen($token));
+        $this->assertNotSame($token, $tecnico->fresh()->agenda_token_hash);
+        $this->get(route('tecnicos.agenda', $token))
+            ->assertOk()
+            ->assertSee('Olá, Técnico OS')
+            ->assertSee('Adicionar disponibilidade');
+
+        $this->post(route('tecnicos.agenda.store', $token), [
+            'data' => '2026-08-04', 'hora_inicio' => '08:00', 'hora_fim' => '10:00',
+        ])->assertRedirect(route('tecnicos.agenda', $token));
+        $disponibilidade = $tecnico->disponibilidadesOrdemServico()->firstOrFail();
+
+        $this->get(route('tecnicos.agenda', $token))->assertSee('08:00 às 10:00');
+        $this->delete(route('tecnicos.agenda.destroy', [$token, $disponibilidade]))
+            ->assertRedirect(route('tecnicos.agenda', $token));
+        $this->assertModelMissing($disponibilidade);
+        $this->get(route('tecnicos.agenda', str_repeat('x', 64)))->assertNotFound();
+    }
+
+    public function test_tecnico_nao_exclui_periodo_que_possui_os_vinculada(): void
+    {
+        CarbonImmutable::setTestNow('2026-08-03 08:00:00');
+        [$operador, $cliente, $veiculo, $tecnico] = $this->cenarioBase();
+        $token = app(TecnicoAgendaPublicaService::class)->gerarToken($tecnico);
+        $disponibilidade = app(OrdemServicoAgendaService::class)->criarDisponibilidade($tecnico->id, '2026-08-04', '08:00', '09:00');
+        $ordem = app(OrdemServicoService::class)->criar($this->dadosOrdem($cliente, $veiculo), $operador)['ordem'];
+        app(OrdemServicoService::class)->agendar($ordem, $disponibilidade, CarbonImmutable::parse('2026-08-04 08:00'), $operador);
+
+        $this->from(route('tecnicos.agenda', $token))
+            ->delete(route('tecnicos.agenda.destroy', [$token, $disponibilidade]))
+            ->assertRedirect(route('tecnicos.agenda', $token))
+            ->assertSessionHasErrors('disponibilidade');
+        $this->assertModelExists($disponibilidade);
+        $this->get(route('tecnicos.agenda', $token))->assertSee('Possui OS cadastrada');
     }
 
     public function test_chip_substituido_volta_disponivel_para_o_estoque_do_tecnico(): void
