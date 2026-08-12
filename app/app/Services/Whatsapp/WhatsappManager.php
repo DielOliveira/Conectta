@@ -2,6 +2,7 @@
 
 namespace App\Services\Whatsapp;
 
+use App\Enums\WhatsappCanal;
 use App\Models\ConfiguracaoIntegracao;
 
 class WhatsappManager implements WhatsappService
@@ -11,19 +12,19 @@ class WhatsappManager implements WhatsappService
         private readonly JapiWhatsappService $japi,
     ) {}
 
-    public function enviarTexto(string $telefone, string $mensagem, ?string $idempotencyKey = null): array
+    public function enviarTexto(string $telefone, string $mensagem, ?string $idempotencyKey = null, ?WhatsappCanal $canal = null): array
     {
-        return $this->driver()->enviarTexto($telefone, $mensagem, $idempotencyKey);
+        return $this->driver()->enviarTexto($telefone, $mensagem, $idempotencyKey, $canal);
     }
 
-    public function enviarDocumentoPdf(string $telefone, string $documento, string $nomeArquivo, ?string $idempotencyKey = null): array
+    public function enviarDocumentoPdf(string $telefone, string $documento, string $nomeArquivo, ?string $idempotencyKey = null, ?WhatsappCanal $canal = null): array
     {
-        return $this->driver()->enviarDocumentoPdf($telefone, $documento, $nomeArquivo, $idempotencyKey);
+        return $this->driver()->enviarDocumentoPdf($telefone, $documento, $nomeArquivo, $idempotencyKey, $canal);
     }
 
-    public function enviarPix(string $telefone, string $pixCopiaCola, ?string $idempotencyKey = null): array
+    public function enviarPix(string $telefone, string $pixCopiaCola, ?string $idempotencyKey = null, ?WhatsappCanal $canal = null): array
     {
-        return $this->driver()->enviarPix($telefone, $pixCopiaCola, $idempotencyKey);
+        return $this->driver()->enviarPix($telefone, $pixCopiaCola, $idempotencyKey, $canal);
     }
 
     private function driver(): WhatsappService

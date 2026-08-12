@@ -2,6 +2,7 @@
 
 namespace App\Services\Cobranca;
 
+use App\Enums\WhatsappCanal;
 use App\Models\Cliente;
 use App\Models\CobrancaEnvio;
 use App\Models\CobrancaMensagemModelo;
@@ -93,9 +94,9 @@ class CobrancaWhatsappService
         foreach ($etapas as $indice => $etapa) {
             $idempotencyKey = "conectta-cobranca-{$envio->id}-{$indice}-{$etapa['tipo']}";
             $response = match ($etapa['tipo']) {
-                'texto' => $this->whatsapp->enviarTexto($etapa['telefone'], $etapa['mensagem'], $idempotencyKey),
-                'documento' => $this->whatsapp->enviarDocumentoPdf($etapa['telefone'], $etapa['documento'], $etapa['nome_arquivo'], $idempotencyKey),
-                'pix' => $this->whatsapp->enviarPix($etapa['telefone'], $etapa['pix'], $idempotencyKey),
+                'texto' => $this->whatsapp->enviarTexto($etapa['telefone'], $etapa['mensagem'], $idempotencyKey, WhatsappCanal::COBRANCAS),
+                'documento' => $this->whatsapp->enviarDocumentoPdf($etapa['telefone'], $etapa['documento'], $etapa['nome_arquivo'], $idempotencyKey, WhatsappCanal::COBRANCAS),
+                'pix' => $this->whatsapp->enviarPix($etapa['telefone'], $etapa['pix'], $idempotencyKey, WhatsappCanal::COBRANCAS),
             };
             $this->whatsappJobs->registrar($envio, "{$indice}-{$etapa['tipo']}", $idempotencyKey, $response);
             $responses[] = $response;

@@ -2,6 +2,7 @@
 
 namespace App\Services\Whatsapp;
 
+use App\Enums\WhatsappCanal;
 use App\Models\ConfiguracaoIntegracao;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
@@ -11,7 +12,7 @@ class ZapiWhatsappService implements WhatsappService
     /**
      * @return array<string, mixed>
      */
-    public function enviarTexto(string $telefone, string $mensagem, ?string $idempotencyKey = null): array
+    public function enviarTexto(string $telefone, string $mensagem, ?string $idempotencyKey = null, ?WhatsappCanal $canal = null): array
     {
         return $this->post('send-text', [
             'phone' => $telefone,
@@ -22,7 +23,7 @@ class ZapiWhatsappService implements WhatsappService
     /**
      * @return array<string, mixed>
      */
-    public function enviarDocumentoPdf(string $telefone, string $documentoUrl, string $nomeArquivo, ?string $idempotencyKey = null): array
+    public function enviarDocumentoPdf(string $telefone, string $documentoUrl, string $nomeArquivo, ?string $idempotencyKey = null, ?WhatsappCanal $canal = null): array
     {
         return $this->post('send-document/PDF', [
             'phone' => $telefone,
@@ -34,7 +35,7 @@ class ZapiWhatsappService implements WhatsappService
     /**
      * @return array<string, mixed>
      */
-    public function enviarPix(string $telefone, string $pixCopiaCola, ?string $idempotencyKey = null): array
+    public function enviarPix(string $telefone, string $pixCopiaCola, ?string $idempotencyKey = null, ?WhatsappCanal $canal = null): array
     {
         return $this->post($this->configuracao()->pix_endpoint ?: 'send-button-pix', [
             'phone' => $telefone,

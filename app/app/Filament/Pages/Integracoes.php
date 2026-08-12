@@ -69,52 +69,107 @@ class Integracoes extends Page
     public bool $lytexHomologacaoCallbackSecretCadastrado = false;
 
     public string $zapsignAmbienteAtivo = 'producao';
+
     public string $zapsignProducaoBaseUrl = '';
+
     public string $zapsignProducaoToken = '';
+
     public string $zapsignProducaoCallbackSecret = '';
+
     public string $zapsignProducaoAuthScheme = 'Bearer';
+
     public int $zapsignProducaoTimeout = 30;
+
     public string $zapsignProducaoTemplatePrincipalId = '';
+
     public string $zapsignProducaoTemplateAditivoId = '';
+
     public string $zapsignProducaoTemplateComodatoId = '';
+
     public bool $zapsignProducaoTokenCadastrado = false;
+
     public bool $zapsignProducaoCallbackSecretCadastrado = false;
+
     public string $zapsignHomologacaoBaseUrl = '';
+
     public string $zapsignHomologacaoToken = '';
+
     public string $zapsignHomologacaoCallbackSecret = '';
+
     public string $zapsignHomologacaoAuthScheme = 'Bearer';
+
     public int $zapsignHomologacaoTimeout = 30;
+
     public string $zapsignHomologacaoTemplatePrincipalId = '';
+
     public string $zapsignHomologacaoTemplateAditivoId = '';
+
     public string $zapsignHomologacaoTemplateComodatoId = '';
+
     public bool $zapsignHomologacaoTokenCadastrado = false;
+
     public bool $zapsignHomologacaoCallbackSecretCadastrado = false;
 
     public string $zapiAmbienteAtivo = 'producao';
+
     public string $zapiProducaoBaseUrl = '';
+
     public string $zapiProducaoInstanceId = '';
+
     public string $zapiProducaoToken = '';
+
     public string $zapiProducaoClientToken = '';
+
     public int $zapiProducaoTimeout = 30;
+
     public string $zapiProducaoPixEndpoint = 'send-button-pix';
+
     public bool $zapiProducaoTokenCadastrado = false;
+
     public bool $zapiProducaoClientTokenCadastrado = false;
+
     public string $zapiHomologacaoBaseUrl = '';
+
     public string $zapiHomologacaoInstanceId = '';
+
     public string $zapiHomologacaoToken = '';
+
     public string $zapiHomologacaoClientToken = '';
+
     public int $zapiHomologacaoTimeout = 30;
+
     public string $zapiHomologacaoPixEndpoint = 'send-button-pix';
+
     public bool $zapiHomologacaoTokenCadastrado = false;
+
     public bool $zapiHomologacaoClientTokenCadastrado = false;
 
     public string $whatsappDriver = 'zapi';
+
     public string $japiAmbienteAtivo = 'producao';
+
     public string $japiProducaoBaseUrl = 'http://127.0.0.1:3001';
+
     public string $japiProducaoSession = 'default';
+
+    public string $japiProducaoSessionCobrancas = 'default';
+
+    public string $japiProducaoSessionOsCampo = 'default';
+
+    public string $japiProducaoSessionOsManutencao = 'default';
+
     public int $japiProducaoTimeout = 60;
+
     public string $japiHomologacaoBaseUrl = 'http://127.0.0.1:3001';
+
     public string $japiHomologacaoSession = 'default';
+
+    public string $japiHomologacaoSessionCobrancas = 'default';
+
+    public string $japiHomologacaoSessionOsCampo = 'default';
+
+    public string $japiHomologacaoSessionOsManutencao = 'default';
+
     public int $japiHomologacaoTimeout = 60;
 
     public function mount(): void
@@ -185,9 +240,15 @@ class Integracoes extends Page
             'japiAmbienteAtivo' => ['required', 'in:producao,homologacao'],
             'japiProducaoBaseUrl' => ['required', 'url', 'max:255'],
             'japiProducaoSession' => ['required', 'regex:/^[a-z0-9_-]{1,32}$/'],
+            'japiProducaoSessionCobrancas' => ['required', 'regex:/^[a-z0-9_-]{1,32}$/'],
+            'japiProducaoSessionOsCampo' => ['required', 'regex:/^[a-z0-9_-]{1,32}$/'],
+            'japiProducaoSessionOsManutencao' => ['required', 'regex:/^[a-z0-9_-]{1,32}$/'],
             'japiProducaoTimeout' => ['required', 'integer', 'min:5', 'max:120'],
             'japiHomologacaoBaseUrl' => ['required', 'url', 'max:255'],
             'japiHomologacaoSession' => ['required', 'regex:/^[a-z0-9_-]{1,32}$/'],
+            'japiHomologacaoSessionCobrancas' => ['required', 'regex:/^[a-z0-9_-]{1,32}$/'],
+            'japiHomologacaoSessionOsCampo' => ['required', 'regex:/^[a-z0-9_-]{1,32}$/'],
+            'japiHomologacaoSessionOsManutencao' => ['required', 'regex:/^[a-z0-9_-]{1,32}$/'],
             'japiHomologacaoTimeout' => ['required', 'integer', 'min:5', 'max:120'],
         ], [
             'required' => 'O campo :attribute e obrigatorio.',
@@ -211,6 +272,9 @@ class Integracoes extends Page
         $prefixo = $ambiente === 'producao' ? 'japiProducao' : 'japiHomologacao';
         $this->{$prefixo.'BaseUrl'} = (string) $configuracao->base_url;
         $this->{$prefixo.'Session'} = (string) ($configuracao->client_id ?: 'default');
+        $this->{$prefixo.'SessionCobrancas'} = (string) ($configuracao->japi_sessao_cobrancas ?: $configuracao->client_id ?: 'default');
+        $this->{$prefixo.'SessionOsCampo'} = (string) ($configuracao->japi_sessao_os_campo ?: $configuracao->client_id ?: 'default');
+        $this->{$prefixo.'SessionOsManutencao'} = (string) ($configuracao->japi_sessao_os_manutencao ?: $configuracao->client_id ?: 'default');
         $this->{$prefixo.'Timeout'} = (int) ($configuracao->timeout ?: 60);
     }
 
@@ -221,6 +285,9 @@ class Integracoes extends Page
             [
                 'base_url' => rtrim($data["japi{$sufixo}BaseUrl"], '/'),
                 'client_id' => trim($data["japi{$sufixo}Session"]),
+                'japi_sessao_cobrancas' => trim($data["japi{$sufixo}SessionCobrancas"]),
+                'japi_sessao_os_campo' => trim($data["japi{$sufixo}SessionOsCampo"]),
+                'japi_sessao_os_manutencao' => trim($data["japi{$sufixo}SessionOsManutencao"]),
                 'timeout' => (int) $data["japi{$sufixo}Timeout"],
             ],
         );
@@ -319,12 +386,12 @@ class Integracoes extends Page
     {
         $prefixo = $ambiente === 'producao' ? 'lytexProducao' : 'lytexHomologacao';
 
-        $this->{$prefixo . 'BaseUrl'} = (string) $configuracao->base_url;
-        $this->{$prefixo . 'ClientId'} = (string) $configuracao->client_id;
-        $this->{$prefixo . 'AuthScheme'} = (string) ($configuracao->auth_scheme ?: 'Bearer');
-        $this->{$prefixo . 'Timeout'} = (int) ($configuracao->timeout ?: 30);
-        $this->{$prefixo . 'ClientSecretCadastrado'} = $this->segredoCadastrado($configuracao, 'client_secret');
-        $this->{$prefixo . 'CallbackSecretCadastrado'} = $this->segredoCadastrado($configuracao, 'callback_secret');
+        $this->{$prefixo.'BaseUrl'} = (string) $configuracao->base_url;
+        $this->{$prefixo.'ClientId'} = (string) $configuracao->client_id;
+        $this->{$prefixo.'AuthScheme'} = (string) ($configuracao->auth_scheme ?: 'Bearer');
+        $this->{$prefixo.'Timeout'} = (int) ($configuracao->timeout ?: 30);
+        $this->{$prefixo.'ClientSecretCadastrado'} = $this->segredoCadastrado($configuracao, 'client_secret');
+        $this->{$prefixo.'CallbackSecretCadastrado'} = $this->segredoCadastrado($configuracao, 'callback_secret');
     }
 
     private function salvarAmbiente(string $ambiente, array $data, string $sufixo): ConfiguracaoIntegracao
@@ -360,6 +427,7 @@ class Integracoes extends Page
             || $configuracao->base_url !== rtrim($data["lytex{$sufixo}BaseUrl"], '/')
             || $configuracao->client_id !== trim((string) $data["lytex{$sufixo}ClientId"]);
     }
+
     public function salvarZapSign(): void
     {
         if (! auth()->user()?->isAdmin()) {
@@ -430,14 +498,14 @@ class Integracoes extends Page
     {
         $prefixo = $ambiente === 'producao' ? 'zapsignProducao' : 'zapsignHomologacao';
 
-        $this->{$prefixo . 'BaseUrl'} = (string) $configuracao->base_url;
-        $this->{$prefixo . 'AuthScheme'} = (string) ($configuracao->auth_scheme ?: 'Bearer');
-        $this->{$prefixo . 'Timeout'} = (int) ($configuracao->timeout ?: 30);
-        $this->{$prefixo . 'TemplatePrincipalId'} = (string) $configuracao->template_principal_id;
-        $this->{$prefixo . 'TemplateAditivoId'} = (string) $configuracao->template_aditivo_id;
-        $this->{$prefixo . 'TemplateComodatoId'} = (string) $configuracao->template_comodato_id;
-        $this->{$prefixo . 'TokenCadastrado'} = $this->segredoCadastrado($configuracao, 'token');
-        $this->{$prefixo . 'CallbackSecretCadastrado'} = $this->segredoCadastrado($configuracao, 'callback_secret');
+        $this->{$prefixo.'BaseUrl'} = (string) $configuracao->base_url;
+        $this->{$prefixo.'AuthScheme'} = (string) ($configuracao->auth_scheme ?: 'Bearer');
+        $this->{$prefixo.'Timeout'} = (int) ($configuracao->timeout ?: 30);
+        $this->{$prefixo.'TemplatePrincipalId'} = (string) $configuracao->template_principal_id;
+        $this->{$prefixo.'TemplateAditivoId'} = (string) $configuracao->template_aditivo_id;
+        $this->{$prefixo.'TemplateComodatoId'} = (string) $configuracao->template_comodato_id;
+        $this->{$prefixo.'TokenCadastrado'} = $this->segredoCadastrado($configuracao, 'token');
+        $this->{$prefixo.'CallbackSecretCadastrado'} = $this->segredoCadastrado($configuracao, 'callback_secret');
     }
 
     private function salvarZapSignAmbiente(string $ambiente, array $data, string $sufixo): ConfiguracaoIntegracao
@@ -531,12 +599,12 @@ class Integracoes extends Page
     {
         $prefixo = $ambiente === 'producao' ? 'zapiProducao' : 'zapiHomologacao';
 
-        $this->{$prefixo . 'BaseUrl'} = (string) $configuracao->base_url;
-        $this->{$prefixo . 'InstanceId'} = (string) $configuracao->client_id;
-        $this->{$prefixo . 'Timeout'} = (int) ($configuracao->timeout ?: 30);
-        $this->{$prefixo . 'PixEndpoint'} = (string) ($configuracao->pix_endpoint ?: 'send-button-pix');
-        $this->{$prefixo . 'TokenCadastrado'} = $this->segredoCadastrado($configuracao, 'token');
-        $this->{$prefixo . 'ClientTokenCadastrado'} = $this->segredoCadastrado($configuracao, 'client_secret');
+        $this->{$prefixo.'BaseUrl'} = (string) $configuracao->base_url;
+        $this->{$prefixo.'InstanceId'} = (string) $configuracao->client_id;
+        $this->{$prefixo.'Timeout'} = (int) ($configuracao->timeout ?: 30);
+        $this->{$prefixo.'PixEndpoint'} = (string) ($configuracao->pix_endpoint ?: 'send-button-pix');
+        $this->{$prefixo.'TokenCadastrado'} = $this->segredoCadastrado($configuracao, 'token');
+        $this->{$prefixo.'ClientTokenCadastrado'} = $this->segredoCadastrado($configuracao, 'client_secret');
     }
 
     private function salvarZapiAmbiente(string $ambiente, array $data, string $sufixo): ConfiguracaoIntegracao
@@ -575,8 +643,8 @@ class Integracoes extends Page
      * Atualiza pela query para nao tentar descriptografar o valor anterior ao
      * substituir credenciais importadas de uma instalacao com outra APP_KEY.
      *
-     * @param array<string, mixed> $chaves
-     * @param array<string, mixed> $dados
+     * @param  array<string, mixed>  $chaves
+     * @param  array<string, mixed>  $dados
      */
     private function atualizarOuCriarConfiguracao(array $chaves, array $dados): ConfiguracaoIntegracao
     {

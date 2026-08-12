@@ -2,6 +2,7 @@
 
 namespace App\Services\OrdemServico;
 
+use App\Enums\WhatsappCanal;
 use App\Models\OrdemServicoDisponibilidade;
 use App\Models\Tecnico;
 use App\Services\Whatsapp\WhatsappService;
@@ -61,7 +62,12 @@ class TecnicoAgendaPublicaService
             'Este link é pessoal. Não compartilhe com outras pessoas.',
         ]);
 
-        $this->whatsapp->enviarTexto('55'.$telefone, $mensagem, 'agenda-tecnico-'.$tecnico->id.'-'.Str::uuid());
+        $this->whatsapp->enviarTexto(
+            '55'.$telefone,
+            $mensagem,
+            'agenda-tecnico-'.$tecnico->id.'-'.Str::uuid(),
+            WhatsappCanal::OS_INSTALACAO_RETIRADA,
+        );
     }
 
     public function excluir(OrdemServicoDisponibilidade $disponibilidade, Tecnico $tecnico): void

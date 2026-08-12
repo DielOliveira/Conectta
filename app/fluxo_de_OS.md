@@ -262,6 +262,15 @@ Regras de edicao:
 - Nao existe campo separado de observacao interna nesta primeira versao.
 - O cliente nao recebe nem visualiza essas observacoes.
 
+## Canais de WhatsApp no J-API
+
+- O J-API usa sessoes separadas para os numeros de cobrancas, OS de instalacao/retirada e OS de manutencao.
+- Mensagens de instalacao e retirada, tanto para o cliente quanto para o tecnico, usam a sessao de OS de campo.
+- Mensagens de manutencao, tanto para o cliente quanto para o tecnico, usam a sessao exclusiva de manutencao.
+- O link da agenda publica do tecnico usa a sessao de OS de campo por ser uma comunicacao operacional geral.
+- Cada job persiste a sessao que realizou o envio; a reconciliacao consulta obrigatoriamente essa mesma sessao.
+- A sessao padrao configurada permanece como fallback durante a transicao e para compatibilidade com configuracoes antigas.
+
 ## Aceite ou rejeicao
 
 - Enquanto aguarda a resposta do tecnico, a OS permanece como `Enviada`.

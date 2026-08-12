@@ -30,6 +30,14 @@ O Conectta possui drivers configuráveis para J-API e Z-API. A seleção fica na
 
 Não remova a Z-API sem pedido explícito e validação operacional do J-API em produção.
 
+O Conectta suporta roteamento por finalidade em tres sessoes nomeadas do J-API:
+
+- `cobrancas`: cobrancas, boletos, PDFs e PIX;
+- `os_campo`: instalacao, retirada e acesso a agenda do tecnico;
+- `os_manutencao`: ordens de servico de manutencao.
+
+Os nomes efetivos sao configuraveis por ambiente na tela `Administrativo > Integracoes`. A sessao padrao permanece como fallback. Cliente e tecnico usam a mesma sessao determinada pelo tipo da OS, e a reconciliacao consulta o job na sessao registrada no momento do envio.
+
 ## Endpoints do J-API
 
 ```text

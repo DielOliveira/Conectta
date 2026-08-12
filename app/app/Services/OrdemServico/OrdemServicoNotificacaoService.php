@@ -2,6 +2,8 @@
 
 namespace App\Services\OrdemServico;
 
+use App\Enums\OrdemServicoTipo;
+use App\Enums\WhatsappCanal;
 use App\Models\OrdemServico;
 use App\Models\OrdemServicoNotificacao;
 use App\Models\Pais;
@@ -244,10 +246,13 @@ class OrdemServicoNotificacaoService
     public function processarPendentes(?int $limite = 50): array
     {
         $resultado = ['enviadas' => 0, 'erros' => 0];
-        OrdemServicoNotificacao::query()->where('status', 'pendente')->oldest()->limit($limite)->get()->each(function (OrdemServicoNotificacao $item) use (&$resultado): void {
+        OrdemServicoNotificacao::query()->with('ordemServico')->where('status', 'pendente')->oldest()->limit($limite)->get()->each(function (OrdemServicoNotificacao $item) use (&$resultado): void {
             try {
                 $idempotencyKey = "conectta-os-notificacao-{$item->id}-texto";
-                $response = $this->whatsapp->enviarTexto((string) $item->telefone, $item->mensagem, $idempotencyKey);
+                $canal = $item->ordemServico?->tipo === OrdemServicoTipo::MANUTENCAO
+                    ? WhatsappCanal::OS_MANUTENCAO
+                    : WhatsappCanal::OS_INSTALACAO_RETIRADA;
+                $response = $this->whatsapp->enviarTexto((string) $item->telefone, $item->mensagem, $idempotencyKey, $canal);
                 $this->whatsappJobs->registrar($item, 'texto', $idempotencyKey, $response);
                 $enfileirado = isset($response['jobId']);
                 $item->update(['status' => $enfileirado ? 'enfileirada' : 'enviada', 'enviada_em' => $enfileirado ? null : now(), 'tentativas' => $item->tentativas + 1, 'erro' => null]);

@@ -472,7 +472,7 @@
                             @error($prefix . 'BaseUrl') <span class="ct-error">{{ $message }}</span> @enderror
                         </label>
                         <label class="ct-field ct-col-6">
-                            <span class="ct-label">Sessao</span>
+                            <span class="ct-label">Sessao padrao (fallback)</span>
                             <input class="ct-input" type="text" wire:model="{{ $prefix }}Session" placeholder="default">
                             @error($prefix . 'Session') <span class="ct-error">{{ $message }}</span> @enderror
                         </label>
@@ -480,6 +480,21 @@
                             <span class="ct-label">Timeout</span>
                             <input class="ct-input" type="number" min="5" max="120" wire:model="{{ $prefix }}Timeout">
                             @error($prefix . 'Timeout') <span class="ct-error">{{ $message }}</span> @enderror
+                        </label>
+                        <label class="ct-field ct-col-4">
+                            <span class="ct-label">Sessao de cobrancas</span>
+                            <input class="ct-input" type="text" wire:model="{{ $prefix }}SessionCobrancas" placeholder="cobrancas">
+                            @error($prefix . 'SessionCobrancas') <span class="ct-error">{{ $message }}</span> @enderror
+                        </label>
+                        <label class="ct-field ct-col-4">
+                            <span class="ct-label">Sessao OS — instalacao e retirada</span>
+                            <input class="ct-input" type="text" wire:model="{{ $prefix }}SessionOsCampo" placeholder="os_campo">
+                            @error($prefix . 'SessionOsCampo') <span class="ct-error">{{ $message }}</span> @enderror
+                        </label>
+                        <label class="ct-field ct-col-4">
+                            <span class="ct-label">Sessao OS — manutencao</span>
+                            <input class="ct-input" type="text" wire:model="{{ $prefix }}SessionOsManutencao" placeholder="os_manutencao">
+                            @error($prefix . 'SessionOsManutencao') <span class="ct-error">{{ $message }}</span> @enderror
                         </label>
                     </div>
                 </section>

@@ -36,7 +36,7 @@ class WhatsappJobService
             ->oldest('id')->limit($limite)->get()->each(function (WhatsappJob $registro) use (&$resultado): void {
                 $resultado['processados']++;
                 try {
-                    $response = $this->japi->consultarJob((string) $registro->job_id);
+                    $response = $this->japi->consultarJob((string) $registro->job_id, $registro->sessao);
                     $job = is_array($response['job'] ?? null) ? $response['job'] : [];
                     $status = (string) ($job['status'] ?? '');
                     if (! in_array($status, ['pending', 'processing', 'sent', 'failed'], true)) {

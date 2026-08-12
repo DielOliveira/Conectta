@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\WhatsappCanal;
 use App\Models\ConfiguracaoIntegracao;
 use App\Models\WhatsappJob;
 use App\Services\Whatsapp\WhatsappException;
@@ -72,6 +73,50 @@ class WhatsappDriverTest extends TestCase
         Http::assertSent(fn ($request): bool => $request->hasHeader('Idempotency-Key', 'cobranca-10-texto'));
     }
 
+    public function test_japi_routes_each_business_channel_to_its_own_session(): void
+    {
+        Http::fake(fn ($request) => Http::response([
+            'success' => true,
+            'session' => explode('/', $request->url())[4] ?? 'default',
+            'jobId' => 'job-routed',
+            'status' => 'pending',
+        ], 202));
+        $this->configureJapi([
+            'japi_sessao_cobrancas' => 'cobrancas',
+            'japi_sessao_os_campo' => 'os_campo',
+            'japi_sessao_os_manutencao' => 'os_manutencao',
+        ]);
+
+        $whatsapp = app(WhatsappService::class);
+        $whatsapp->enviarTexto('5562999999999', 'Cobrança', 'key-cobranca', WhatsappCanal::COBRANCAS);
+        $whatsapp->enviarTexto('5562999999999', 'Instalação', 'key-campo', WhatsappCanal::OS_INSTALACAO_RETIRADA);
+        $whatsapp->enviarTexto('5562999999999', 'Manutenção', 'key-manutencao', WhatsappCanal::OS_MANUTENCAO);
+
+        Http::assertSent(fn ($request): bool => $request->url() === 'http://127.0.0.1:3001/sessions/cobrancas/send-text');
+        Http::assertSent(fn ($request): bool => $request->url() === 'http://127.0.0.1:3001/sessions/os_campo/send-text');
+        Http::assertSent(fn ($request): bool => $request->url() === 'http://127.0.0.1:3001/sessions/os_manutencao/send-text');
+    }
+
+    public function test_reconciliation_queries_the_session_recorded_on_each_job(): void
+    {
+        $this->configureJapi();
+        $origem = ConfiguracaoIntegracao::query()->where('integracao', 'japi')->firstOrFail();
+        WhatsappJob::query()->create([
+            'origem_type' => $origem::class, 'origem_id' => $origem->id, 'etapa' => 'texto',
+            'driver' => 'japi', 'sessao' => 'os_manutencao', 'idempotency_key' => 'key-session-job',
+            'job_id' => 'session-job', 'status' => 'pending', 'enfileirado_em' => now(),
+        ]);
+        Http::fake(['http://127.0.0.1:3001/sessions/os_manutencao/queue/session-job' => Http::response([
+            'session' => 'os_manutencao',
+            'job' => ['id' => 'session-job', 'status' => 'sent', 'attempts' => 1, 'whatsappMessageId' => 'wa-session'],
+        ])]);
+
+        $resultado = app(WhatsappJobService::class)->reconciliar();
+
+        $this->assertSame(1, $resultado['enviados']);
+        Http::assertSent(fn ($request): bool => $request->url() === 'http://127.0.0.1:3001/sessions/os_manutencao/queue/session-job');
+    }
+
     public function test_japi_rejects_success_response_without_job_id(): void
     {
         Http::fake(['http://127.0.0.1:3001/*' => Http::response(['success' => true], 202)]);
@@ -135,7 +180,7 @@ class WhatsappDriverTest extends TestCase
         Http::assertSent(fn ($request): bool => str_contains($request->url(), '/instances/instance/token/token/send-text'));
     }
 
-    private function configureJapi(): void
+    private function configureJapi(array $overrides = []): void
     {
         ConfiguracaoIntegracao::query()->create([
             'integracao' => 'whatsapp', 'ambiente' => 'global', 'driver' => 'japi', 'ativo' => true,
@@ -143,6 +188,7 @@ class WhatsappDriverTest extends TestCase
         ConfiguracaoIntegracao::query()->create([
             'integracao' => 'japi', 'ambiente' => 'producao', 'base_url' => 'http://127.0.0.1:3001',
             'client_id' => 'default', 'timeout' => 60, 'ativo' => true,
+            ...$overrides,
         ]);
     }
 }

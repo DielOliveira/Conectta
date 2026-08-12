@@ -11,6 +11,9 @@ use Illuminate\Database\Eloquent\Model;
     'driver',
     'base_url',
     'client_id',
+    'japi_sessao_cobrancas',
+    'japi_sessao_os_campo',
+    'japi_sessao_os_manutencao',
     'client_secret',
     'callback_secret',
     'token',
@@ -36,7 +39,6 @@ class ConfiguracaoIntegracao extends Model
             'ativo' => 'boolean',
         ];
     }
-
 
     public static function zapsignAtiva(): self
     {
@@ -119,6 +121,7 @@ class ConfiguracaoIntegracao extends Model
             ],
         );
     }
+
     public static function whatsapp(): self
     {
         return self::query()->firstOrCreate(
@@ -157,6 +160,9 @@ class ConfiguracaoIntegracao extends Model
             [
                 'base_url' => config('services.whatsapp.japi.base_url', 'http://127.0.0.1:3001'),
                 'client_id' => config('services.whatsapp.japi.session', 'default'),
+                'japi_sessao_cobrancas' => config('services.whatsapp.japi.session', 'default'),
+                'japi_sessao_os_campo' => config('services.whatsapp.japi.session', 'default'),
+                'japi_sessao_os_manutencao' => config('services.whatsapp.japi.session', 'default'),
                 'timeout' => (int) config('services.whatsapp.japi.timeout', 60),
                 'ativo' => $ambiente === 'producao' && ! $temAmbienteAtivo,
             ],
