@@ -85,7 +85,7 @@ class EditOrdemServico extends EditRecord
                     'check_funcionamento' => null,
                     'check_pos_chave' => null,
                     'check_bloqueio' => null,
-                ])->requiresConfirmation()
+                ])->modalSubmitActionLabel('Aprovar e finalizar')
                 ->action(function (array $data): void {
                     app(OrdemServicoService::class)->finalizar($this->record, auth()->user(), $data);
                     Notification::make()->title('Ordem finalizada.')->success()->send();

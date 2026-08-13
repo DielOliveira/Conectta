@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\OrdemServicoStatus;
 use App\Filament\Resources\Disponibilidades\DisponibilidadeResource;
 use App\Filament\Resources\OrdensServico\Pages\CreateOrdemServico;
+use App\Filament\Resources\OrdensServico\Pages\EditOrdemServico;
 use App\Models\Chip;
 use App\Models\Cliente;
 use App\Models\Rastreador;
@@ -340,6 +341,44 @@ class OrdemServicoFlowTest extends TestCase
         $this->assertSame($tecnico->id, $chipAnterior->fresh()->tecnico_id);
         $this->assertSame($statusDisponivel->id, $chipAnterior->fresh()->status_rastreador_id);
         $this->assertSame($chipNovo->id, $rastreador->fresh()->chip_id);
+    }
+
+    public function test_operador_aprova_e_finaliza_instalacao_pelo_popup_de_conferencia(): void
+    {
+        [$operador, $cliente, $veiculo, $tecnico] = $this->cenarioBase();
+        $statusDisponivel = StatusRastreador::query()->where('label', 'Disponivel')->firstOrFail();
+        $chip = Chip::query()->create([
+            'numero_chip' => '5562999990010',
+            'iccid' => '89550000000000000010',
+            'tecnico_id' => $tecnico->id,
+            'status_rastreador_id' => $statusDisponivel->id,
+        ]);
+        $rastreador = Rastreador::query()->create([
+            'imei' => '860000000000010',
+            'chip_id' => $chip->id,
+            'tecnico_id' => $tecnico->id,
+            'status_rastreador_id' => $statusDisponivel->id,
+        ]);
+        $ordem = app(OrdemServicoService::class)->criar($this->dadosOrdem($cliente, $veiculo), $operador)['ordem'];
+        $ordem->update([
+            'tecnico_id' => $tecnico->id,
+            'rastreador_novo_id' => $rastreador->id,
+            'chip_novo_id' => $chip->id,
+            'status' => OrdemServicoStatus::EM_CONFERENCIA,
+        ]);
+        $this->actingAs($operador);
+
+        Livewire::test(EditOrdemServico::class, ['record' => $ordem->getRouteKey()])
+            ->callAction('finalizar', data: [
+                'check_funcionamento' => '1',
+                'check_pos_chave' => '1',
+                'check_bloqueio' => 'conferido',
+            ])
+            ->assertHasNoActionErrors()
+            ->assertRedirect();
+
+        $this->assertSame(OrdemServicoStatus::FINALIZADA, $ordem->fresh()->status);
+        $this->assertSame($rastreador->id, $veiculo->fresh()->rastreador_id);
     }
 
     private function cenarioBase(): array
