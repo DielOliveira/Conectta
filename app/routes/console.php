@@ -8,6 +8,7 @@ use App\Services\Cobranca\CobrancaAgendamentoService;
 use App\Services\Cobranca\CobrancaAutomaticaService;
 use App\Services\Cobranca\CobrancaWhatsappService;
 use App\Services\OrdemServico\OrdemServicoNotificacaoService;
+use App\Services\OrdemServico\OrdemServicoFotoArquivoService;
 use App\Services\Tracksolid\TracksolidDiagnosticService;
 use App\Services\Tracksolid\TracksolidException;
 use App\Services\Tracksolid\TracksolidService;
@@ -92,6 +93,17 @@ Schedule::call(function (): void {
 })->name('ordens-servico:lembretes')->everyFiveMinutes()->withoutOverlapping();
 
 Schedule::command('ordens-servico:enviar-notificacoes')->everyMinute()->withoutOverlapping();
+
+Artisan::command('ordens-servico:arquivar-fotos {--limit=100}', function (OrdemServicoFotoArquivoService $service) {
+    $resultado = $service->processar(quantidade: max(1, (int) $this->option('limit')));
+    $this->line("Processadas: {$resultado['processadas']}; arquivadas: {$resultado['arquivadas']}; erros: {$resultado['erros']}.");
+
+    return $resultado['erros'] ? self::FAILURE : self::SUCCESS;
+})->purpose('Move para o Google Drive fotos de O.S. finalizadas há pelo menos um mês.');
+
+Schedule::command('ordens-servico:arquivar-fotos')
+    ->dailyAt('03:15')
+    ->withoutOverlapping();
 
 Artisan::command('whatsapp:reconciliar-jobs {--limit=100}', function (WhatsappJobService $service) {
     $resultado = $service->reconciliar(max(1, (int) $this->option('limit')));

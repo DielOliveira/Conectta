@@ -2,10 +2,11 @@
 
 namespace App\Services\OrdemServico;
 
+use App\Models\OrdemServicoFoto;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -13,19 +14,39 @@ class OrdemServicoFotoStorage
 {
     public function armazenar(UploadedFile $foto, int $ordemId): string
     {
-        if (! $this->usaGoogleDrive()) {
-            return $foto->store("ordens-servico/{$ordemId}", 'local');
+        return $foto->store("ordens-servico/{$ordemId}", 'local');
+    }
+
+    public function arquivar(OrdemServicoFoto $foto): bool
+    {
+        if ($this->remoto($foto->caminho)) {
+            return false;
         }
 
-        $extensao = strtolower($foto->guessExtension() ?: $foto->extension() ?: 'jpg');
-        $caminho = $this->caminhoRemoto("{$ordemId}/".Str::random(40).".{$extensao}");
-        $resultado = $this->rclone(['copyto', $foto->getRealPath(), $caminho]);
-
-        if ($resultado->failed()) {
-            throw new RuntimeException('Não foi possível salvar a foto no Google Drive. Tente novamente.');
+        $disco = Storage::disk('local');
+        if (! $disco->exists($foto->caminho)) {
+            throw new RuntimeException("A foto {$foto->id} não foi encontrada no armazenamento local.");
         }
 
-        return $caminho;
+        $caminhoLocal = $disco->path($foto->caminho);
+        $caminhoRemoto = $this->caminhoRemoto($foto->ordem_servico_id.'/'.basename($foto->caminho));
+        if ($this->rclone(['copyto', $caminhoLocal, $caminhoRemoto])->failed()) {
+            throw new RuntimeException("Não foi possível arquivar a foto {$foto->id} no Google Drive.");
+        }
+
+        DB::transaction(function () use ($foto, $caminhoRemoto): void {
+            $atual = OrdemServicoFoto::query()->lockForUpdate()->findOrFail($foto->id);
+            if ($this->remoto($atual->caminho)) {
+                return;
+            }
+            $atual->update(['caminho' => $caminhoRemoto]);
+        });
+
+        if (! $disco->delete($foto->caminho)) {
+            throw new RuntimeException("A foto {$foto->id} foi arquivada, mas o arquivo local não pôde ser removido.");
+        }
+
+        return true;
     }
 
     public function excluir(string $caminho): void
@@ -58,11 +79,6 @@ class OrdemServicoFotoStorage
             'Content-Length' => (string) strlen($resultado->output()),
             'Cache-Control' => 'private, max-age=300',
         ]);
-    }
-
-    private function usaGoogleDrive(): bool
-    {
-        return config('ordens_servico.fotos.driver') === 'rclone';
     }
 
     private function remoto(string $caminho): bool

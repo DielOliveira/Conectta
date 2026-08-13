@@ -2,7 +2,6 @@
 
 return [
     'fotos' => [
-        'driver' => env('ORDENS_SERVICO_FOTOS_DRIVER', 'local'),
         'rclone_bin' => env('ORDENS_SERVICO_FOTOS_RCLONE_BIN', '/usr/bin/rclone'),
         'rclone_config' => env('ORDENS_SERVICO_FOTOS_RCLONE_CONFIG', '/etc/conectta/rclone.conf'),
         'rclone_remote' => env('ORDENS_SERVICO_FOTOS_RCLONE_REMOTE', 'gdrive'),

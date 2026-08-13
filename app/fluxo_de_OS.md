@@ -518,6 +518,16 @@ Na finalizacao de uma manutencao com troca, o vinculo do veiculo e atualizado co
 
 Os itens substituidos sao transferidos para o estoque do tecnico que realizou o atendimento, enquanto os novos itens deixam esse estoque e passam a compor o conjunto instalado no veiculo.
 
+## Armazenamento e arquivamento das fotos
+
+- Toda foto nova de O.S. e gravada primeiro no armazenamento privado local da VPS.
+- A rota protegida da O.S. continua sendo a unica forma de visualizar a foto; o caminho fisico nao e exposto.
+- Uma rotina diaria identifica fotos de O.S. finalizadas ha pelo menos um mes e as arquiva no Google Drive via rclone.
+- A rotina atualiza o caminho no banco e remove o arquivo local somente depois que o envio ao Drive termina com sucesso.
+- Se o Drive estiver indisponivel ou ocorrer qualquer falha, o caminho e o arquivo local sao preservados para uma nova tentativa.
+- Fotos de O.S. nao finalizadas ou finalizadas ha menos de um mes permanecem na VPS.
+- Depois do arquivamento, a mesma rota protegida continua permitindo consultar a foto normalmente.
+
 ## Selecao e movimentacao de estoque
 
 - Nao e necessario reservar o chip ou rastreador quando o tecnico o seleciona no atendimento.
