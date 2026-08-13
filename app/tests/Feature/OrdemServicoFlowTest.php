@@ -8,6 +8,7 @@ use App\Filament\Resources\OrdensServico\Pages\CreateOrdemServico;
 use App\Filament\Resources\OrdensServico\Pages\EditOrdemServico;
 use App\Models\Chip;
 use App\Models\Cliente;
+use App\Models\OrdemServico;
 use App\Models\Rastreador;
 use App\Models\StatusRastreador;
 use App\Models\Tecnico;
@@ -298,6 +299,55 @@ class OrdemServicoFlowTest extends TestCase
             ->assertSessionHasErrors('disponibilidade');
         $this->assertModelExists($disponibilidade);
         $this->get(route('tecnicos.agenda', $token))->assertSee('Possui OS cadastrada');
+    }
+
+    public function test_agenda_publica_lista_todos_os_status_do_tecnico_na_semana(): void
+    {
+        CarbonImmutable::setTestNow('2026-08-12 10:00:00');
+        [, $cliente, , $tecnico] = $this->cenarioBase();
+        $outroTecnico = Tecnico::query()->create(['nome' => 'Outro Técnico', 'telefone' => '62977777777', 'is_ativo' => true]);
+        $status = [
+            'aberta', 'enviada', 'aceita', 'em_atendimento', 'aguardando_correcao_cadastral',
+            'em_conferencia', 'pendente', 'finalizada', 'cancelada',
+        ];
+
+        foreach ($status as $indice => $situacao) {
+            $veiculo = Veiculo::query()->create([
+                'cliente_id' => $cliente->id,
+                'veiculo' => 'Veículo '.$indice,
+                'placa' => 'OS'.str_pad((string) $indice, 5, '0', STR_PAD_LEFT),
+            ]);
+            OrdemServico::query()->create([
+                'numero' => 100 + $indice,
+                'tipo' => 'instalacao',
+                'status' => $situacao,
+                'cliente_id' => $cliente->id,
+                'veiculo_id' => $veiculo->id,
+                'tecnico_id' => $tecnico->id,
+                'agendado_em' => CarbonImmutable::parse('2026-08-10 08:00')->addDays($indice % 7),
+                'endereco' => 'Rua da OS '.$indice,
+                'descricao' => 'Atendimento semanal '.$indice,
+            ]);
+        }
+
+        $veiculoFora = Veiculo::query()->create(['cliente_id' => $cliente->id, 'veiculo' => 'Fora da semana', 'placa' => 'FOR-0001']);
+        OrdemServico::query()->create(['numero' => 198, 'tipo' => 'instalacao', 'status' => 'enviada', 'cliente_id' => $cliente->id,
+            'veiculo_id' => $veiculoFora->id, 'tecnico_id' => $tecnico->id, 'agendado_em' => '2026-08-17 08:00', 'endereco' => 'Outra semana', 'descricao' => 'Fora da semana']);
+        $veiculoOutro = Veiculo::query()->create(['cliente_id' => $cliente->id, 'veiculo' => 'Outro técnico', 'placa' => 'OUT-0001']);
+        OrdemServico::query()->create(['numero' => 199, 'tipo' => 'instalacao', 'status' => 'enviada', 'cliente_id' => $cliente->id,
+            'veiculo_id' => $veiculoOutro->id, 'tecnico_id' => $outroTecnico->id, 'agendado_em' => '2026-08-12 08:00', 'endereco' => 'Outro técnico', 'descricao' => 'Outro técnico']);
+        $token = app(TecnicoAgendaPublicaService::class)->gerarToken($tecnico);
+
+        $resposta = $this->get(route('tecnicos.agenda', [
+            'token' => $token,
+            'aba' => 'ordens',
+            'semana' => '2026-08-10',
+        ]))->assertOk()->assertSee('Minhas O.S.');
+
+        foreach (range(100, 108) as $numero) {
+            $resposta->assertSee('OS '.str_pad((string) $numero, 6, '0', STR_PAD_LEFT));
+        }
+        $resposta->assertDontSee('OS 000198')->assertDontSee('OS 000199');
     }
 
     public function test_chip_substituido_volta_disponivel_para_o_estoque_do_tecnico(): void
