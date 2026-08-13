@@ -381,6 +381,24 @@ class OrdemServicoFlowTest extends TestCase
         $this->assertSame($rastreador->id, $veiculo->fresh()->rastreador_id);
     }
 
+    public function test_popup_informa_o_item_nao_conferido_ao_tentar_finalizar(): void
+    {
+        [$operador, $cliente, $veiculo] = $this->cenarioBase();
+        $ordem = app(OrdemServicoService::class)->criar($this->dadosOrdem($cliente, $veiculo), $operador)['ordem'];
+        $ordem->update(['status' => OrdemServicoStatus::EM_CONFERENCIA]);
+        $this->actingAs($operador);
+
+        Livewire::test(EditOrdemServico::class, ['record' => $ordem->getRouteKey()])
+            ->callAction('finalizar', data: [
+                'check_funcionamento' => '0',
+                'check_pos_chave' => '1',
+                'check_bloqueio' => 'conferido',
+            ])
+            ->assertHasActionErrors(['check_funcionamento' => 'accepted']);
+
+        $this->assertSame(OrdemServicoStatus::EM_CONFERENCIA, $ordem->fresh()->status);
+    }
+
     private function cenarioBase(): array
     {
         $operador = User::factory()->create(['is_admin' => true]);

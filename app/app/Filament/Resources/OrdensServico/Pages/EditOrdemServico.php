@@ -17,6 +17,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Validation\ValidationException;
 
@@ -78,14 +79,17 @@ class EditOrdemServico extends EditRecord
             Action::make('finalizar')->label('Aprovar e finalizar')->icon(Heroicon::OutlinedCheckCircle)->color('success')
                 ->visible($podeEscrever && $this->record->status === OrdemServicoStatus::EM_CONFERENCIA)
                 ->schema(fn (): array => $this->record->tipo->value === 'retirada' ? [] : [
-                    ToggleButtons::make('check_funcionamento')->label('Funcionamento do equipamento')->options([1 => 'Conferido', 0 => 'Não conferido'])->inline()->grouped()->required(),
-                    ToggleButtons::make('check_pos_chave')->label('Pós-chave')->options([1 => 'Conferido', 0 => 'Não conferido'])->inline()->grouped()->required(),
+                    ToggleButtons::make('check_funcionamento')->label('Funcionamento do equipamento')->options([1 => 'Conferido', 0 => 'Não conferido'])->inline()->grouped()->required()->rules(['accepted'])
+                        ->validationMessages(['accepted' => 'Confirme o funcionamento do equipamento para finalizar.']),
+                    ToggleButtons::make('check_pos_chave')->label('Pós-chave')->options([1 => 'Conferido', 0 => 'Não conferido'])->inline()->grouped()->required()->rules(['accepted'])
+                        ->validationMessages(['accepted' => 'Confirme o pós-chave para finalizar.']),
                     ToggleButtons::make('check_bloqueio')->label('Bloqueio do veículo')->options(['conferido' => 'Conferido', 'nao_se_aplica' => 'Não se aplica'])->inline()->grouped()->required(),
                 ])->fillForm(fn (): array => $this->record->tipo->value === 'retirada' ? [] : [
                     'check_funcionamento' => null,
                     'check_pos_chave' => null,
                     'check_bloqueio' => null,
-                ])->modalSubmitActionLabel('Aprovar e finalizar')
+                ])->modalWidth(Width::Medium)
+                ->modalSubmitActionLabel('Aprovar e finalizar')
                 ->action(function (array $data): void {
                     app(OrdemServicoService::class)->finalizar($this->record, auth()->user(), $data);
                     Notification::make()->title('Ordem finalizada.')->success()->send();
