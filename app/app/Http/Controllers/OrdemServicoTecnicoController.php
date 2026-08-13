@@ -20,8 +20,22 @@ class OrdemServicoTecnicoController extends Controller
         $rastreadores = collect();
         $chips = collect();
         if ($ordem->tecnico_id && in_array($ordem->status, [OrdemServicoStatus::EM_ATENDIMENTO, OrdemServicoStatus::PENDENTE], true)) {
-            $rastreadores = Rastreador::query()->with('chip')->where('tecnico_id', $ordem->tecnico_id)->where('is_estoque', true)->orderBy('imei')->get();
-            $chips = Chip::query()->where('tecnico_id', $ordem->tecnico_id)->whereDoesntHave('rastreador')->orderBy('numero_chip')->get();
+            $rastreadores = Rastreador::query()
+                ->with('chip')
+                ->where('tecnico_id', $ordem->tecnico_id)
+                ->where('is_estoque', true)
+                ->whereHas('statusRastreador', fn ($query) => $query->where('label', 'Disponivel'))
+                ->where(fn ($query) => $query
+                    ->whereNull('chip_id')
+                    ->orWhereHas('chip.statusRastreador', fn ($chipQuery) => $chipQuery->where('label', 'Disponivel')))
+                ->orderBy('imei')
+                ->get();
+            $chips = Chip::query()
+                ->where('tecnico_id', $ordem->tecnico_id)
+                ->whereHas('statusRastreador', fn ($query) => $query->where('label', 'Disponivel'))
+                ->whereDoesntHave('rastreador')
+                ->orderBy('numero_chip')
+                ->get();
         }
 
         return view('ordens-servico.tecnico', compact('ordem', 'token', 'rastreadores', 'chips'));
@@ -68,7 +82,12 @@ class OrdemServicoTecnicoController extends Controller
             }
             $rastreadorId = $request->integer('rastreador_novo_id') ?: null;
             $chipId = $request->integer('chip_novo_id') ?: null;
-            $rastreador = $rastreadorId ? Rastreador::query()->whereKey($rastreadorId)->where('tecnico_id', $ordem->tecnico_id)->where('is_estoque', true)->first() : null;
+            $rastreador = $rastreadorId ? Rastreador::query()
+                ->whereKey($rastreadorId)
+                ->where('tecnico_id', $ordem->tecnico_id)
+                ->where('is_estoque', true)
+                ->whereHas('statusRastreador', fn ($query) => $query->where('label', 'Disponivel'))
+                ->first() : null;
             if ($rastreadorId && ! $rastreador) {
                 abort(422, 'Rastreador fora do estoque do técnico.');
             }
@@ -80,7 +99,12 @@ class OrdemServicoTecnicoController extends Controller
             }
             $chipValido = ! $chipId
                 || ($rastreador?->chip_id === $chipId)
-                || Chip::query()->whereKey($chipId)->where('tecnico_id', $ordem->tecnico_id)->whereDoesntHave('rastreador')->exists();
+                || Chip::query()
+                    ->whereKey($chipId)
+                    ->where('tecnico_id', $ordem->tecnico_id)
+                    ->whereHas('statusRastreador', fn ($query) => $query->where('label', 'Disponivel'))
+                    ->whereDoesntHave('rastreador')
+                    ->exists();
             if (! $chipValido) {
                 abort(422, 'Chip fora do estoque do técnico.');
             }

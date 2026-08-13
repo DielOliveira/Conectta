@@ -404,6 +404,104 @@ class OrdemServicoFlowTest extends TestCase
         $this->assertSame(OrdemServicoStatus::EM_CONFERENCIA, $ordem->fresh()->status);
     }
 
+    public function test_popup_exibe_o_motivo_quando_o_imei_ja_esta_em_outro_veiculo(): void
+    {
+        [$operador, $cliente, $veiculo, $tecnico] = $this->cenarioBase();
+        $statusDisponivel = StatusRastreador::query()->where('label', 'Disponivel')->firstOrFail();
+        $chip = Chip::query()->create([
+            'numero_chip' => '5562999990011',
+            'iccid' => '89550000000000000011',
+            'tecnico_id' => $tecnico->id,
+            'status_rastreador_id' => $statusDisponivel->id,
+        ]);
+        $rastreador = Rastreador::query()->create([
+            'imei' => '860000000000011',
+            'chip_id' => $chip->id,
+            'tecnico_id' => $tecnico->id,
+            'status_rastreador_id' => $statusDisponivel->id,
+        ]);
+        Veiculo::query()->create([
+            'cliente_id' => $cliente->id,
+            'veiculo' => 'Veículo já instalado',
+            'placa' => 'OSX-0002',
+            'rastreador_id' => $rastreador->id,
+            'status_rastreador_id' => StatusRastreador::query()->where('label', 'Ativo')->value('id'),
+        ]);
+        $ordem = app(OrdemServicoService::class)->criar($this->dadosOrdem($cliente, $veiculo), $operador)['ordem'];
+        $ordem->update([
+            'tecnico_id' => $tecnico->id,
+            'rastreador_novo_id' => $rastreador->id,
+            'chip_novo_id' => $chip->id,
+            'status' => OrdemServicoStatus::EM_CONFERENCIA,
+        ]);
+        $this->actingAs($operador);
+
+        Livewire::test(EditOrdemServico::class, ['record' => $ordem->getRouteKey()])
+            ->callAction('finalizar', data: [
+                'check_funcionamento' => '1',
+                'check_pos_chave' => '1',
+                'check_bloqueio' => 'conferido',
+            ])
+            ->assertNotified('Não foi possível finalizar a ordem de serviço.');
+
+        $this->assertSame(OrdemServicoStatus::EM_CONFERENCIA, $ordem->fresh()->status);
+        $this->assertNull($veiculo->fresh()->rastreador_id);
+    }
+
+    public function test_atendimento_lista_somente_rastreadores_e_chips_disponiveis_do_tecnico(): void
+    {
+        [$operador, $cliente, $veiculo, $tecnico] = $this->cenarioBase();
+        $statusDisponivel = StatusRastreador::query()->where('label', 'Disponivel')->firstOrFail();
+        $statusAtivo = StatusRastreador::query()->where('label', 'Ativo')->firstOrFail();
+        $chipDisponivelVinculado = Chip::query()->create([
+            'numero_chip' => '5562999990020',
+            'iccid' => '89550000000000000020',
+            'tecnico_id' => $tecnico->id,
+            'status_rastreador_id' => $statusDisponivel->id,
+        ]);
+        $chipDisponivelLivre = Chip::query()->create([
+            'numero_chip' => '5562999990021',
+            'iccid' => '89550000000000000021',
+            'tecnico_id' => $tecnico->id,
+            'status_rastreador_id' => $statusDisponivel->id,
+        ]);
+        $chipAtivo = Chip::query()->create([
+            'numero_chip' => '5562999990022',
+            'iccid' => '89550000000000000022',
+            'tecnico_id' => $tecnico->id,
+            'status_rastreador_id' => $statusAtivo->id,
+        ]);
+        Rastreador::query()->create([
+            'imei' => '860000000000020',
+            'chip_id' => $chipDisponivelVinculado->id,
+            'tecnico_id' => $tecnico->id,
+            'is_estoque' => true,
+            'status_rastreador_id' => $statusDisponivel->id,
+        ]);
+        Rastreador::query()->create([
+            'imei' => '860000000000022',
+            'tecnico_id' => $tecnico->id,
+            'is_estoque' => true,
+            'status_rastreador_id' => $statusAtivo->id,
+        ]);
+        $token = str_repeat('a', 64);
+        $ordem = app(OrdemServicoService::class)->criar($this->dadosOrdem($cliente, $veiculo), $operador)['ordem'];
+        $ordem->update([
+            'tecnico_id' => $tecnico->id,
+            'status' => OrdemServicoStatus::EM_ATENDIMENTO,
+            'token_hash' => hash('sha256', $token),
+            'token_credencial' => $token,
+        ]);
+
+        $this->get(route('ordens-servico.tecnico', $token))
+            ->assertOk()
+            ->assertSee('860000000000020')
+            ->assertSee($chipDisponivelVinculado->numero_chip)
+            ->assertSee($chipDisponivelLivre->numero_chip)
+            ->assertDontSee('860000000000022')
+            ->assertDontSee($chipAtivo->numero_chip);
+    }
+
     private function cenarioBase(): array
     {
         $operador = User::factory()->create(['is_admin' => true]);

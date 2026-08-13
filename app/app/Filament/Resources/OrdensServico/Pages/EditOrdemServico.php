@@ -87,7 +87,19 @@ class EditOrdemServico extends EditRecord
                 ])->modalWidth(Width::Medium)
                 ->modalSubmitActionLabel('Aprovar e finalizar')
                 ->action(function (array $data): void {
-                    app(OrdemServicoService::class)->finalizar($this->record, auth()->user(), $data);
+                    try {
+                        app(OrdemServicoService::class)->finalizar($this->record, auth()->user(), $data);
+                    } catch (ValidationException $exception) {
+                        Notification::make()
+                            ->title('Não foi possível finalizar a ordem de serviço.')
+                            ->body(collect($exception->errors())->flatten()->implode(' '))
+                            ->danger()
+                            ->persistent()
+                            ->send();
+
+                        throw $exception;
+                    }
+
                     Notification::make()->title('Ordem finalizada.')->success()->send();
                     $this->redirect(OrdemServicoResource::getUrl());
                 }),

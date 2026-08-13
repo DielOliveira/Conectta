@@ -254,14 +254,14 @@ class OrdemServicoService
         $ativo = StatusRastreador::query()->where('label', 'Ativo')->value('id');
         if ($ordem->rastreador_novo_id !== null) {
             $rastreador = $ordem->rastreadorNovo()->lockForUpdate()->firstOrFail();
-            if ((int) $rastreador->tecnico_id !== (int) $ordem->tecnico_id || ! $rastreador->is_estoque) {
+            if ((int) $rastreador->tecnico_id !== (int) $ordem->tecnico_id || ! $rastreador->is_estoque || (int) $rastreador->status_rastreador_id !== (int) $disponivel) {
                 throw ValidationException::withMessages(['rastreador_novo_id' => 'O rastreador não está mais disponível no estoque do técnico.']);
             }
         }
         if ($ordem->chip_novo_id !== null) {
             $chip = $ordem->chipNovo()->lockForUpdate()->firstOrFail();
             $chipJaVinculadoAoRastreador = $ordem->tipo === OrdemServicoTipo::INSTALACAO && $rastreador->chip_id === $chip->id;
-            if (! $chipJaVinculadoAoRastreador && (int) $chip->tecnico_id !== (int) $ordem->tecnico_id) {
+            if ((int) $chip->status_rastreador_id !== (int) $disponivel || (! $chipJaVinculadoAoRastreador && (int) $chip->tecnico_id !== (int) $ordem->tecnico_id)) {
                 throw ValidationException::withMessages(['chip_novo_id' => 'O chip não está mais disponível no estoque do técnico.']);
             }
             if ($ordem->tipo === OrdemServicoTipo::INSTALACAO) {
