@@ -369,11 +369,16 @@ class OrdemServicoFlowTest extends TestCase
         $this->actingAs($operador);
 
         Livewire::test(EditOrdemServico::class, ['record' => $ordem->getRouteKey()])
-            ->callAction('finalizar', data: [
+            ->mountAction('finalizar')
+            ->setActionData(['check_funcionamento' => '1'])
+            ->setActionData(['check_pos_chave' => '1'])
+            ->setActionData(['check_bloqueio' => 'conferido'])
+            ->assertActionDataSet([
                 'check_funcionamento' => '1',
                 'check_pos_chave' => '1',
                 'check_bloqueio' => 'conferido',
             ])
+            ->callMountedAction()
             ->assertHasNoActionErrors()
             ->assertRedirect();
 

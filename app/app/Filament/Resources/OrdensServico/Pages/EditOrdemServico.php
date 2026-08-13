@@ -84,10 +84,6 @@ class EditOrdemServico extends EditRecord
                     ToggleButtons::make('check_pos_chave')->label('Pós-chave')->options([1 => 'Conferido', 0 => 'Não conferido'])->inline()->grouped()->required()->rules(['accepted'])
                         ->validationMessages(['accepted' => 'Confirme o pós-chave para finalizar.']),
                     ToggleButtons::make('check_bloqueio')->label('Bloqueio do veículo')->options(['conferido' => 'Conferido', 'nao_se_aplica' => 'Não se aplica'])->inline()->grouped()->required(),
-                ])->fillForm(fn (): array => $this->record->tipo->value === 'retirada' ? [] : [
-                    'check_funcionamento' => null,
-                    'check_pos_chave' => null,
-                    'check_bloqueio' => null,
                 ])->modalWidth(Width::Medium)
                 ->modalSubmitActionLabel('Aprovar e finalizar')
                 ->action(function (array $data): void {
