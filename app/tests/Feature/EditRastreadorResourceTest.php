@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Filament\Resources\Rastreadores\Pages\CreateRastreador;
 use App\Filament\Resources\Rastreadores\Pages\EditRastreador;
 use App\Models\Chip;
 use App\Models\Cliente;
@@ -12,6 +13,7 @@ use App\Models\TipoVeiculo;
 use App\Models\User;
 use App\Models\Veiculo;
 use Database\Seeders\ClienteSupportSeeder;
+use Database\Seeders\PaisSeeder;
 use Database\Seeders\RastreadorSupportSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -22,6 +24,52 @@ use Tests\TestCase;
 class EditRastreadorResourceTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_tracker_status_is_required_only_when_an_imei_is_selected(): void
+    {
+        $this->seed(ClienteSupportSeeder::class);
+        $this->seed(PaisSeeder::class);
+        $this->seed(RastreadorSupportSeeder::class);
+        $this->actingAs(User::query()->create([
+            'name' => 'Admin',
+            'email' => 'admin-status-rastreador@example.com',
+            'password' => 'password',
+            'is_admin' => true,
+        ]));
+
+        $cliente = $this->cliente('Cliente sem rastreador', '52998224725');
+        $tipoVeiculo = TipoVeiculo::query()->where('label', 'Carro')->firstOrFail();
+        $dados = [
+            'cliente_id' => $cliente->id,
+            'veiculo' => 'Veiculo sem rastreador',
+            'placa' => 'SEM-1A23',
+            'cor' => 'Prata',
+            'ano' => '2026',
+            'tipo_veiculo_id' => $tipoVeiculo->id,
+            'contato_pais' => 'BR',
+        ];
+
+        Livewire::test(CreateRastreador::class)
+            ->fillForm($dados)
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $this->assertDatabaseHas('veiculos', [
+            'placa' => 'SEM-1A23',
+            'rastreador_id' => null,
+            'status_rastreador_id' => null,
+        ]);
+
+        Livewire::test(CreateRastreador::class)
+            ->fillForm([
+                ...$dados,
+                'veiculo' => 'Veiculo com rastreador',
+                'placa' => 'COM-4B56',
+                'rastreador_id' => Rastreador::query()->firstOrFail()->id,
+            ])
+            ->call('create')
+            ->assertHasFormErrors(['status_rastreador_id' => 'required']);
+    }
 
     public function test_imei_linked_to_another_active_vehicle_is_blocked_with_an_informative_modal(): void
     {

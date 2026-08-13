@@ -148,7 +148,7 @@ class RastreadorForm
                                     ->whereIn('label', ['Ativo', 'Cancelado', 'Disponivel'])
                                     ->orderBy('order')
                                     ->pluck('label', 'id'))
-                                ->required()
+                                ->required(fn (Get $get): bool => filled($get('rastreador_id')))
                                 ->live()
                                 ->columnSpan(4),
                             TextInput::make('associado')

@@ -3,11 +3,38 @@
 namespace App\Services\Tracksolid;
 
 use App\Models\Rastreador;
+use App\Models\TracksolidImportacao;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class TracksolidDiagnosticService
 {
+    public function buildFromImport(TracksolidImportacao $importacao): array
+    {
+        $devices = $importacao->dispositivos()
+            ->where('is_tag', false)
+            ->orderBy('linha')
+            ->get()
+            ->map(fn ($device): array => [
+                'imei' => $device->imei,
+                'mcType' => $device->modelo,
+                'deviceName' => $device->dispositivo_nome,
+                'sim' => $device->sim,
+                'iccid' => $device->iccid,
+                'plateNumber' => $device->placa,
+                'expiration' => $device->expiracao_assinatura,
+                'raw' => $device->dados_brutos,
+            ])
+            ->all();
+
+        $result = $this->build($devices);
+        $result['tracksolid_importacao_id'] = $importacao->id;
+        $result['tracksolid_arquivo'] = $importacao->arquivo;
+        $result['tracksolid_sha256'] = $importacao->sha256;
+
+        return $result;
+    }
+
     public function build(array $remoteDevices): array
     {
         $vehiclesByTracker = DB::table('veiculos')
@@ -89,7 +116,7 @@ class TracksolidDiagnosticService
             'model' => $this->normalizeText($tracker->modelo),
             'chip_number' => $this->normalizeDigits($tracker->chip?->numero_chip),
             'iccid' => $this->normalizeDigits($tracker->chip?->iccid),
-            'plate' => $this->normalizeText($vehicle?->placa),
+            'plate' => $this->normalizePlate($vehicle?->placa),
             'vehicle' => $this->normalizeText($vehicle?->veiculo),
             'client_id' => $vehicle?->cliente_id,
             'tracker_status' => $tracker->statusRastreador?->label,
@@ -105,7 +132,7 @@ class TracksolidDiagnosticService
             'device_name' => $this->normalizeText($this->first($device, ['deviceName', 'device_name'])),
             'sim' => $this->normalizeDigits($this->first($device, ['sim', 'simCard', 'phone'])),
             'iccid' => $this->normalizeDigits($this->first($device, ['iccid', 'ICCID'])),
-            'plate' => $this->normalizeText($this->first($device, ['plateNumber', 'vehiclePlate', 'carLicense', 'vehicle_number'])),
+            'plate' => $this->normalizePlate($this->first($device, ['plateNumber', 'vehiclePlate', 'carLicense', 'vehicle_number'])),
             'enabled' => $this->first($device, ['enabledFlag', 'enabled', 'deviceStatus']),
             'expiration' => $this->first($device, ['expiration', 'expireDate', 'expirationTime']),
             'raw' => $device,
@@ -162,5 +189,10 @@ class TracksolidDiagnosticService
     private function normalizeText(mixed $value): string
     {
         return mb_strtoupper(trim((string) $value));
+    }
+
+    private function normalizePlate(mixed $value): string
+    {
+        return preg_replace('/[^A-Z0-9]+/', '', $this->normalizeText($value)) ?? '';
     }
 }
