@@ -8,6 +8,7 @@ use App\Models\CobrancaEnvio;
 use App\Models\Lancamento;
 use App\Models\User;
 use App\Services\Cobranca\CobrancaAutomaticaService;
+use App\Services\Lytex\LytexInvoiceService;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
@@ -153,6 +154,57 @@ class FinanceiroLancamentoModalTest extends TestCase
         $lancamento = Lancamento::query()->sole();
 
         $this->assertSame('175.00', $lancamento->valor_planejado);
+    }
+
+    public function test_generating_boleto_from_popup_marks_lancamento_as_lytex(): void
+    {
+        $this->travelTo('2026-07-01 10:00:00');
+
+        $cliente = $this->cliente('Cliente Boleto Popup', '39053344705');
+        $cliente->update(['email' => 'boleto-popup@example.com']);
+
+        $lancamento = Lancamento::query()->create([
+            'cliente_id' => $cliente->id,
+            'mes_referencia' => 7,
+            'ano_referencia' => 2026,
+            'valor_planejado' => 150,
+        ]);
+
+        $this->actingAs(User::query()->create([
+            'name' => 'Admin Boleto Popup',
+            'email' => 'admin-boleto-popup@example.com',
+            'password' => 'password',
+            'is_admin' => true,
+        ]));
+
+        $lytex = $this->mock(LytexInvoiceService::class);
+        $lytex->shouldReceive('criarFatura')
+            ->once()
+            ->andReturn([
+                '_id' => 'invoice-popup-1',
+                '_clientId' => 'cliente-lytex-1',
+                '_hashId' => 'hash-popup-1',
+                'totalValue' => 15000,
+                'status' => 'waiting_payment',
+                'dueDate' => '2026-07-10T23:59:59.000Z',
+                'createdAt' => '2026-07-01T13:00:00.000Z',
+                'updatedAt' => '2026-07-01T13:00:00.000Z',
+            ]);
+
+        Livewire::test(Financeiro::class)
+            ->call('abrirLancamento', $cliente->id, 7, 2026)
+            ->assertSet('modalLancamentoId', $lancamento->id)
+            ->call('gerarBoleto')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('lancamentos', [
+            'id' => $lancamento->id,
+            'numero_boleto' => 'Lytex',
+        ]);
+        $this->assertDatabaseHas('invoices', [
+            'fatura_id' => 'invoice-popup-1',
+            'lancamento_id' => $lancamento->id,
+        ]);
     }
 
     public function test_automatic_billing_blocks_duplicated_planned_lancamentos(): void
