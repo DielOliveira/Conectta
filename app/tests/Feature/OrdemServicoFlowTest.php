@@ -71,7 +71,9 @@ class OrdemServicoFlowTest extends TestCase
             ->assertOk()
             ->assertSee('modal-rejeicao', false)
             ->assertSee('Confirmar rejeição')
-            ->assertSee('contact-button whatsapp', false);
+            ->assertSee('contact-button whatsapp', false)
+            ->assertSee('maps/dir/?api=1&destination=Rua+de+Teste%2C+1', false)
+            ->assertDontSee('maps/search', false);
 
         $this->post(route('ordens-servico.tecnico.action', $resultado['token']), ['acao' => 'rejeitar'])
             ->assertSessionHasErrors('motivo');

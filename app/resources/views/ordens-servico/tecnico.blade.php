@@ -12,6 +12,7 @@
 @if($errors->any())<div class="error">@foreach($errors->all() as $erro)<div>{{ $erro }}</div>@endforeach</div>@endif
 @php($telefoneCliente = preg_replace('/\D+/', '', (string) $ordem->telefone_atendimento))
 @php($ddiCliente = \App\Models\Pais::codigoTelefone($ordem->telefone_pais_atendimento))
+@php($destinoRota = filled($ordem->localizacao_latitude) && filled($ordem->localizacao_longitude) ? $ordem->localizacao_latitude.','.$ordem->localizacao_longitude : $ordem->endereco)
 <section class="card os-hero">
 <header class="os-hero-head"><div><span class="os-kicker">Ordem de serviço</span><h1>{{ $ordem->numero_formatado }} · {{ $ordem->tipo->label() }}</h1></div><span class="badge">{{ $ordem->status->label() }}</span></header>
 <div class="os-details">
@@ -23,7 +24,7 @@
 <div class="os-contact"><p class="os-contact-title">Contato e deslocamento</p><div class="os-contact-actions">
 <a class="contact-button phone" href="tel:+{{ $ddiCliente }}{{ $telefoneCliente }}"><svg class="icon" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.2 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.69 2.8a2 2 0 0 1-.45 2.11L8.09 9.9a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.33 1.84.56 2.8.69A2 2 0 0 1 22 16.92z"/></svg>Ligar</a>
 <a class="contact-button whatsapp" target="_blank" rel="noopener" href="https://wa.me/{{ $ddiCliente }}{{ $telefoneCliente }}"><svg class="icon" viewBox="0 0 24 24"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.5 9.6 9.6 0 0 1-4.1-.9L3 21l1.7-4.7A8.5 8.5 0 1 1 21 11.5z"/><path d="M8.5 8.2c.7 3 2.3 4.7 5.3 5.5M14.8 13.9l1.3-1.1M8.3 7.9l-1 1.2"/></svg>WhatsApp</a>
-<a class="contact-button route" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query={{ urlencode($ordem->localizacao_latitude && $ordem->localizacao_longitude ? $ordem->localizacao_latitude.','.$ordem->localizacao_longitude : $ordem->endereco) }}"><svg class="icon" viewBox="0 0 24 24"><path d="M12 21s7-5.2 7-12a7 7 0 1 0-14 0c0 6.8 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>Abrir rota</a>
+<a class="contact-button route" target="_blank" rel="noopener" href="https://www.google.com/maps/dir/?api=1&destination={{ urlencode($destinoRota) }}"><svg class="icon" viewBox="0 0 24 24"><path d="M12 21s7-5.2 7-12a7 7 0 1 0-14 0c0 6.8 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>Abrir rota</a>
 </div></div>
 <div class="os-description"><div class="os-description-item"><span class="muted">Endereço</span><p>{{ $ordem->endereco }}</p></div><div class="os-description-item"><span class="muted">Serviço</span><p>{{ $ordem->descricao }}</p></div>@if($ordem->observacoes)<div class="os-description-item"><span class="muted">Observações</span><p>{{ $ordem->observacoes }}</p></div>@endif</div>
 </section>
