@@ -67,6 +67,7 @@ class EditOrdemServico extends EditRecord
                     $disponibilidade = OrdemServicoDisponibilidade::query()->findOrFail($data['disponibilidade_id']);
                     app(OrdemServicoService::class)->agendar($this->record, $disponibilidade, CarbonImmutable::parse($data['agendado_em']), auth()->user());
                     Notification::make()->title('OS atribuída e pronta para envio ao técnico.')->success()->send();
+                    $this->record->refresh();
                     $this->refreshFormData(['status', 'tecnico_id', 'disponibilidade_id', 'agendado_em']);
                 }),
             Action::make('pendente')->label('Marcar pendente')->icon(Heroicon::OutlinedArrowUturnLeft)->color('warning')
@@ -114,7 +115,16 @@ class EditOrdemServico extends EditRecord
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        unset($data['tipo'], $data['cliente_id'], $data['veiculo_id'], $data['associado']);
+        unset(
+            $data['tipo'],
+            $data['cliente_id'],
+            $data['veiculo_id'],
+            $data['associado'],
+            $data['status'],
+            $data['tecnico_id'],
+            $data['disponibilidade_id'],
+            $data['agendado_em'],
+        );
 
         if (! (auth()->user()?->hasPermission(Permission::OS_ESCRITA) ?? false) || $this->record->status->isFinal()) {
             return [];

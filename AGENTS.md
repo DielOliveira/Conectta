@@ -445,6 +445,12 @@ Principio operacional: conter, diagnosticar, preservar evidencias, corrigir de f
 - Em `Estoque > Chips`, `Numero Chip` e `ICCID` sao campos separados: `numero_chip` contem o numero telefonico/numero atual do chip; `iccid` contem o ICCID real, deve ser unico quando preenchido e ter exatamente 20 digitos no formulario.
 - Em `Cadastro > Rastreadores`, o chip nao e selecionado manualmente. O campo `Numero Chip` e somente leitura e exibe o chip vinculado ao IMEI/rastreador escolhido.
 - Em `Cadastro > Rastreadores`, se o IMEI escolhido nao tiver chip vinculado, o campo `Numero Chip` mostra aviso amarelo: `O rastreador selecionado nao possui chip vinculado.`
+- Ao salvar um veiculo ativo com rastreador/chip pela tela `Cadastro > Rastreadores`, os equipamentos instalados devem sair do estoque do tecnico:
+  - o rastreador fica com status `Ativo`, `tecnico_id = null` e `is_estoque = false`;
+  - o chip vinculado fica com status `Ativo` e `tecnico_id = null`;
+  - o vinculo do chip permanece em `rastreadores.chip_id` e o rastreador permanece em `veiculos.rastreador_id`;
+  - antes de limpar o tecnico do equipamento, o tecnico de instalacao deve ficar preservado em `veiculos.tecnico_instala_id` e `veiculos.instalador`;
+  - edicoes posteriores do veiculo nao podem apagar o tecnico de instalacao somente porque o rastreador instalado ja esta com `tecnico_id = null`.
 - Regra de integridade: um mesmo IMEI/rastreador nao pode estar vinculado a outro veiculo ativo. Clientes com frota podem ter varios rastreadores ativos; nao bloquear por cliente nem por placa duplicada.
 - Regra de integridade: um chip deve ficar vinculado a no maximo um rastreador. Na migracao de dados legados, quando um chip aparecia em mais de um rastreador ativo, foi mantido no registro mais recente por `data_instalacao`, depois `updated_at`, depois `id`; os demais ficaram sem chip para verificacao manual.
 - O restore cria/encontra chips por `numero_chip` e vincula o chip ao `rastreador_id` importado, deixando `veiculos.chip_id` nulo.
@@ -487,6 +493,13 @@ Principio operacional: conter, diagnosticar, preservar evidencias, corrigir de f
 - O tecnico aceita ou rejeita, inicia o atendimento, informa equipamentos e fotos e solicita conferencia. A central aprova, devolve como pendencia ou cancela.
 - Tipo, cliente e veiculo ficam bloqueados depois da criacao. Uma OS ativa por veiculo e preservada; OS nao e excluida definitivamente.
 - Instalacao, retirada e manutencao movimentam rastreadores e chips pelo fluxo da OS, reduzindo atualizacoes manuais do estoque.
+- Regras de movimentacao de equipamentos ao finalizar a OS:
+  - instalacao: rastreador e chip novos ficam `Ativo`, sem tecnico; o rastreador recebe `is_estoque = false`; ambos ficam vinculados ao veiculo, e o tecnico da OS fica registrado como tecnico de instalacao;
+  - manutencao sem troca de equipamento: nao movimenta rastreador nem chip;
+  - manutencao trocando somente o chip: o chip novo fica `Ativo` e sem tecnico; o chip retirado fica `Disponivel` e vinculado ao tecnico da OS;
+  - manutencao trocando rastreador e chip: os equipamentos novos ficam `Ativo`, sem tecnico, vinculados ao veiculo e com o rastreador fora do estoque; os equipamentos retirados ficam `Disponivel`, vinculados ao tecnico da OS, e o rastreador retirado recebe `is_estoque = true`;
+  - retirada: rastreador e chip saem do veiculo, ficam `Disponivel` e vinculados ao tecnico da OS; o rastreador recebe `is_estoque = true`;
+  - chips nao possuem campo `is_estoque`; sua disponibilidade e posse sao controladas por `status_rastreador_id` e `tecnico_id`.
 - O historico da OS preserva eventos, fotos e todas as mensagens geradas para tecnico e cliente.
 - Mensagens de OS ficam fixas e centralizadas em `App\Services\OrdemServico\OrdemServicoNotificacaoService`; usam saudacao, dados do atendimento e formatacao adequada ao WhatsApp.
 - `Enviada` no historico de mensagens significa que a Z-API aceitou a chamada sem erro; nao confirma entrega nem leitura. Webhooks de entregue/lida nao fazem parte da primeira versao.

@@ -4,6 +4,7 @@ namespace App\Services\OrdemServico;
 
 use App\Enums\OrdemServicoStatus;
 use App\Enums\OrdemServicoTipo;
+use App\Models\Chip;
 use App\Models\OrdemServico;
 use App\Models\OrdemServicoDisponibilidade;
 use App\Models\OrdemServicoHistorico;
@@ -254,6 +255,10 @@ class OrdemServicoService
     {
         $disponivel = StatusRastreador::query()->where('label', 'Disponivel')->value('id');
         $ativo = StatusRastreador::query()->where('label', 'Ativo')->value('id');
+        $chipInstaladoId = $ordem->chip_novo_id;
+        if ($ordem->tipo === OrdemServicoTipo::MANUTENCAO && $ordem->rastreador_novo_id !== null && $chipInstaladoId === null) {
+            $chipInstaladoId = $ordem->chip_anterior_id;
+        }
         if ($ordem->rastreador_novo_id !== null) {
             $rastreador = $ordem->rastreadorNovo()->lockForUpdate()->firstOrFail();
             if ((int) $rastreador->tecnico_id !== (int) $ordem->tecnico_id || ! $rastreador->is_estoque || (int) $rastreador->status_rastreador_id !== (int) $disponivel) {
@@ -298,14 +303,20 @@ class OrdemServicoService
             return;
         }
         if ($ordem->rastreador_novo_id !== null) {
+            if ($chipInstaladoId !== null) {
+                Rastreador::query()
+                    ->where('chip_id', $chipInstaladoId)
+                    ->whereKeyNot($ordem->rastreador_novo_id)
+                    ->update(['chip_id' => null]);
+            }
             $ordem->rastreadorNovo()->update([
-                'chip_id' => $ordem->chip_novo_id,
+                'chip_id' => $chipInstaladoId,
                 'tecnico_id' => null,
                 'status_rastreador_id' => $ativo,
                 'is_estoque' => false,
             ]);
-            if ($ordem->chip_novo_id !== null) {
-                $ordem->chipNovo()->update(['tecnico_id' => null, 'status_rastreador_id' => $ativo]);
+            if ($chipInstaladoId !== null) {
+                Chip::query()->whereKey($chipInstaladoId)->update(['tecnico_id' => null, 'status_rastreador_id' => $ativo]);
             }
             $ordem->veiculo->update([
                 'rastreador_id' => $ordem->rastreador_novo_id,
@@ -323,7 +334,7 @@ class OrdemServicoService
                 'is_estoque' => true,
             ]);
         }
-        if ($ordem->chip_anterior_id !== null && $ordem->chip_anterior_id !== $ordem->chip_novo_id) {
+        if ($ordem->chip_anterior_id !== null && $ordem->chip_anterior_id !== $chipInstaladoId) {
             $ordem->chipAnterior()->update(['tecnico_id' => $ordem->tecnico_id, 'status_rastreador_id' => $disponivel]);
         }
     }

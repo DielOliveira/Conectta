@@ -108,6 +108,34 @@ class OrdemServicoFlowTest extends TestCase
         $this->assertSame(OrdemServicoStatus::EM_ATENDIMENTO, $resultado['ordem']->fresh()->status);
     }
 
+    public function test_editar_dados_depois_do_agendamento_nao_reabre_a_ordem(): void
+    {
+        CarbonImmutable::setTestNow('2026-08-14 08:00:00');
+        [$operador, $cliente, $veiculo, $tecnico] = $this->cenarioBase();
+        $ordem = app(OrdemServicoService::class)->criar($this->dadosOrdem($cliente, $veiculo), $operador)['ordem'];
+        $disponibilidade = app(OrdemServicoAgendaService::class)->criarDisponibilidade($tecnico->id, '2026-08-15', '08:00', '12:00');
+        $this->actingAs($operador);
+
+        Livewire::test(EditOrdemServico::class, ['record' => $ordem->getRouteKey()])
+            ->callAction('agendar', data: [
+                'disponibilidade_id' => $disponibilidade->id,
+                'agendado_em' => '2026-08-15 09:00:00',
+            ])
+            ->set('data.status', OrdemServicoStatus::ABERTA->value)
+            ->set('data.observacoes', 'Observação atualizada depois do agendamento.')
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $ordem->refresh();
+        $this->assertSame(OrdemServicoStatus::ENVIADA, $ordem->status);
+        $this->assertSame($tecnico->id, $ordem->tecnico_id);
+        $this->assertSame('2026-08-15 09:00:00', $ordem->agendado_em?->format('Y-m-d H:i:s'));
+        $this->assertSame('Observação atualizada depois do agendamento.', $ordem->observacoes);
+
+        app(OrdemServicoService::class)->aceitar($ordem);
+        $this->assertSame(OrdemServicoStatus::ACEITA, $ordem->fresh()->status);
+    }
+
     public function test_impede_duas_ordens_ativas_para_o_mesmo_veiculo(): void
     {
         [$operador, $cliente, $veiculo] = $this->cenarioBase();
@@ -475,6 +503,59 @@ class OrdemServicoFlowTest extends TestCase
         $this->assertTrue($rastreadorAnterior->fresh()->is_estoque);
         $this->assertSame($tecnico->id, $chipAnterior->fresh()->tecnico_id);
         $this->assertSame($disponivel->id, $chipAnterior->fresh()->status_rastreador_id);
+    }
+
+    public function test_manutencao_trocando_so_rastreador_reutiliza_o_chip_atual(): void
+    {
+        [$operador, $cliente, $veiculo, $tecnico] = $this->cenarioBase();
+        $disponivel = StatusRastreador::query()->where('label', 'Disponivel')->firstOrFail();
+        $ativo = StatusRastreador::query()->where('label', 'Ativo')->firstOrFail();
+        $chipAtual = Chip::query()->create([
+            'numero_chip' => '5562999990033',
+            'iccid' => '89550000000000000033',
+            'status_rastreador_id' => $ativo->id,
+        ]);
+        $rastreadorAnterior = Rastreador::query()->create([
+            'imei' => '860000000000033',
+            'chip_id' => $chipAtual->id,
+            'status_rastreador_id' => $ativo->id,
+            'is_estoque' => false,
+        ]);
+        $rastreadorNovo = Rastreador::query()->create([
+            'imei' => '860000000000034',
+            'tecnico_id' => $tecnico->id,
+            'status_rastreador_id' => $disponivel->id,
+            'is_estoque' => true,
+        ]);
+        $veiculo->update(['rastreador_id' => $rastreadorAnterior->id, 'status_rastreador_id' => $ativo->id]);
+
+        $dados = $this->dadosOrdem($cliente, $veiculo);
+        $dados['tipo'] = 'manutencao';
+        $ordem = app(OrdemServicoService::class)->criar($dados, $operador)['ordem'];
+        $ordem->update([
+            'tecnico_id' => $tecnico->id,
+            'rastreador_novo_id' => $rastreadorNovo->id,
+            'chip_novo_id' => null,
+            'resultado_manutencao' => 'troca_rastreador',
+            'descricao_atendimento' => 'Rastreador substituído com reaproveitamento do chip atual.',
+            'equipamentos_confirmados' => true,
+            'status' => OrdemServicoStatus::EM_CONFERENCIA,
+        ]);
+
+        app(OrdemServicoService::class)->finalizar($ordem->fresh(), $operador, [
+            'check_funcionamento' => true,
+            'check_pos_chave' => true,
+            'check_bloqueio' => 'conferido',
+        ]);
+
+        $this->assertSame($rastreadorNovo->id, $veiculo->fresh()->rastreador_id);
+        $this->assertSame($chipAtual->id, $rastreadorNovo->fresh()->chip_id);
+        $this->assertNull($chipAtual->fresh()->tecnico_id);
+        $this->assertSame($ativo->id, $chipAtual->fresh()->status_rastreador_id);
+        $this->assertNull($rastreadorAnterior->fresh()->chip_id);
+        $this->assertSame($tecnico->id, $rastreadorAnterior->fresh()->tecnico_id);
+        $this->assertSame($disponivel->id, $rastreadorAnterior->fresh()->status_rastreador_id);
+        $this->assertTrue($rastreadorAnterior->fresh()->is_estoque);
     }
 
     public function test_retirada_devolve_rastreador_e_chip_disponiveis_ao_estoque_do_tecnico(): void
