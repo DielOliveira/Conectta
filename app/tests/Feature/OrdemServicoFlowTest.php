@@ -19,6 +19,7 @@ use App\Services\OrdemServico\OrdemServicoService;
 use App\Services\OrdemServico\TecnicoAgendaPublicaService;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -32,6 +33,24 @@ class OrdemServicoFlowTest extends TestCase
         $this->actingAs(User::factory()->create(['is_admin' => true]))
             ->get(DisponibilidadeResource::getUrl('create'))
             ->assertOk();
+    }
+
+    public function test_extrai_coordenadas_de_link_encurtado_do_google_maps(): void
+    {
+        [$operador, $cliente, $veiculo] = $this->cenarioBase();
+        Http::fake([
+            'https://maps.app.goo.gl/local-teste' => Http::response('', 302, [
+                'Location' => 'https://www.google.com/maps/place/Local/@-16.6499653,-49.2962112,878m/data=!3m1!4b1!4m2!3d-16.6499653!4d-49.2936363',
+            ]),
+        ]);
+
+        $dados = $this->dadosOrdem($cliente, $veiculo);
+        $dados['localizacao_url'] = 'https://maps.app.goo.gl/local-teste';
+        $ordem = app(OrdemServicoService::class)->criar($dados, $operador)['ordem'];
+
+        $this->assertSame('-16.6499653', $ordem->localizacao_latitude);
+        $this->assertSame('-49.2936363', $ordem->localizacao_longitude);
+        Http::assertSentCount(1);
     }
 
     public function test_cria_agenda_e_executa_fluxo_inicial_com_token_imprevisivel(): void

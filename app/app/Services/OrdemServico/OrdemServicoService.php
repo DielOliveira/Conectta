@@ -13,8 +13,10 @@ use App\Models\User;
 use App\Models\Veiculo;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class OrdemServicoService
 {
@@ -372,13 +374,59 @@ class OrdemServicoService
         if (blank($link)) {
             return [null, null];
         }
+
+        $coordenadas = $this->extrairCoordenadas($link);
+        if ($coordenadas !== [null, null]) {
+            return $coordenadas;
+        }
+
+        $urlAtual = $link;
+        try {
+            for ($redirecionamentos = 0; $redirecionamentos < 5; $redirecionamentos++) {
+                if (! $this->hostGoogleMapsPermitido($urlAtual)) {
+                    break;
+                }
+                $resposta = Http::connectTimeout(3)->timeout(5)->withoutRedirecting()->head($urlAtual);
+                $destino = $resposta->header('Location');
+                if (blank($destino) || ! $this->hostGoogleMapsPermitido($destino)) {
+                    break;
+                }
+                $coordenadas = $this->extrairCoordenadas($destino);
+                if ($coordenadas !== [null, null]) {
+                    return $coordenadas;
+                }
+                $urlAtual = $destino;
+            }
+        } catch (Throwable) {
+            // O link continua salvo e o endereço será usado como alternativa.
+        }
+
+        return [null, null];
+    }
+
+    /** @return array{?float, ?float} */
+    private function extrairCoordenadas(string $link): array
+    {
         $decodificado = urldecode($link);
-        if (preg_match('/(?:@|query=|q=)(-?\d{1,2}(?:\.\d+)?)[,\s]+(-?\d{1,3}(?:\.\d+)?)/', $decodificado, $matches) !== 1) {
+        $encontrou = preg_match('/!3d(-?\d{1,2}(?:\.\d+)?)!4d(-?\d{1,3}(?:\.\d+)?)/', $decodificado, $matches) === 1
+            || preg_match('/(?:@|query=|q=)(-?\d{1,2}(?:\.\d+)?)[,\s]+(-?\d{1,3}(?:\.\d+)?)/', $decodificado, $matches) === 1;
+        if (! $encontrou) {
             return [null, null];
         }
         $latitude = (float) $matches[1];
         $longitude = (float) $matches[2];
 
         return abs($latitude) <= 90 && abs($longitude) <= 180 ? [$latitude, $longitude] : [null, null];
+    }
+
+    private function hostGoogleMapsPermitido(string $url): bool
+    {
+        return in_array(strtolower((string) parse_url($url, PHP_URL_HOST)), [
+            'maps.app.goo.gl',
+            'goo.gl',
+            'google.com',
+            'www.google.com',
+            'maps.google.com',
+        ], true);
     }
 }
