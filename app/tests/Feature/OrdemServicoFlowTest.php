@@ -455,6 +455,17 @@ class OrdemServicoFlowTest extends TestCase
 
         $this->assertSame(OrdemServicoStatus::FINALIZADA, $ordem->fresh()->status);
         $this->assertSame($rastreador->id, $veiculo->fresh()->rastreador_id);
+        $this->assertNull($rastreador->fresh()->tecnico_id);
+        $this->assertSame(
+            StatusRastreador::query()->where('label', 'Ativo')->value('id'),
+            $rastreador->fresh()->status_rastreador_id,
+        );
+        $this->assertFalse($rastreador->fresh()->is_estoque);
+        $this->assertNull($chip->fresh()->tecnico_id);
+        $this->assertSame(
+            StatusRastreador::query()->where('label', 'Ativo')->value('id'),
+            $chip->fresh()->status_rastreador_id,
+        );
     }
 
     public function test_popup_informa_o_item_nao_conferido_ao_tentar_finalizar(): void

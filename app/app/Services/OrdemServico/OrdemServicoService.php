@@ -294,9 +294,14 @@ class OrdemServicoService
             return;
         }
         if ($ordem->rastreador_novo_id !== null) {
-            $ordem->rastreadorNovo()->update(['chip_id' => $ordem->chip_novo_id, 'status_rastreador_id' => $ativo]);
+            $ordem->rastreadorNovo()->update([
+                'chip_id' => $ordem->chip_novo_id,
+                'tecnico_id' => null,
+                'status_rastreador_id' => $ativo,
+                'is_estoque' => false,
+            ]);
             if ($ordem->chip_novo_id !== null) {
-                $ordem->chipNovo()->update(['tecnico_id' => null]);
+                $ordem->chipNovo()->update(['tecnico_id' => null, 'status_rastreador_id' => $ativo]);
             }
             $ordem->veiculo->update([
                 'rastreador_id' => $ordem->rastreador_novo_id,
@@ -306,7 +311,6 @@ class OrdemServicoService
                 'tecnico_remocao_id' => null,
                 'data_retirada' => null,
             ]);
-            $ordem->rastreadorNovo()->update(['tecnico_id' => null]);
         }
         if ($ordem->rastreador_anterior_id !== null && $ordem->rastreador_anterior_id !== $ordem->rastreador_novo_id) {
             $ordem->rastreadorAnterior()->update(['tecnico_id' => $ordem->tecnico_id, 'status_rastreador_id' => $disponivel]);
