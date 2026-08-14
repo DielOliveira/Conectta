@@ -279,7 +279,11 @@ class OrdemServicoService
         }
         if ($ordem->tipo === OrdemServicoTipo::RETIRADA) {
             $ordem->veiculo->update(['rastreador_id' => null, 'tecnico_remocao_id' => $ordem->tecnico_id, 'data_retirada' => today()]);
-            $ordem->rastreadorAnterior()->update(['tecnico_id' => $ordem->tecnico_id, 'status_rastreador_id' => $disponivel]);
+            $ordem->rastreadorAnterior()->update([
+                'tecnico_id' => $ordem->tecnico_id,
+                'status_rastreador_id' => $disponivel,
+                'is_estoque' => true,
+            ]);
             $ordem->chipAnterior()->update(['tecnico_id' => $ordem->tecnico_id, 'status_rastreador_id' => $disponivel]);
 
             return;

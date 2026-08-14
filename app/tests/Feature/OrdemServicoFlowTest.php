@@ -414,6 +414,47 @@ class OrdemServicoFlowTest extends TestCase
         $this->assertSame($chipNovo->id, $rastreador->fresh()->chip_id);
     }
 
+    public function test_retirada_devolve_rastreador_e_chip_disponiveis_ao_estoque_do_tecnico(): void
+    {
+        CarbonImmutable::setTestNow('2026-08-14 10:00:00');
+        [$operador, $cliente, $veiculo, $tecnico] = $this->cenarioBase();
+        $statusDisponivel = StatusRastreador::query()->where('label', 'Disponivel')->firstOrFail();
+        $statusAtivo = StatusRastreador::query()->where('label', 'Ativo')->firstOrFail();
+        $chip = Chip::query()->create([
+            'numero_chip' => '5562999990009',
+            'iccid' => '89550000000000000009',
+            'status_rastreador_id' => $statusAtivo->id,
+        ]);
+        $rastreador = Rastreador::query()->create([
+            'imei' => '860000000000009',
+            'chip_id' => $chip->id,
+            'status_rastreador_id' => $statusAtivo->id,
+            'is_estoque' => false,
+        ]);
+        $veiculo->update(['rastreador_id' => $rastreador->id, 'status_rastreador_id' => $statusAtivo->id]);
+
+        $dados = $this->dadosOrdem($cliente, $veiculo);
+        $dados['tipo'] = 'retirada';
+        $ordem = app(OrdemServicoService::class)->criar($dados, $operador)['ordem'];
+        $ordem->update([
+            'tecnico_id' => $tecnico->id,
+            'status' => OrdemServicoStatus::EM_CONFERENCIA,
+        ]);
+
+        app(OrdemServicoService::class)->finalizar($ordem->fresh(), $operador);
+
+        $this->assertSame(OrdemServicoStatus::FINALIZADA, $ordem->fresh()->status);
+        $this->assertNull($veiculo->fresh()->rastreador_id);
+        $this->assertSame($tecnico->id, $veiculo->fresh()->tecnico_remocao_id);
+        $this->assertSame('2026-08-14', $veiculo->fresh()->data_retirada?->format('Y-m-d'));
+        $this->assertSame($tecnico->id, $rastreador->fresh()->tecnico_id);
+        $this->assertSame($statusDisponivel->id, $rastreador->fresh()->status_rastreador_id);
+        $this->assertTrue($rastreador->fresh()->is_estoque);
+        $this->assertSame($chip->id, $rastreador->fresh()->chip_id);
+        $this->assertSame($tecnico->id, $chip->fresh()->tecnico_id);
+        $this->assertSame($statusDisponivel->id, $chip->fresh()->status_rastreador_id);
+    }
+
     public function test_operador_aprova_e_finaliza_instalacao_pelo_popup_de_conferencia(): void
     {
         [$operador, $cliente, $veiculo, $tecnico] = $this->cenarioBase();
