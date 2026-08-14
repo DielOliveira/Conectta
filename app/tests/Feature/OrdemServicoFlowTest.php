@@ -412,6 +412,69 @@ class OrdemServicoFlowTest extends TestCase
         $this->assertSame($tecnico->id, $chipAnterior->fresh()->tecnico_id);
         $this->assertSame($statusDisponivel->id, $chipAnterior->fresh()->status_rastreador_id);
         $this->assertSame($chipNovo->id, $rastreador->fresh()->chip_id);
+        $this->assertNull($chipNovo->fresh()->tecnico_id);
+        $this->assertSame($statusAtivo->id, $chipNovo->fresh()->status_rastreador_id);
+    }
+
+    public function test_manutencao_com_troca_de_rastreador_movimenta_equipamentos_novos_e_retirados(): void
+    {
+        [$operador, $cliente, $veiculo, $tecnico] = $this->cenarioBase();
+        $disponivel = StatusRastreador::query()->where('label', 'Disponivel')->firstOrFail();
+        $ativo = StatusRastreador::query()->where('label', 'Ativo')->firstOrFail();
+        $chipAnterior = Chip::query()->create([
+            'numero_chip' => '5562999990031',
+            'iccid' => '89550000000000000031',
+            'status_rastreador_id' => $ativo->id,
+        ]);
+        $rastreadorAnterior = Rastreador::query()->create([
+            'imei' => '860000000000031',
+            'chip_id' => $chipAnterior->id,
+            'status_rastreador_id' => $ativo->id,
+            'is_estoque' => false,
+        ]);
+        $chipNovo = Chip::query()->create([
+            'numero_chip' => '5562999990032',
+            'iccid' => '89550000000000000032',
+            'tecnico_id' => $tecnico->id,
+            'status_rastreador_id' => $disponivel->id,
+        ]);
+        $rastreadorNovo = Rastreador::query()->create([
+            'imei' => '860000000000032',
+            'chip_id' => $chipNovo->id,
+            'tecnico_id' => $tecnico->id,
+            'status_rastreador_id' => $disponivel->id,
+            'is_estoque' => true,
+        ]);
+        $veiculo->update(['rastreador_id' => $rastreadorAnterior->id, 'status_rastreador_id' => $ativo->id]);
+
+        $dados = $this->dadosOrdem($cliente, $veiculo);
+        $dados['tipo'] = 'manutencao';
+        $ordem = app(OrdemServicoService::class)->criar($dados, $operador)['ordem'];
+        $ordem->update([
+            'tecnico_id' => $tecnico->id,
+            'rastreador_novo_id' => $rastreadorNovo->id,
+            'chip_novo_id' => $chipNovo->id,
+            'status' => OrdemServicoStatus::EM_CONFERENCIA,
+        ]);
+
+        app(OrdemServicoService::class)->finalizar($ordem->fresh(), $operador, [
+            'check_funcionamento' => true,
+            'check_pos_chave' => true,
+            'check_bloqueio' => 'conferido',
+        ]);
+
+        $this->assertSame($rastreadorNovo->id, $veiculo->fresh()->rastreador_id);
+        $this->assertSame($tecnico->id, $veiculo->fresh()->tecnico_instala_id);
+        $this->assertNull($rastreadorNovo->fresh()->tecnico_id);
+        $this->assertSame($ativo->id, $rastreadorNovo->fresh()->status_rastreador_id);
+        $this->assertFalse($rastreadorNovo->fresh()->is_estoque);
+        $this->assertNull($chipNovo->fresh()->tecnico_id);
+        $this->assertSame($ativo->id, $chipNovo->fresh()->status_rastreador_id);
+        $this->assertSame($tecnico->id, $rastreadorAnterior->fresh()->tecnico_id);
+        $this->assertSame($disponivel->id, $rastreadorAnterior->fresh()->status_rastreador_id);
+        $this->assertTrue($rastreadorAnterior->fresh()->is_estoque);
+        $this->assertSame($tecnico->id, $chipAnterior->fresh()->tecnico_id);
+        $this->assertSame($disponivel->id, $chipAnterior->fresh()->status_rastreador_id);
     }
 
     public function test_retirada_devolve_rastreador_e_chip_disponiveis_ao_estoque_do_tecnico(): void

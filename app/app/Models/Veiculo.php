@@ -184,8 +184,10 @@ class Veiculo extends Model
             ->with('tecnico')
             ->find($this->rastreador_id);
 
-        $this->tecnico_instala_id = $rastreador?->tecnico_id;
-        $this->instalador = $rastreador?->tecnico?->nome;
+        if ($rastreador?->tecnico_id !== null) {
+            $this->tecnico_instala_id = $rastreador->tecnico_id;
+            $this->instalador = $rastreador->tecnico?->nome;
+        }
     }
 
     private function syncRastreadorStatus(): void

@@ -290,7 +290,7 @@ class OrdemServicoService
         }
         if ($ordem->tipo === OrdemServicoTipo::MANUTENCAO && $ordem->rastreador_novo_id === null && $ordem->chip_novo_id !== null) {
             $ordem->rastreadorAnterior()->update(['chip_id' => $ordem->chip_novo_id]);
-            $ordem->chipNovo()->update(['tecnico_id' => null]);
+            $ordem->chipNovo()->update(['tecnico_id' => null, 'status_rastreador_id' => $ativo]);
             if ($ordem->chip_anterior_id !== $ordem->chip_novo_id) {
                 $ordem->chipAnterior()->update(['tecnico_id' => $ordem->tecnico_id, 'status_rastreador_id' => $disponivel]);
             }
@@ -317,7 +317,11 @@ class OrdemServicoService
             ]);
         }
         if ($ordem->rastreador_anterior_id !== null && $ordem->rastreador_anterior_id !== $ordem->rastreador_novo_id) {
-            $ordem->rastreadorAnterior()->update(['tecnico_id' => $ordem->tecnico_id, 'status_rastreador_id' => $disponivel]);
+            $ordem->rastreadorAnterior()->update([
+                'tecnico_id' => $ordem->tecnico_id,
+                'status_rastreador_id' => $disponivel,
+                'is_estoque' => true,
+            ]);
         }
         if ($ordem->chip_anterior_id !== null && $ordem->chip_anterior_id !== $ordem->chip_novo_id) {
             $ordem->chipAnterior()->update(['tecnico_id' => $ordem->tecnico_id, 'status_rastreador_id' => $disponivel]);

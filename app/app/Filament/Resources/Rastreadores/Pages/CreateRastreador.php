@@ -143,19 +143,6 @@ class CreateRastreador extends CreateRecord
                 ->update(['chip_id' => null]);
         }
 
-        Rastreador::query()
-            ->whereKey($this->record->rastreador_id)
-            ->update(['chip_id' => $this->chipIdSelecionado]);
-
-        $this->ativarChipSelecionado();
-    }
-
-    private function ativarChipSelecionado(): void
-    {
-        if ($this->chipIdSelecionado === null) {
-            return;
-        }
-
         $ativoId = StatusRastreador::query()
             ->where('label', 'Ativo')
             ->value('id');
@@ -164,9 +151,25 @@ class CreateRastreador extends CreateRecord
             return;
         }
 
+        Rastreador::query()
+            ->whereKey($this->record->rastreador_id)
+            ->update([
+                'chip_id' => $this->chipIdSelecionado,
+                'tecnico_id' => null,
+                'status_rastreador_id' => $ativoId,
+                'is_estoque' => false,
+            ]);
+
+        if ($this->chipIdSelecionado === null) {
+            return;
+        }
+
         Chip::query()
             ->whereKey($this->chipIdSelecionado)
-            ->update(['status_rastreador_id' => $ativoId]);
+            ->update([
+                'tecnico_id' => null,
+                'status_rastreador_id' => $ativoId,
+            ]);
     }
 
     private function chipSelecionadoEstaEmOutroRastreador(?int $chipId = null, ?int $rastreadorId = null): bool
