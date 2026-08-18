@@ -185,6 +185,19 @@ class OrdemServicoFlowTest extends TestCase
         $this->assertSame(OrdemServicoStatus::EM_ATENDIMENTO, $resultado['ordem']->fresh()->status);
     }
 
+    public function test_permite_agendar_os_em_bloco_que_ja_comecou_mas_ainda_nao_terminou(): void
+    {
+        CarbonImmutable::setTestNow('2026-08-03 08:00:00');
+        [$operador, $cliente, $veiculo, $tecnico] = $this->cenarioBase();
+        $disponibilidade = app(OrdemServicoAgendaService::class)->criarDisponibilidade($tecnico->id, '2026-08-04', '09:00', '11:00');
+        $ordem = app(OrdemServicoService::class)->criar($this->dadosOrdem($cliente, $veiculo), $operador)['ordem'];
+
+        CarbonImmutable::setTestNow('2026-08-04 09:30:00');
+        app(OrdemServicoService::class)->agendar($ordem, $disponibilidade, CarbonImmutable::parse('2026-08-04 09:00'), $operador);
+
+        $this->assertSame('2026-08-04 09:00:00', $ordem->fresh()->agendado_em?->format('Y-m-d H:i:s'));
+    }
+
     public function test_editar_dados_depois_do_agendamento_nao_reabre_a_ordem(): void
     {
         CarbonImmutable::setTestNow('2026-08-14 08:00:00');

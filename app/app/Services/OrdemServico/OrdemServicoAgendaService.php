@@ -161,8 +161,13 @@ class OrdemServicoAgendaService
 
     public function validarBloco(OrdemServicoDisponibilidade $disponibilidade, CarbonImmutable $horario, ?int $ignorarOrdemId = null): void
     {
-        if ($horario->isPast() || ! $this->blocos($disponibilidade, $ignorarOrdemId)->contains(fn (CarbonImmutable $bloco) => $bloco->equalTo($horario))) {
+        if (! $this->blocoPodeSerAgendado($horario) || ! $this->blocos($disponibilidade, $ignorarOrdemId)->contains(fn (CarbonImmutable $bloco) => $bloco->equalTo($horario))) {
             throw ValidationException::withMessages(['agendado_em' => 'O bloco escolhido não está disponível.']);
         }
+    }
+
+    public function blocoPodeSerAgendado(CarbonImmutable $horario): bool
+    {
+        return $horario->addMinutes(self::DURACAO_MINUTOS)->isFuture();
     }
 }

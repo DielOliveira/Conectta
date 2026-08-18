@@ -48,7 +48,7 @@ class DisponibilidadeResource extends Resource
     public static function form(Schema $schema): Schema
     {
         return $schema->components([Section::make('Configuração da agenda')->schema([
-            Grid::make(2)->schema([
+            Grid::make(['default' => 1, 'xl' => 2])->schema([
                 ToggleButtons::make('tipo')->label('O que deseja incluir?')->options([
                     OrdemServicoDisponibilidade::TIPO_DISPONIBILIDADE => 'Disponibilidade',
                     OrdemServicoDisponibilidade::TIPO_BLOQUEIO => 'Bloqueio',
@@ -63,12 +63,12 @@ class DisponibilidadeResource extends Resource
                     ->icons(['dia' => Heroicon::OutlinedCalendar, 'semana' => Heroicon::OutlinedCalendarDays])
                     ->grouped()->default('dia')->live()->dehydrated()->visibleOn('create')->required(),
             ]),
-            Grid::make(5)->schema([
+            Grid::make(['default' => 1, 'md' => 2, 'xl' => 6])->schema([
                 Select::make('tecnico_id')->label('Técnico')->relationship(
                     'tecnico',
                     'nome',
                     fn (Builder $query): Builder => $query->where('is_ativo', true),
-                )->searchable()->preload()->required()->columnSpan(2),
+                )->searchable()->preload()->required()->columnSpan(['default' => 1, 'md' => 2, 'xl' => 2]),
                 DatePicker::make('data')->label(fn (Get $get): string => $get('modo') === 'semana' ? 'Semana de referência' : 'Data')
                     ->native(false)->minDate(today())->required()->live()
                     ->prefixAction(Action::make('semanaAnterior')->icon(Heroicon::ChevronLeft)->iconButton()->color('gray')
@@ -84,7 +84,7 @@ class DisponibilidadeResource extends Resource
                         $inicio = CarbonImmutable::parse($get('data'))->startOfWeek(CarbonInterface::MONDAY);
 
                         return 'Será aplicado de '.$inicio->format('d/m').' a '.$inicio->addDays(4)->format('d/m').' (segunda a sexta).';
-                    }),
+                    })->columnSpan(['default' => 1, 'md' => 2, 'xl' => 2]),
                 TextInput::make('hora_inicio')->label('Início')->type('time')->required(),
                 TextInput::make('hora_fim')->label('Fim')->type('time')->required(),
             ])])->columns(1)]);

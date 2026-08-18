@@ -68,6 +68,11 @@ class AgendaOrdensServico extends Page
         return strlen(preg_replace('/\D+/', '', (string) $tecnico->telefone) ?? '') >= 10;
     }
 
+    public function horarioPodeReceberOs(CarbonImmutable $horario): bool
+    {
+        return app(OrdemServicoAgendaService::class)->blocoPodeSerAgendado($horario);
+    }
+
     public function anterior(): void
     {
         $this->data = CarbonImmutable::parse($this->data)->subDays($this->modo === 'semana' ? 7 : 1)->toDateString();
@@ -251,7 +256,7 @@ class AgendaOrdensServico extends Page
 
     private function disponibilidadesLivres(CarbonImmutable $horario): Collection
     {
-        if ($horario->isPast()) {
+        if (! $this->horarioPodeReceberOs($horario)) {
             return collect();
         }
 

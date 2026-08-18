@@ -5,12 +5,15 @@ namespace App\Filament\Resources\Disponibilidades\Pages;
 use App\Filament\Resources\Disponibilidades\DisponibilidadeResource;
 use App\Services\OrdemServico\OrdemServicoAgendaService;
 use Filament\Resources\Pages\CreateRecord;
+use Filament\Support\Enums\Width;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Validation\ValidationException;
 
 class CreateDisponibilidade extends CreateRecord
 {
     protected static string $resource = DisponibilidadeResource::class;
+
+    protected Width|string|null $maxContentWidth = Width::SevenExtraLarge;
 
     protected function handleRecordCreation(array $data): Model
     {
