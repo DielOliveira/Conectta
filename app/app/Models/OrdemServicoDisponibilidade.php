@@ -7,9 +7,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['tecnico_id', 'data', 'hora_inicio', 'hora_fim'])]
+#[Fillable(['tecnico_id', 'tipo', 'data', 'hora_inicio', 'hora_fim'])]
 class OrdemServicoDisponibilidade extends Model
 {
+    public const TIPO_DISPONIBILIDADE = 'disponibilidade';
+
+    public const TIPO_BLOQUEIO = 'bloqueio';
+
     protected $table = 'ordem_servico_disponibilidades';
 
     protected function casts(): array
@@ -25,5 +29,10 @@ class OrdemServicoDisponibilidade extends Model
     public function ordens(): HasMany
     {
         return $this->hasMany(OrdemServico::class, 'disponibilidade_id');
+    }
+
+    public function isBloqueio(): bool
+    {
+        return $this->tipo === self::TIPO_BLOQUEIO;
     }
 }

@@ -8,14 +8,20 @@ use App\Filament\Resources\Disponibilidades\Pages\ListDisponibilidades;
 use App\Models\OrdemServicoDisponibilidade;
 use App\Models\Permission;
 use BackedEnum;
+use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
+use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\ToggleButtons;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
@@ -41,22 +47,55 @@ class DisponibilidadeResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
-        return $schema->components([Section::make('Intervalo disponível')->schema([Grid::make(5)->schema([
-            Select::make('tecnico_id')->label('Técnico')->relationship(
-                'tecnico',
-                'nome',
-                fn (Builder $query): Builder => $query->where('is_ativo', true),
-            )->searchable()->preload()->required()->columnSpan(2),
-            DatePicker::make('data')->label('Data')->native(false)->minDate(today())->required(),
-            TextInput::make('hora_inicio')->label('Início')->type('time')->required(),
-            TextInput::make('hora_fim')->label('Fim')->type('time')->required(),
-        ])])]);
+        return $schema->components([Section::make('Configuração da agenda')->schema([
+            Grid::make(2)->schema([
+                ToggleButtons::make('tipo')->label('O que deseja incluir?')->options([
+                    OrdemServicoDisponibilidade::TIPO_DISPONIBILIDADE => 'Disponibilidade',
+                    OrdemServicoDisponibilidade::TIPO_BLOQUEIO => 'Bloqueio',
+                ])->icons([
+                    OrdemServicoDisponibilidade::TIPO_DISPONIBILIDADE => Heroicon::OutlinedCheckCircle,
+                    OrdemServicoDisponibilidade::TIPO_BLOQUEIO => Heroicon::OutlinedNoSymbol,
+                ])->colors([
+                    OrdemServicoDisponibilidade::TIPO_DISPONIBILIDADE => 'success',
+                    OrdemServicoDisponibilidade::TIPO_BLOQUEIO => 'danger',
+                ])->grouped()->default(OrdemServicoDisponibilidade::TIPO_DISPONIBILIDADE)->required()->disabledOn('edit'),
+                ToggleButtons::make('modo')->label('Preencher')->options(['dia' => 'Um dia', 'semana' => 'Semana (segunda a sexta)'])
+                    ->icons(['dia' => Heroicon::OutlinedCalendar, 'semana' => Heroicon::OutlinedCalendarDays])
+                    ->grouped()->default('dia')->live()->dehydrated()->visibleOn('create')->required(),
+            ]),
+            Grid::make(5)->schema([
+                Select::make('tecnico_id')->label('Técnico')->relationship(
+                    'tecnico',
+                    'nome',
+                    fn (Builder $query): Builder => $query->where('is_ativo', true),
+                )->searchable()->preload()->required()->columnSpan(2),
+                DatePicker::make('data')->label(fn (Get $get): string => $get('modo') === 'semana' ? 'Semana de referência' : 'Data')
+                    ->native(false)->minDate(today())->required()->live()
+                    ->prefixAction(Action::make('semanaAnterior')->icon(Heroicon::ChevronLeft)->iconButton()->color('gray')
+                        ->tooltip('Semana anterior')->visible(fn (Get $get): bool => $get('modo') === 'semana')
+                        ->action(fn (Get $get, Set $set) => $set('data', CarbonImmutable::parse($get('data') ?: today())->subWeek()->toDateString())))
+                    ->suffixAction(Action::make('proximaSemana')->icon(Heroicon::ChevronRight)->iconButton()->color('gray')
+                        ->tooltip('Próxima semana')->visible(fn (Get $get): bool => $get('modo') === 'semana')
+                        ->action(fn (Get $get, Set $set) => $set('data', CarbonImmutable::parse($get('data') ?: today())->addWeek()->toDateString())))
+                    ->helperText(function (Get $get): ?string {
+                        if ($get('modo') !== 'semana' || blank($get('data'))) {
+                            return null;
+                        }
+                        $inicio = CarbonImmutable::parse($get('data'))->startOfWeek(CarbonInterface::MONDAY);
+
+                        return 'Será aplicado de '.$inicio->format('d/m').' a '.$inicio->addDays(4)->format('d/m').' (segunda a sexta).';
+                    }),
+                TextInput::make('hora_inicio')->label('Início')->type('time')->required(),
+                TextInput::make('hora_fim')->label('Fim')->type('time')->required(),
+            ])])->columns(1)]);
     }
 
     public static function table(Table $table): Table
     {
         return $table->columns([
             TextColumn::make('tecnico.nome')->label('Técnico')->searchable()->sortable(),
+            TextColumn::make('tipo')->label('Tipo')->badge()->formatStateUsing(fn (string $state): string => $state === OrdemServicoDisponibilidade::TIPO_BLOQUEIO ? 'Bloqueio' : 'Disponível')
+                ->color(fn (string $state): string => $state === OrdemServicoDisponibilidade::TIPO_BLOQUEIO ? 'danger' : 'success'),
             TextColumn::make('data')->label('Data')->date('d/m/Y')->sortable(),
             TextColumn::make('hora_inicio')->label('Início')->formatStateUsing(fn (?string $state): string => substr((string) $state, 0, 5)),
             TextColumn::make('hora_fim')->label('Fim')->formatStateUsing(fn (?string $state): string => substr((string) $state, 0, 5)),

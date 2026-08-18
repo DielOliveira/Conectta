@@ -15,7 +15,12 @@ class CreateDisponibilidade extends CreateRecord
     protected function handleRecordCreation(array $data): Model
     {
         try {
-            return app(OrdemServicoAgendaService::class)->criarDisponibilidade($data['tecnico_id'], $data['data'], $data['hora_inicio'], $data['hora_fim']);
+            $agenda = app(OrdemServicoAgendaService::class);
+            if (($data['modo'] ?? 'dia') === 'semana') {
+                return $agenda->criarSemana($data['tecnico_id'], $data['data'], $data['hora_inicio'], $data['hora_fim'], $data['tipo'])->firstOrFail();
+            }
+
+            return $agenda->criarIntervalo($data['tecnico_id'], $data['data'], $data['hora_inicio'], $data['hora_fim'], $data['tipo']);
         } catch (ValidationException $exception) {
             throw ValidationException::withMessages(collect($exception->errors())
                 ->mapWithKeys(fn (array $mensagens, string $campo): array => ["data.{$campo}" => $mensagens])

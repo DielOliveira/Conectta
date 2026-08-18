@@ -47,7 +47,7 @@ class EditOrdemServico extends EditRecord
                 ->icon(Heroicon::OutlinedCalendarDays)->color('primary')
                 ->visible($podeEscrever && $this->record->status === OrdemServicoStatus::ABERTA && $this->record->tecnico_id === null)
                 ->schema([
-                    Select::make('disponibilidade_id')->label('Disponibilidade')->options(fn () => OrdemServicoDisponibilidade::query()->with('tecnico')->where('data', '>=', today())->orderBy('data')->get()->mapWithKeys(fn ($d) => [$d->id => $d->tecnico->nome.' — '.$d->data->format('d/m/Y').' '.substr($d->hora_inicio, 0, 5).' às '.substr($d->hora_fim, 0, 5)])->all())
+                    Select::make('disponibilidade_id')->label('Disponibilidade')->options(fn () => OrdemServicoDisponibilidade::query()->with('tecnico')->where('tipo', OrdemServicoDisponibilidade::TIPO_DISPONIBILIDADE)->where('data', '>=', today())->orderBy('data')->get()->filter(fn ($d) => app(OrdemServicoAgendaService::class)->blocos($d, $this->record->id)->isNotEmpty())->mapWithKeys(fn ($d) => [$d->id => $d->tecnico->nome.' — '.$d->data->format('d/m/Y').' '.substr($d->hora_inicio, 0, 5).' às '.substr($d->hora_fim, 0, 5)])->all())
                         ->searchable()
                         ->noOptionsMessage('Nenhuma disponibilidade futura cadastrada. Cadastre um intervalo em Agenda dos técnicos.')
                         ->noSearchResultsMessage('Nenhuma disponibilidade encontrada.')

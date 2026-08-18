@@ -11,6 +11,7 @@ use App\Models\Tecnico;
 use App\Services\OrdemServico\OrdemServicoAgendaService;
 use App\Services\OrdemServico\OrdemServicoService;
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
@@ -90,7 +91,7 @@ class AgendaOrdensServico extends Page
     public function dias(): Collection
     {
         $data = CarbonImmutable::parse($this->data);
-        $inicio = $this->modo === 'semana' ? $data->startOfWeek() : $data;
+        $inicio = $this->modo === 'semana' ? $data->startOfWeek(CarbonInterface::MONDAY) : $data;
 
         return collect(range(0, $this->modo === 'semana' ? 6 : 0))->map(fn (int $i) => $inicio->addDays($i));
     }
@@ -100,15 +101,33 @@ class AgendaOrdensServico extends Page
         $dias = $this->dias();
 
         return OrdemServicoDisponibilidade::query()->with(['tecnico', 'ordens.cliente', 'ordens.veiculo'])
-            ->whereBetween('data', [$dias->first()->toDateString(), $dias->last()->toDateString()])
+            ->whereDate('data', '>=', $dias->first()->toDateString())
+            ->whereDate('data', '<=', $dias->last()->toDateString())
             ->when($this->tecnicoId, fn ($q) => $q->where('tecnico_id', $this->tecnicoId))->orderBy('data')->orderBy('hora_inicio')->get()
             ->flatMap(function (OrdemServicoDisponibilidade $disponibilidade): Collection {
+                if ($disponibilidade->isBloqueio()) {
+                    $inicioBloqueio = CarbonImmutable::parse($disponibilidade->data->format('Y-m-d').' '.$disponibilidade->hora_inicio);
+                    $fimBloqueio = CarbonImmutable::parse($disponibilidade->data->format('Y-m-d').' '.$disponibilidade->hora_fim);
+                    $blocosBloqueados = collect();
+                    while ($inicioBloqueio->addMinutes(OrdemServicoAgendaService::DURACAO_MINUTOS)->lessThanOrEqualTo($fimBloqueio)) {
+                        $blocosBloqueados->push(['horario' => $inicioBloqueio, 'disponibilidade' => $disponibilidade, 'ordem' => null, 'bloqueio' => true]);
+                        $inicioBloqueio = $inicioBloqueio->addMinutes(OrdemServicoAgendaService::DURACAO_MINUTOS);
+                    }
+
+                    return $blocosBloqueados;
+                }
+
                 $ocupados = $disponibilidade->ordens->reject(fn ($os) => in_array($os->status, [OrdemServicoStatus::ABERTA, OrdemServicoStatus::CANCELADA, OrdemServicoStatus::FINALIZADA], true))->keyBy(fn ($os) => $os->agendado_em?->format('Y-m-d H:i:s'));
+                $livres = app(OrdemServicoAgendaService::class)->blocos($disponibilidade)
+                    ->keyBy(fn (CarbonImmutable $horario): string => $horario->format('Y-m-d H:i:s'));
                 $inicio = CarbonImmutable::parse($disponibilidade->data->format('Y-m-d').' '.$disponibilidade->hora_inicio);
                 $fim = CarbonImmutable::parse($disponibilidade->data->format('Y-m-d').' '.$disponibilidade->hora_fim);
                 $blocos = collect();
                 while ($inicio->addMinutes(OrdemServicoAgendaService::DURACAO_MINUTOS)->lessThanOrEqualTo($fim)) {
-                    $blocos->push(['horario' => $inicio, 'disponibilidade' => $disponibilidade, 'ordem' => $ocupados->get($inicio->format('Y-m-d H:i:s'))]);
+                    $chave = $inicio->format('Y-m-d H:i:s');
+                    if ($ocupados->has($chave) || $livres->has($chave)) {
+                        $blocos->push(['horario' => $inicio, 'disponibilidade' => $disponibilidade, 'ordem' => $ocupados->get($chave), 'bloqueio' => false]);
+                    }
                     $inicio = $inicio->addMinutes(OrdemServicoAgendaService::DURACAO_MINUTOS);
                 }
 
@@ -238,6 +257,7 @@ class AgendaOrdensServico extends Page
 
         return OrdemServicoDisponibilidade::query()
             ->with('tecnico')
+            ->where('tipo', OrdemServicoDisponibilidade::TIPO_DISPONIBILIDADE)
             ->whereDate('data', $horario->toDateString())
             ->where('hora_inicio', '<=', $horario->format('H:i:s'))
             ->where('hora_fim', '>=', $horario->addMinutes(OrdemServicoAgendaService::DURACAO_MINUTOS)->format('H:i:s'))

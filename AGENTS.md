@@ -500,13 +500,16 @@ Principio operacional: conter, diagnosticar, preservar evidencias, corrigir de f
   - manutencao trocando rastreador e chip: os equipamentos novos ficam `Ativo`, sem tecnico, vinculados ao veiculo e com o rastreador fora do estoque; os equipamentos retirados ficam `Disponivel`, vinculados ao tecnico da OS, e o rastreador retirado recebe `is_estoque = true`;
   - retirada: rastreador e chip saem do veiculo, ficam `Disponivel` e vinculados ao tecnico da OS; o rastreador recebe `is_estoque = true`;
   - chips nao possuem campo `is_estoque`; sua disponibilidade e posse sao controladas por `status_rastreador_id` e `tecnico_id`.
+- Na manutencao com `troca_rastreador` e sem troca de chip, o chip atual deve ser desvinculado do rastreador retirado e reaproveitado no rastreador novo. O veiculo nao pode ficar sem chip nesse resultado.
+- Campos controlados pelo workflow (`status`, tecnico, disponibilidade e horario agendado) nao podem ser sobrescritos pelo salvamento comum do formulario da OS. Depois de atribuir/agendar, o registro da pagina deve ser atualizado antes de recarregar o formulario.
 - O historico da OS preserva eventos, fotos e todas as mensagens geradas para tecnico e cliente.
 - Mensagens de OS ficam fixas e centralizadas em `App\Services\OrdemServico\OrdemServicoNotificacaoService`; usam saudacao, dados do atendimento e formatacao adequada ao WhatsApp.
 - `Enviada` no historico de mensagens significa que a Z-API aceitou a chamada sem erro; nao confirma entrega nem leitura. Webhooks de entregue/lida nao fazem parte da primeira versao.
 - O scheduler executa `ordens-servico:enviar-notificacoes` a cada minuto e o lembrete da OS a cada cinco minutos.
 - O tratamento atual de mensagens com erro deve permanecer como esta ate nova decisao explicita; nao implementar retentativa automaticamente.
-- Em producao, novas fotos sao gravadas diretamente em `gdrive:Conectta/ordens-servico` via rclone, usando configuracao privada `/etc/conectta/rclone.conf` com permissao `root:www-data 640`.
-- O banco guarda o caminho remoto e a visualizacao continua pela rota protegida da OS; o Drive nao e exposto diretamente.
+- Na implementacao validada em 2026-08-14, o upload inicial das fotos usa o disco privado `local`, em `storage/app/private/ordens-servico`; o comando diario `ordens-servico:arquivar-fotos` move para `gdrive:Conectta/ordens-servico` as fotos elegiveis de OS finalizadas ha pelo menos um mes.
+- O rclone de producao usa a configuracao privada `/etc/conectta/rclone.conf`; acesso ao remote e escrita/limpeza local como `www-data` foram validados em 2026-08-14.
+- O banco guarda o caminho local ou remoto conforme a fase do arquivo, e a visualizacao continua pela rota protegida da OS; o Drive nao e exposto diretamente.
 - A unica foto criada antes dessa correcao continua local em `storage/app/private/ordens-servico/1/` e com caminho local no banco. Sua migracao para o Drive exige autorizacao explicita do usuario por envolver arquivo real de producao.
 - Em desenvolvimento, o driver de fotos permanece `local` por padrao. Em producao, o `.env` usa `ORDENS_SERVICO_FOTOS_DRIVER=rclone`.
 - Ultimos commits do modulo: `df3f3ea` (primeira versao), `cf26028` (validacao visivel ao criar), `da301a7` (mensagens aprimoradas) e `d19afa2` (fotos no Google Drive).
@@ -515,6 +518,21 @@ Principio operacional: conter, diagnosticar, preservar evidencias, corrigir de f
 - Materiais de apresentacao gerados localmente:
   - `/home/diel_/Conectta/tmp/banner-fluxo-ordem-servico-conectta.png`;
   - `/home/diel_/Conectta/tmp/banner-vantagens-ordem-servico-conectta.png`.
+
+### Primeiras OS reais - 2026-08-15
+
+- As OS 7 e 8 sao manutencoes atribuidas ao tecnico Hiago para 2026-08-15, respectivamente as 09:00 e 10:00.
+- Em 2026-08-14, ambas foram validadas em producao: tecnico e clientes com telefone valido, veiculos ativos com rastreador/chip, tokens validos, links publicos HTTP 200 e mensagens de atribuicao enviadas sem erro.
+- Estoque elegivel do Hiago na validacao: 10 rastreadores disponiveis, todos com chip disponivel, e 3 chips livres disponiveis.
+- `notificar_cliente` esta desativado nas duas OS; portanto, clientes nao recebem automaticamente as mensagens de aceite/finalizacao.
+- Os horarios sao consecutivos. A OS 7 precisa sair de `em_atendimento` e ser enviada para conferencia antes que o tecnico consiga iniciar a OS 8; o sistema impede duas OS simultaneamente em atendimento para o mesmo tecnico.
+- A OS 7 teve o status sobrescrito indevidamente de `enviada` para `aberta` ao editar dados depois do agendamento. Em producao, o status foi restaurado para `enviada` e registrado no historico como `correcao_status_pre_operacao`; tecnico, agenda e token foram preservados.
+- A causa foi corrigida localmente em `EditOrdemServico`: o formulario comum deixa de gravar campos do workflow e o registro e atualizado depois da atribuicao. Existe teste para `agendar -> editar -> aceitar` sem reabrir a OS.
+- Tambem foi corrigido localmente o resultado `troca_rastreador` sem troca de chip, para reaproveitar o chip atual no rastreador novo. Existe teste especifico desse fluxo.
+- Foi feita simulacao transacional real em producao nas OS 7 e 8, cobrindo aceite, inicio, dados de manutencao, foto simulada, solicitacao de conferencia e finalizacao como `reparo_sem_troca`. Ambas finalizaram na simulacao e o rollback foi confirmado; nenhum dado/foto simulado permaneceu.
+- Testes focados apos as correcoes: 28 testes aprovados, 218 assercoes.
+- As correcoes encontradas nessa validacao foram commitadas e publicadas em producao no commit `5710fc5 correções para primeiros atendimentos da os`; a VPS foi conferida nesse commit, com worktree limpa e alinhada a `origin/main`.
+- Backup anterior a correcao da OS 7: `conectta-conectta-20260814-173902.sql.gz`, SHA256 `deca34a59b9541bc046022995e5b0628301b4e2bed9d636f9a9dbbfd65e4f5ca`, salvo na VPS e no Google Drive.
 
 ## Identidade Visual
 
@@ -529,7 +547,8 @@ Principio operacional: conter, diagnosticar, preservar evidencias, corrigir de f
 
 ## Estado Atual Importante
 
-- Ultimo commit funcional conhecido em `main`/GitHub/producao: `d19afa2 Armazena fotos das ordens de servico no Drive`.
+- Ultimo commit funcional conhecido em `main`/GitHub/producao: `5710fc5 correções para primeiros atendimentos da os`.
+- Em 2026-08-14, producao foi conferida no commit `5710fc5`, com worktree limpa e alinhada a `origin/main`; esse commit contem as protecoes contra reabertura acidental apos agendamento e o reaproveitamento do chip atual na troca somente de rastreador.
 - Em 2026-08-04, producao estava na versao `1.1.3`, commit `d19afa2`, com o modulo de OS ativo e sem migrations pendentes.
 - Em 2026-07-08, producao estava no commit `58cc7e1`; deploy validado com `/admin/login` HTTP 200 e `php artisan migrate:status --pending` sem pendencias.
 - Em 2026-07-08, a migracao de chips para rastreadores foi aplicada em producao. Validacao: `rastreadores.chip_id` existe, 4.259 rastreadores ficaram com chip migrado, e nao restaram chips compartilhados entre rastreadores ativos.

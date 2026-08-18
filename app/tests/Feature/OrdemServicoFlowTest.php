@@ -3,12 +3,15 @@
 namespace Tests\Feature;
 
 use App\Enums\OrdemServicoStatus;
+use App\Filament\Pages\AgendaOrdensServico;
 use App\Filament\Resources\Disponibilidades\DisponibilidadeResource;
+use App\Filament\Resources\Disponibilidades\Pages\CreateDisponibilidade;
 use App\Filament\Resources\OrdensServico\Pages\CreateOrdemServico;
 use App\Filament\Resources\OrdensServico\Pages\EditOrdemServico;
 use App\Models\Chip;
 use App\Models\Cliente;
 use App\Models\OrdemServico;
+use App\Models\OrdemServicoDisponibilidade;
 use App\Models\Rastreador;
 use App\Models\StatusRastreador;
 use App\Models\Tecnico;
@@ -33,6 +36,80 @@ class OrdemServicoFlowTest extends TestCase
         $this->actingAs(User::factory()->create(['is_admin' => true]))
             ->get(DisponibilidadeResource::getUrl('create'))
             ->assertOk();
+    }
+
+    public function test_central_cria_a_mesma_disponibilidade_de_segunda_a_sexta(): void
+    {
+        CarbonImmutable::setTestNow('2026-08-03 08:00:00');
+        [$operador, , , $tecnico] = $this->cenarioBase();
+        $this->actingAs($operador);
+
+        Livewire::test(CreateDisponibilidade::class)
+            ->fillForm([
+                'tecnico_id' => $tecnico->id,
+                'tipo' => OrdemServicoDisponibilidade::TIPO_DISPONIBILIDADE,
+                'modo' => 'semana',
+                'data' => '2026-08-17',
+                'hora_inicio' => '08:00',
+                'hora_fim' => '10:00',
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $this->assertSame(
+            ['2026-08-17', '2026-08-18', '2026-08-19', '2026-08-20', '2026-08-21'],
+            $tecnico->disponibilidadesOrdemServico()->orderBy('data')->get()->map(fn ($item) => $item->data->toDateString())->all(),
+        );
+    }
+
+    public function test_bloqueio_prevalece_criado_antes_ou_depois_da_disponibilidade(): void
+    {
+        CarbonImmutable::setTestNow('2026-08-03 08:00:00');
+        [, , , $tecnico] = $this->cenarioBase();
+        $agenda = app(OrdemServicoAgendaService::class);
+
+        $disponibilidadeAntes = $agenda->criarDisponibilidade($tecnico->id, '2026-08-18', '08:00', '10:00');
+        $agenda->criarIntervalo($tecnico->id, '2026-08-18', '09:00', '10:00', OrdemServicoDisponibilidade::TIPO_BLOQUEIO);
+        $this->assertSame(['08:00'], $agenda->blocos($disponibilidadeAntes)->map->format('H:i')->all());
+
+        $agenda->criarIntervalo($tecnico->id, '2026-08-19', '08:00', '09:00', OrdemServicoDisponibilidade::TIPO_BLOQUEIO);
+        $disponibilidadeDepois = $agenda->criarDisponibilidade($tecnico->id, '2026-08-19', '08:00', '10:00');
+        $this->assertSame(['09:00'], $agenda->blocos($disponibilidadeDepois)->map->format('H:i')->all());
+    }
+
+    public function test_nao_permite_bloquear_horario_com_os_ativa(): void
+    {
+        CarbonImmutable::setTestNow('2026-08-03 08:00:00');
+        [$operador, $cliente, $veiculo, $tecnico] = $this->cenarioBase();
+        $agenda = app(OrdemServicoAgendaService::class);
+        $disponibilidade = $agenda->criarDisponibilidade($tecnico->id, '2026-08-18', '08:00', '10:00');
+        $ordem = app(OrdemServicoService::class)->criar($this->dadosOrdem($cliente, $veiculo), $operador)['ordem'];
+        app(OrdemServicoService::class)->agendar($ordem, $disponibilidade, CarbonImmutable::parse('2026-08-18 09:00'), $operador);
+
+        $this->expectException(ValidationException::class);
+        $agenda->criarIntervalo($tecnico->id, '2026-08-18', '09:00', '10:00', OrdemServicoDisponibilidade::TIPO_BLOQUEIO);
+    }
+
+    public function test_calendario_da_central_exibe_o_horario_bloqueado(): void
+    {
+        CarbonImmutable::setTestNow('2026-08-03 08:00:00');
+        [$operador, , , $tecnico] = $this->cenarioBase();
+        $bloqueio = app(OrdemServicoAgendaService::class)->criarIntervalo(
+            $tecnico->id,
+            '2026-08-18',
+            '09:00',
+            '10:00',
+            OrdemServicoDisponibilidade::TIPO_BLOQUEIO,
+        );
+        $this->actingAs($operador);
+        $pagina = app(AgendaOrdensServico::class);
+        $pagina->data = '2026-08-18';
+
+        $this->assertTrue($bloqueio->isBloqueio());
+        $this->assertSame(['2026-08-18'], $pagina->dias()->map->toDateString()->all());
+        $item = $pagina->agenda()->firstOrFail();
+        $this->assertTrue($item['bloqueio']);
+        $this->assertSame('Técnico OS', $item['disponibilidade']->tecnico->nome);
     }
 
     public function test_extrai_coordenadas_de_link_encurtado_do_google_maps(): void
@@ -331,6 +408,32 @@ class OrdemServicoFlowTest extends TestCase
             ->assertRedirect(route('tecnicos.agenda', $token));
         $this->assertModelMissing($disponibilidade);
         $this->get(route('tecnicos.agenda', str_repeat('x', 64)))->assertNotFound();
+    }
+
+    public function test_tecnico_cria_semana_e_navega_entre_semanas_no_mobile(): void
+    {
+        CarbonImmutable::setTestNow('2026-08-03 08:00:00');
+        [, , , $tecnico] = $this->cenarioBase();
+        $token = app(TecnicoAgendaPublicaService::class)->gerarToken($tecnico);
+
+        $this->post(route('tecnicos.agenda.store', $token), [
+            'modo' => 'semana',
+            'tipo' => OrdemServicoDisponibilidade::TIPO_DISPONIBILIDADE,
+            'data' => '2026-08-24',
+            'hora_inicio' => '08:00',
+            'hora_fim' => '10:00',
+        ])->assertRedirect(route('tecnicos.agenda', [
+            'token' => $token,
+            'modo_agenda' => 'semana',
+            'semana' => '2026-08-24',
+        ]));
+
+        $this->assertCount(5, $tecnico->disponibilidadesOrdemServico);
+        $this->get(route('tecnicos.agenda', ['token' => $token, 'modo_agenda' => 'semana', 'semana' => '2026-08-24']))
+            ->assertOk()
+            ->assertSee('24 ago — 28 ago')
+            ->assertSee('Semana anterior')
+            ->assertSee('Próxima semana');
     }
 
     public function test_tecnico_nao_exclui_periodo_que_possui_os_vinculada(): void
