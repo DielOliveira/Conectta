@@ -198,6 +198,25 @@ class OrdemServicoFlowTest extends TestCase
         $this->assertSame('2026-08-04 09:00:00', $ordem->fresh()->agendado_em?->format('Y-m-d H:i:s'));
     }
 
+    public function test_calendario_mostra_os_atendida_com_cor_propria_e_mantem_o_bloco_ocupado(): void
+    {
+        CarbonImmutable::setTestNow('2026-08-03 08:00:00');
+        [$operador, $cliente, $veiculo, $tecnico] = $this->cenarioBase();
+        $agenda = app(OrdemServicoAgendaService::class);
+        $disponibilidade = $agenda->criarDisponibilidade($tecnico->id, '2026-08-04', '09:00', '11:00');
+        $ordem = app(OrdemServicoService::class)->criar($this->dadosOrdem($cliente, $veiculo), $operador)['ordem'];
+        app(OrdemServicoService::class)->agendar($ordem, $disponibilidade, CarbonImmutable::parse('2026-08-04 09:00'), $operador);
+        $ordem->update(['status' => OrdemServicoStatus::FINALIZADA]);
+
+        $pagina = app(AgendaOrdensServico::class);
+        $pagina->data = '2026-08-04';
+        $item = $pagina->agenda()->first(fn (array $item): bool => $item['ordem']?->is($ordem) ?? false);
+
+        $this->assertNotNull($item);
+        $this->assertTrue($item['atendida']);
+        $this->assertFalse($agenda->blocos($disponibilidade)->contains(fn (CarbonImmutable $bloco): bool => $bloco->format('H:i') === '09:00'));
+    }
+
     public function test_editar_dados_depois_do_agendamento_nao_reabre_a_ordem(): void
     {
         CarbonImmutable::setTestNow('2026-08-14 08:00:00');

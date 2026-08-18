@@ -115,14 +115,14 @@ class AgendaOrdensServico extends Page
                     $fimBloqueio = CarbonImmutable::parse($disponibilidade->data->format('Y-m-d').' '.$disponibilidade->hora_fim);
                     $blocosBloqueados = collect();
                     while ($inicioBloqueio->addMinutes(OrdemServicoAgendaService::DURACAO_MINUTOS)->lessThanOrEqualTo($fimBloqueio)) {
-                        $blocosBloqueados->push(['horario' => $inicioBloqueio, 'disponibilidade' => $disponibilidade, 'ordem' => null, 'bloqueio' => true]);
+                        $blocosBloqueados->push(['horario' => $inicioBloqueio, 'disponibilidade' => $disponibilidade, 'ordem' => null, 'bloqueio' => true, 'atendida' => false]);
                         $inicioBloqueio = $inicioBloqueio->addMinutes(OrdemServicoAgendaService::DURACAO_MINUTOS);
                     }
 
                     return $blocosBloqueados;
                 }
 
-                $ocupados = $disponibilidade->ordens->reject(fn ($os) => in_array($os->status, [OrdemServicoStatus::ABERTA, OrdemServicoStatus::CANCELADA, OrdemServicoStatus::FINALIZADA], true))->keyBy(fn ($os) => $os->agendado_em?->format('Y-m-d H:i:s'));
+                $ocupados = $disponibilidade->ordens->reject(fn ($os) => in_array($os->status, [OrdemServicoStatus::ABERTA, OrdemServicoStatus::CANCELADA], true))->keyBy(fn ($os) => $os->agendado_em?->format('Y-m-d H:i:s'));
                 $livres = app(OrdemServicoAgendaService::class)->blocos($disponibilidade)
                     ->keyBy(fn (CarbonImmutable $horario): string => $horario->format('Y-m-d H:i:s'));
                 $inicio = CarbonImmutable::parse($disponibilidade->data->format('Y-m-d').' '.$disponibilidade->hora_inicio);
@@ -131,7 +131,14 @@ class AgendaOrdensServico extends Page
                 while ($inicio->addMinutes(OrdemServicoAgendaService::DURACAO_MINUTOS)->lessThanOrEqualTo($fim)) {
                     $chave = $inicio->format('Y-m-d H:i:s');
                     if ($ocupados->has($chave) || $livres->has($chave)) {
-                        $blocos->push(['horario' => $inicio, 'disponibilidade' => $disponibilidade, 'ordem' => $ocupados->get($chave), 'bloqueio' => false]);
+                        $ordem = $ocupados->get($chave);
+                        $blocos->push([
+                            'horario' => $inicio,
+                            'disponibilidade' => $disponibilidade,
+                            'ordem' => $ordem,
+                            'bloqueio' => false,
+                            'atendida' => $ordem?->status === OrdemServicoStatus::FINALIZADA,
+                        ]);
                     }
                     $inicio = $inicio->addMinutes(OrdemServicoAgendaService::DURACAO_MINUTOS);
                 }

@@ -112,7 +112,7 @@ class OrdemServicoAgendaService
             $possuiOs = OrdemServico::query()
                 ->where('tecnico_id', $tecnicoId)
                 ->whereDate('agendado_em', $data)
-                ->whereNotIn('status', ['aberta', 'cancelada', 'finalizada'])
+                ->whereNotIn('status', ['aberta', 'cancelada'])
                 ->get(['agendado_em'])
                 ->contains(function (OrdemServico $ordem) use ($inicio, $fim): bool {
                     $agendado = CarbonImmutable::parse($ordem->agendado_em);
@@ -138,7 +138,7 @@ class OrdemServicoAgendaService
         $fim = CarbonImmutable::parse($disponibilidade->data->format('Y-m-d').' '.$disponibilidade->hora_fim);
         $ocupados = OrdemServico::query()->where('disponibilidade_id', $disponibilidade->id)
             ->whereNotNull('agendado_em')->when($ignorarOrdemId, fn ($q) => $q->whereKeyNot($ignorarOrdemId))
-            ->whereNotIn('status', ['aberta', 'cancelada', 'finalizada'])->pluck('agendado_em')
+            ->whereNotIn('status', ['aberta', 'cancelada'])->pluck('agendado_em')
             ->map(fn ($data) => CarbonImmutable::parse($data)->format('Y-m-d H:i:s'))->all();
         $bloqueios = OrdemServicoDisponibilidade::query()
             ->where('tecnico_id', $disponibilidade->tecnico_id)
