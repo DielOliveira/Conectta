@@ -7,6 +7,7 @@ use App\Models\Pais;
 use App\Models\Rastreador;
 use App\Models\StatusRastreador;
 use App\Models\Veiculo;
+use App\Services\OrdemServico\OrdemServicoEquipamentoReserva;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -210,11 +211,14 @@ class RastreadorForm
         return Rastreador::query()
             ->with('tecnico')
             ->where(function (Builder $query) use ($disponivelId, $record): void {
-                if ($disponivelId !== null) {
-                    $query->where('status_rastreador_id', $disponivelId);
-                } else {
-                    $query->whereRaw('1 = 0');
-                }
+                $query->where(function (Builder $disponiveis) use ($disponivelId): void {
+                    if ($disponivelId !== null) {
+                        $disponiveis->where('status_rastreador_id', $disponivelId);
+                        OrdemServicoEquipamentoReserva::excluirRastreadoresReservados($disponiveis);
+                    } else {
+                        $disponiveis->whereRaw('1 = 0');
+                    }
+                });
 
                 if ($record?->rastreador_id !== null) {
                     $query->orWhere('id', $record->rastreador_id);
@@ -259,6 +263,7 @@ class RastreadorForm
 
         return Chip::query()
             ->with('rastreador:id,imei,chip_id')
+            ->tap(fn (Builder $query) => OrdemServicoEquipamentoReserva::excluirChipsReservados($query))
             ->where(function (Builder $query) use ($search): void {
                 $query->where('numero_chip', 'like', '%'.$search.'%')
                     ->orWhere('iccid', 'like', '%'.$search.'%')

@@ -11,6 +11,7 @@ use App\Models\StatusRastreador;
 use App\Models\Tecnico;
 use App\Models\Veiculo;
 use App\Services\Audit\AuditLogger;
+use App\Services\OrdemServico\OrdemServicoEquipamentoReserva;
 use App\Support\ChipNumber;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
@@ -132,6 +133,7 @@ class EstoqueRastreadores extends Page
                         ->native(false)
                         ->live()
                         ->options(fn (): array => Chip::query()
+                            ->tap(fn (Builder $query) => OrdemServicoEquipamentoReserva::excluirChipsReservados($query))
                             ->orderBy('numero_chip')
                             ->get()
                             ->mapWithKeys(fn (Chip $chip): array => [
@@ -335,6 +337,10 @@ class EstoqueRastreadores extends Page
             return null;
         }
 
+        if ($mensagem = OrdemServicoEquipamentoReserva::mensagemChip($chipId)) {
+            return $mensagem;
+        }
+
         $status = $chip->statusRastreador?->label ?? 'Sem status';
         $rastreador = $chip->rastreador;
 
@@ -361,6 +367,12 @@ class EstoqueRastreadores extends Page
             ->action(function (array $arguments): void {
                 if (! auth()->user()?->hasPermission(Permission::ESTOQUE_ESCRITA)) {
                     Notification::make()->title('Voce nao tem permissao para esta acao.')->danger()->send();
+
+                    return;
+                }
+
+                if ($mensagem = OrdemServicoEquipamentoReserva::mensagemRastreador((int) $arguments['id'])) {
+                    Notification::make()->title($mensagem)->danger()->send();
 
                     return;
                 }
@@ -580,7 +592,7 @@ class EstoqueRastreadores extends Page
             return;
         }
 
-        Rastreador::query()->whereKey($id)->delete();
+        Rastreador::query()->findOrFail($id)->delete();
 
         if ($this->editingId === $id) {
             $this->limparFormulario();

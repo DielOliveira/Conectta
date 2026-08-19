@@ -8,6 +8,7 @@ use App\Models\Rastreador;
 use App\Models\StatusRastreador;
 use App\Models\Veiculo;
 use App\Services\Audit\AuditLogger;
+use App\Services\OrdemServico\OrdemServicoEquipamentoReserva;
 use Filament\Actions\Action;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Validation\ValidationException;
@@ -15,6 +16,8 @@ use Illuminate\Validation\ValidationException;
 class CreateRastreador extends CreateRecord
 {
     protected static string $resource = RastreadorResource::class;
+
+    protected ?bool $hasDatabaseTransactions = true;
 
     protected ?int $chipIdSelecionado = null;
 
@@ -73,6 +76,20 @@ class CreateRastreador extends CreateRecord
         }
 
         $rastreadorId = filled($data['rastreador_id'] ?? null) ? (int) $data['rastreador_id'] : null;
+
+        if ($rastreadorId !== null) {
+            Rastreador::query()->whereKey($rastreadorId)->lockForUpdate()->firstOrFail();
+        }
+        if ($this->chipIdSelecionado !== null) {
+            Chip::query()->whereKey($this->chipIdSelecionado)->lockForUpdate()->firstOrFail();
+        }
+
+        if ($rastreadorId !== null && $mensagem = OrdemServicoEquipamentoReserva::mensagemRastreador($rastreadorId)) {
+            throw ValidationException::withMessages(['data.rastreador_id' => $mensagem]);
+        }
+        if ($this->chipIdSelecionado !== null && $mensagem = OrdemServicoEquipamentoReserva::mensagemChip($this->chipIdSelecionado)) {
+            throw ValidationException::withMessages(['data.chip_id_form' => $mensagem]);
+        }
 
         if ($this->rastreadorSelecionadoEstaEmOutroVeiculoAtivo($rastreadorId)) {
             $this->rastreadorIndisponivelDescricao = $this->descricaoRastreadorIndisponivel($rastreadorId);

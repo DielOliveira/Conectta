@@ -334,7 +334,7 @@ class EstoqueChips extends Page
             return;
         }
 
-        Chip::query()->whereKey($id)->delete();
+        Chip::query()->findOrFail($id)->delete();
 
         if ($this->editingId === $id) {
             $this->limparFormulario();

@@ -5,12 +5,16 @@ namespace App\Http\Controllers;
 use App\Enums\OrdemServicoStatus;
 use App\Enums\OrdemServicoTipo;
 use App\Models\Chip;
+use App\Models\OrdemServico;
 use App\Models\OrdemServicoFoto;
 use App\Models\Rastreador;
+use App\Services\OrdemServico\OrdemServicoEquipamentoReserva;
 use App\Services\OrdemServico\OrdemServicoFotoStorage;
 use App\Services\OrdemServico\OrdemServicoService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class OrdemServicoTecnicoController extends Controller
 {
@@ -28,12 +32,14 @@ class OrdemServicoTecnicoController extends Controller
                 ->where(fn ($query) => $query
                     ->whereNull('chip_id')
                     ->orWhereHas('chip.statusRastreador', fn ($chipQuery) => $chipQuery->where('label', 'Disponivel')))
+                ->tap(fn ($query) => OrdemServicoEquipamentoReserva::excluirRastreadoresReservados($query, $ordem->id))
                 ->orderBy('imei')
                 ->get();
             $chips = Chip::query()
                 ->where('tecnico_id', $ordem->tecnico_id)
                 ->whereHas('statusRastreador', fn ($query) => $query->where('label', 'Disponivel'))
                 ->whereDoesntHave('rastreador')
+                ->tap(fn ($query) => OrdemServicoEquipamentoReserva::excluirChipsReservados($query, $ordem->id))
                 ->orderBy('numero_chip')
                 ->get();
         }
@@ -80,42 +86,57 @@ class OrdemServicoTecnicoController extends Controller
             if ($ordem->fotos()->count() + count($request->file('fotos', [])) > 4) {
                 return back()->withErrors(['fotos' => 'A OS aceita no máximo quatro fotos.']);
             }
-            $rastreadorId = $request->integer('rastreador_novo_id') ?: null;
-            $chipId = $request->integer('chip_novo_id') ?: null;
-            $rastreador = $rastreadorId ? Rastreador::query()
-                ->whereKey($rastreadorId)
-                ->where('tecnico_id', $ordem->tecnico_id)
-                ->where('is_estoque', true)
-                ->whereHas('statusRastreador', fn ($query) => $query->where('label', 'Disponivel'))
-                ->first() : null;
-            if ($rastreadorId && ! $rastreador) {
-                abort(422, 'Rastreador fora do estoque do técnico.');
-            }
-            if ($ordem->tipo === OrdemServicoTipo::INSTALACAO && ! $rastreador) {
-                return back()->withErrors(['rastreador_novo_id' => 'Selecione o rastreador que será instalado.'])->withInput();
-            }
-            if ($rastreador?->chip_id) {
-                $chipId = $rastreador->chip_id;
-            }
-            $chipValido = ! $chipId
-                || ($rastreador?->chip_id === $chipId)
-                || Chip::query()
-                    ->whereKey($chipId)
-                    ->where('tecnico_id', $ordem->tecnico_id)
-                    ->whereHas('statusRastreador', fn ($query) => $query->where('label', 'Disponivel'))
-                    ->whereDoesntHave('rastreador')
-                    ->exists();
-            if (! $chipValido) {
-                abort(422, 'Chip fora do estoque do técnico.');
-            }
-            if ($ordem->tipo === OrdemServicoTipo::INSTALACAO && ! $chipId) {
-                return back()->withErrors(['chip_novo_id' => 'Selecione um chip livre para o rastreador.'])->withInput();
-            }
-            $ordem->update(['rastreador_novo_id' => $rastreadorId, 'chip_novo_id' => $chipId,
-                'resultado_manutencao' => $request->input('resultado_manutencao'), 'descricao_atendimento' => $request->input('descricao_atendimento'),
-                'equipamentos_confirmados' => $request->boolean('equipamentos_confirmados')]);
             $this->armazenarFotos($ordem, $request->file('fotos', []), $fotoStorage);
-            $service->solicitarConferencia($ordem->fresh());
+            DB::transaction(function () use ($ordem, $request, $service): void {
+                $ordem = OrdemServico::query()->lockForUpdate()->findOrFail($ordem->id);
+                abort_unless(in_array($ordem->status, [OrdemServicoStatus::EM_ATENDIMENTO, OrdemServicoStatus::PENDENTE], true), 409);
+
+                $rastreadorId = $request->integer('rastreador_novo_id') ?: null;
+                $chipId = $request->integer('chip_novo_id') ?: null;
+                $rastreador = $rastreadorId ? Rastreador::query()
+                    ->whereKey($rastreadorId)
+                    ->where('tecnico_id', $ordem->tecnico_id)
+                    ->where('is_estoque', true)
+                    ->whereHas('statusRastreador', fn ($query) => $query->where('label', 'Disponivel'))
+                    ->lockForUpdate()
+                    ->first() : null;
+                if ($rastreadorId && ! $rastreador) {
+                    abort(422, 'Rastreador fora do estoque do técnico.');
+                }
+                if ($rastreadorId && $mensagem = OrdemServicoEquipamentoReserva::mensagemRastreador($rastreadorId, $ordem->id)) {
+                    throw ValidationException::withMessages(['rastreador_novo_id' => $mensagem]);
+                }
+                if ($ordem->tipo === OrdemServicoTipo::INSTALACAO && ! $rastreador) {
+                    throw ValidationException::withMessages(['rastreador_novo_id' => 'Selecione o rastreador que será instalado.']);
+                }
+                if ($rastreador?->chip_id) {
+                    $chipId = $rastreador->chip_id;
+                }
+                $chip = $chipId ? Chip::query()->lockForUpdate()->find($chipId) : null;
+                $chipValido = ! $chipId
+                    || ($rastreador?->chip_id === $chipId)
+                    || ($chip
+                        && (int) $chip->tecnico_id === (int) $ordem->tecnico_id
+                        && $chip->statusRastreador?->label === 'Disponivel'
+                        && $chip->rastreador()->doesntExist());
+                if (! $chipValido) {
+                    abort(422, 'Chip fora do estoque do técnico.');
+                }
+                if ($chipId && $mensagem = OrdemServicoEquipamentoReserva::mensagemChip($chipId, $ordem->id)) {
+                    throw ValidationException::withMessages(['chip_novo_id' => $mensagem]);
+                }
+                if ($ordem->tipo === OrdemServicoTipo::INSTALACAO && ! $chipId) {
+                    throw ValidationException::withMessages(['chip_novo_id' => 'Selecione um chip livre para o rastreador.']);
+                }
+                $ordem->update([
+                    'rastreador_novo_id' => $rastreadorId,
+                    'chip_novo_id' => $chipId,
+                    'resultado_manutencao' => $request->input('resultado_manutencao'),
+                    'descricao_atendimento' => $request->input('descricao_atendimento'),
+                    'equipamentos_confirmados' => $request->boolean('equipamentos_confirmados'),
+                ]);
+                $service->solicitarConferencia($ordem->fresh());
+            });
         } elseif ($acao === 'remover_foto') {
             abort_unless(in_array($ordem->status, [OrdemServicoStatus::EM_ATENDIMENTO, OrdemServicoStatus::PENDENTE], true), 409);
             $foto = $ordem->fotos()->findOrFail($request->integer('foto_id'));

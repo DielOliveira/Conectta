@@ -9,6 +9,7 @@ use App\Models\Rastreador;
 use App\Models\StatusRastreador;
 use App\Models\Veiculo;
 use App\Services\Audit\AuditLogger;
+use App\Services\OrdemServico\OrdemServicoEquipamentoReserva;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Notifications\Notification;
@@ -19,6 +20,8 @@ use Illuminate\Validation\ValidationException;
 class EditRastreador extends EditRecord
 {
     protected static string $resource = RastreadorResource::class;
+
+    protected ?bool $hasDatabaseTransactions = true;
 
     protected array $rastreadorAntes = [];
 
@@ -89,6 +92,23 @@ class EditRastreador extends EditRecord
         }
 
         $rastreadorId = filled($data['rastreador_id'] ?? null) ? (int) $data['rastreador_id'] : null;
+
+        if ($rastreadorId !== null) {
+            Rastreador::query()->whereKey($rastreadorId)->lockForUpdate()->firstOrFail();
+        }
+        if ($this->chipIdSelecionado !== null) {
+            Chip::query()->whereKey($this->chipIdSelecionado)->lockForUpdate()->firstOrFail();
+        }
+
+        $rastreadorAlterado = $rastreadorId !== (int) $this->record->rastreador_id;
+        $chipAtualId = $this->record->rastreador?->chip_id;
+        $chipAlterado = $this->chipIdSelecionado !== ($chipAtualId === null ? null : (int) $chipAtualId);
+        if ($rastreadorAlterado && $rastreadorId !== null && $mensagem = OrdemServicoEquipamentoReserva::mensagemRastreador($rastreadorId)) {
+            throw ValidationException::withMessages(['data.rastreador_id' => $mensagem]);
+        }
+        if ($chipAlterado && $this->chipIdSelecionado !== null && $mensagem = OrdemServicoEquipamentoReserva::mensagemChip($this->chipIdSelecionado)) {
+            throw ValidationException::withMessages(['data.chip_id_form' => $mensagem]);
+        }
 
         if ($this->rastreadorSelecionadoEstaEmOutroVeiculoAtivo($rastreadorId)) {
             $this->rastreadorIndisponivelDescricao = $this->descricaoRastreadorIndisponivel($rastreadorId);

@@ -18,6 +18,7 @@ use App\Models\Tecnico;
 use App\Models\User;
 use App\Models\Veiculo;
 use App\Services\OrdemServico\OrdemServicoAgendaService;
+use App\Services\OrdemServico\OrdemServicoEquipamentoReserva;
 use App\Services\OrdemServico\OrdemServicoService;
 use App\Services\OrdemServico\TecnicoAgendaPublicaService;
 use Carbon\CarbonImmutable;
@@ -963,6 +964,148 @@ class OrdemServicoFlowTest extends TestCase
             ->assertSee($chipDisponivelLivre->numero_chip)
             ->assertDontSee('860000000000022')
             ->assertDontSee($chipAtivo->numero_chip);
+    }
+
+    public function test_equipamento_reservado_some_de_outra_os_mas_continua_visivel_na_propria(): void
+    {
+        [$operador, $cliente, $veiculo, $tecnico] = $this->cenarioBase();
+        $disponivel = StatusRastreador::query()->where('label', 'Disponivel')->firstOrFail();
+        $chip = Chip::query()->create([
+            'numero_chip' => '5562999990051',
+            'iccid' => '89550000000000000051',
+            'tecnico_id' => $tecnico->id,
+            'status_rastreador_id' => $disponivel->id,
+        ]);
+        $rastreador = Rastreador::query()->create([
+            'imei' => '860000000000051',
+            'tecnico_id' => $tecnico->id,
+            'is_estoque' => true,
+            'status_rastreador_id' => $disponivel->id,
+        ]);
+        $rastreadorLivre = Rastreador::query()->create([
+            'imei' => '860000000000053',
+            'tecnico_id' => $tecnico->id,
+            'is_estoque' => true,
+            'status_rastreador_id' => $disponivel->id,
+        ]);
+        $tokenReservante = str_repeat('b', 64);
+        $ordemReservante = app(OrdemServicoService::class)->criar($this->dadosOrdem($cliente, $veiculo), $operador)['ordem'];
+        $ordemReservante->update([
+            'tecnico_id' => $tecnico->id,
+            'rastreador_novo_id' => $rastreador->id,
+            'chip_novo_id' => $chip->id,
+            'status' => OrdemServicoStatus::PENDENTE,
+            'token_hash' => hash('sha256', $tokenReservante),
+            'token_credencial' => $tokenReservante,
+        ]);
+
+        $outroVeiculo = Veiculo::query()->create([
+            'cliente_id' => $cliente->id,
+            'veiculo' => 'Segundo automóvel',
+            'placa' => 'OSX-0051',
+        ]);
+        $tokenConcorrente = str_repeat('c', 64);
+        $ordemConcorrente = app(OrdemServicoService::class)->criar($this->dadosOrdem($cliente, $outroVeiculo), $operador)['ordem'];
+        $ordemConcorrente->update([
+            'tecnico_id' => $tecnico->id,
+            'status' => OrdemServicoStatus::EM_ATENDIMENTO,
+            'token_hash' => hash('sha256', $tokenConcorrente),
+            'token_credencial' => $tokenConcorrente,
+        ]);
+
+        $this->get(route('ordens-servico.tecnico', $tokenReservante))
+            ->assertOk()
+            ->assertSee($rastreador->imei)
+            ->assertSee($chip->numero_chip);
+        $this->get(route('ordens-servico.tecnico', $tokenConcorrente))
+            ->assertOk()
+            ->assertDontSee($rastreador->imei)
+            ->assertSee($rastreadorLivre->imei)
+            ->assertDontSee($chip->numero_chip);
+
+        $this->post(route('ordens-servico.tecnico.action', $tokenConcorrente), [
+            'acao' => 'conferencia',
+            'rastreador_novo_id' => $rastreador->id,
+            'chip_novo_id' => $chip->id,
+        ])->assertSessionHasErrors('rastreador_novo_id');
+
+        $this->post(route('ordens-servico.tecnico.action', $tokenConcorrente), [
+            'acao' => 'conferencia',
+            'rastreador_novo_id' => $rastreadorLivre->id,
+            'chip_novo_id' => $chip->id,
+        ])->assertSessionHasErrors('chip_novo_id');
+
+        $this->assertSame(OrdemServicoStatus::EM_ATENDIMENTO, $ordemConcorrente->fresh()->status);
+        $this->assertNull($ordemConcorrente->fresh()->rastreador_novo_id);
+        $this->assertStringContainsString(
+            $ordemReservante->numero_formatado,
+            OrdemServicoEquipamentoReserva::mensagemRastreador($rastreador->id),
+        );
+    }
+
+    public function test_reserva_bloqueia_movimentacao_manual_e_e_liberada_ao_cancelar(): void
+    {
+        [$operador, $cliente, $veiculo, $tecnico] = $this->cenarioBase();
+        $disponivel = StatusRastreador::query()->where('label', 'Disponivel')->firstOrFail();
+        $chip = Chip::query()->create([
+            'numero_chip' => '5562999990052',
+            'iccid' => '89550000000000000052',
+            'tecnico_id' => $tecnico->id,
+            'status_rastreador_id' => $disponivel->id,
+        ]);
+        $rastreador = Rastreador::query()->create([
+            'imei' => '860000000000052',
+            'chip_id' => $chip->id,
+            'tecnico_id' => $tecnico->id,
+            'is_estoque' => true,
+            'status_rastreador_id' => $disponivel->id,
+        ]);
+        $ordem = app(OrdemServicoService::class)->criar($this->dadosOrdem($cliente, $veiculo), $operador)['ordem'];
+        $ordem->update([
+            'tecnico_id' => $tecnico->id,
+            'rastreador_novo_id' => $rastreador->id,
+            'chip_novo_id' => $chip->id,
+            'status' => OrdemServicoStatus::EM_CONFERENCIA,
+        ]);
+
+        try {
+            $rastreador->update(['tecnico_id' => null]);
+            $this->fail('O estoque não deveria movimentar um rastreador reservado.');
+        } catch (ValidationException $exception) {
+            $this->assertStringContainsString($ordem->numero_formatado, $exception->errors()['rastreador_id'][0]);
+        }
+
+        try {
+            $chip->update(['tecnico_id' => null]);
+            $this->fail('O estoque não deveria movimentar um chip reservado.');
+        } catch (ValidationException $exception) {
+            $this->assertStringContainsString($ordem->numero_formatado, $exception->errors()['chip_id'][0]);
+        }
+
+        try {
+            Veiculo::query()->create([
+                'cliente_id' => $cliente->id,
+                'veiculo' => 'Cadastro manual indevido',
+                'placa' => 'OSX-0052',
+                'rastreador_id' => $rastreador->id,
+            ]);
+            $this->fail('O cadastro manual não deveria consumir um rastreador reservado.');
+        } catch (ValidationException $exception) {
+            $this->assertStringContainsString($ordem->numero_formatado, $exception->errors()['rastreador_id'][0]);
+        }
+
+        app(OrdemServicoService::class)->cancelar($ordem->fresh(), 'Atendimento cancelado para teste.', $operador);
+        $rastreador->refresh()->update(['tecnico_id' => null]);
+        $veiculoManual = Veiculo::query()->create([
+            'cliente_id' => $cliente->id,
+            'veiculo' => 'Cadastro após liberação',
+            'placa' => 'OSX-0052',
+            'rastreador_id' => $rastreador->id,
+        ]);
+
+        $this->assertSame(OrdemServicoStatus::CANCELADA, $ordem->fresh()->status);
+        $this->assertSame($rastreador->id, $veiculoManual->rastreador_id);
+        $this->assertNull(OrdemServicoEquipamentoReserva::ordemDoRastreador($rastreador->id));
     }
 
     private function cenarioBase(): array

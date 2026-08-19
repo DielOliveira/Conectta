@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\OrdemServico\OrdemServicoEquipamentoReserva;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
@@ -53,6 +54,7 @@ class Veiculo extends Model
             $veiculo->contato = preg_replace('/\D+/', '', (string) $veiculo->contato) ?: null;
             $veiculo->contato_pais = Pais::normalizarCodigoTelefone($veiculo->contato_pais) ?: 'BR';
             $veiculo->validatePlacaUnique();
+            $veiculo->validateEquipamentoReserva();
             $veiculo->validateRastreadorRules();
             $veiculo->syncInstaladorFromRastreador();
         });
@@ -146,6 +148,22 @@ class Veiculo extends Model
             throw ValidationException::withMessages([
                 'placa' => 'Esta placa já está cadastrada em outro veículo.',
             ]);
+        }
+    }
+
+    private function validateEquipamentoReserva(): void
+    {
+        if (! $this->isDirty('rastreador_id')) {
+            return;
+        }
+
+        $rastreadorAnteriorId = $this->getOriginal('rastreador_id');
+        if ($rastreadorAnteriorId !== null) {
+            OrdemServicoEquipamentoReserva::validarRastreador((int) $rastreadorAnteriorId);
+        }
+
+        if ($this->rastreador_id !== null) {
+            OrdemServicoEquipamentoReserva::validarRastreador((int) $this->rastreador_id);
         }
     }
 
