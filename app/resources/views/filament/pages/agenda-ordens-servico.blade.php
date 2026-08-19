@@ -35,8 +35,8 @@
                         @foreach($bloqueios as $item)<div class="os-blocked"><strong>Bloqueado</strong><div>{{ $item['disponibilidade']->tecnico->nome }}</div></div>@endforeach
                         @if($tecnicosLivres->isNotEmpty())
                             @if($this->podeAtribuir())<button type="button" class="os-free" wire:click="mountAction('atribuir', { horario: '{{ $horario->format('Y-m-d H:i:s') }}' })"><div class="os-free-title">Livre</div><div class="os-free-names">{{ $tecnicosLivres->implode(', ') }}</div></button>@else<div class="os-free"><div class="os-free-title">Livre</div><div class="os-free-names">{{ $tecnicosLivres->implode(', ') }}</div></div>@endif
-                        @elseif($ocupados->isEmpty())
-                            <div class="os-unavailable">{{ $this->horarioPodeReceberOs($horario) ? 'Nenhum técnico disponível para atribuição.' : 'Horário encerrado.' }}</div>
+                        @elseif($ocupados->isEmpty() && ! $this->horarioPodeReceberOs($horario))
+                            <div class="os-unavailable">Horário encerrado.</div>
                         @endif
                         @if($this->podeAtribuir() && $this->horarioPodeReceberOs($horario))<button type="button" class="os-open" wire:click="mountAction('atribuir', { horario: '{{ $horario->format('Y-m-d H:i:s') }}', abrir_horario: true })"><div class="os-free-title">Abrir horário</div><div class="os-free-names">Escolher outro técnico</div></button>@endif
                     </div>

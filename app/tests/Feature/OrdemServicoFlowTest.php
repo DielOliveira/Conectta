@@ -181,6 +181,7 @@ class OrdemServicoFlowTest extends TestCase
         Livewire::test(AgendaOrdensServico::class)
             ->set('data', '2026-08-04')
             ->assertSee('Abrir horário')
+            ->assertDontSee('Nenhum técnico disponível para atribuição.')
             ->callAction('atribuir', data: [
                 'horario' => $horario,
                 'abrir_horario' => true,
