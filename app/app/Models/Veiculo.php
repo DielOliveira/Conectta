@@ -178,6 +178,14 @@ class Veiculo extends Model
         $expressaoNormalizada = "UPPER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(TRIM(placa), '-', ''), ' ', ''), '.', ''), '/', ''), '_', ''))";
         $query = self::query()->whereRaw("{$expressaoNormalizada} = ?", [$placaNormalizada]);
 
+        $statusCanceladoId = self::statusId('Cancelado');
+        if ($statusCanceladoId !== null) {
+            $query->where(function (Builder $query) use ($statusCanceladoId): void {
+                $query->whereNull('status_rastreador_id')
+                    ->orWhere('status_rastreador_id', '!=', $statusCanceladoId);
+            });
+        }
+
         if ($ignorarVeiculoId !== null) {
             $query->whereKeyNot($ignorarVeiculoId);
         }

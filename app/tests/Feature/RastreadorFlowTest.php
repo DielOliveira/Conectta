@@ -105,6 +105,30 @@ class RastreadorFlowTest extends TestCase
         $this->assertSame(1, Veiculo::query()->count());
     }
 
+    public function test_plate_can_be_reused_when_previous_vehicle_is_cancelled(): void
+    {
+        $this->seedSupportData();
+        $tecnico = Tecnico::query()->where('nome', 'Romeu')->firstOrFail();
+
+        Veiculo::query()->create([
+            'cliente_id' => $this->cliente('Cliente cancelado', '52998224725')->id,
+            'status_rastreador_id' => $this->statusRastreadorId('Cancelado'),
+            'tecnico_remocao_id' => $tecnico->id,
+            'data_retirada' => '2026-08-19',
+            'veiculo' => 'Veículo cancelado',
+            'placa' => 'CAN-1A23',
+        ]);
+
+        $novo = Veiculo::query()->create([
+            'cliente_id' => $this->cliente('Novo proprietário', '04252011000110')->id,
+            'veiculo' => 'Veículo atual',
+            'placa' => 'can 1a23',
+        ]);
+
+        $this->assertSame('can 1a23', $novo->placa);
+        $this->assertSame(2, Veiculo::query()->count());
+    }
+
     public function test_legacy_duplicate_can_be_edited_when_plate_is_not_changed(): void
     {
         $this->seedSupportData();
