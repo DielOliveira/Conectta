@@ -13,6 +13,7 @@ use App\Models\Veiculo;
 use Database\Seeders\ClienteSupportSeeder;
 use Database\Seeders\RastreadorSupportSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use PHPUnit\Framework\Attributes\RequiresPhpExtension;
 use Tests\TestCase;
@@ -74,6 +75,56 @@ class RastreadorFlowTest extends TestCase
             'cor' => 'Preta',
             'ano' => '20/21',
         ]);
+    }
+
+    public function test_duplicate_plate_is_blocked_even_with_different_formatting(): void
+    {
+        $this->seedSupportData();
+
+        Veiculo::query()->create([
+            'cliente_id' => $this->cliente('Cliente placa 1', '52998224725')->id,
+            'veiculo' => 'Toyota / Yaris',
+            'placa' => 'ABC-1D23',
+        ]);
+
+        try {
+            Veiculo::query()->create([
+                'cliente_id' => $this->cliente('Cliente placa 2', '04252011000110')->id,
+                'veiculo' => 'Ford / Ecosport',
+                'placa' => 'abc 1d23',
+            ]);
+
+            $this->fail('Era esperado que a placa repetida fosse bloqueada.');
+        } catch (ValidationException $exception) {
+            $this->assertSame(
+                'Esta placa já está cadastrada em outro veículo.',
+                $exception->errors()['placa'][0] ?? null,
+            );
+        }
+
+        $this->assertSame(1, Veiculo::query()->count());
+    }
+
+    public function test_legacy_duplicate_can_be_edited_when_plate_is_not_changed(): void
+    {
+        $this->seedSupportData();
+        $cliente = $this->cliente();
+        $primeiro = Veiculo::query()->create([
+            'cliente_id' => $cliente->id,
+            'veiculo' => 'Primeiro veículo legado',
+            'placa' => 'LEG-1A23',
+        ]);
+        DB::table('veiculos')->insert([
+            'cliente_id' => $cliente->id,
+            'veiculo' => 'Segundo veículo legado',
+            'placa' => 'LEG-1A23',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $primeiro->update(['cor' => 'Azul']);
+
+        $this->assertSame('Azul', $primeiro->fresh()->cor);
     }
 
     public function test_cancelled_vehicle_requires_removal_data_and_releases_tracker(): void

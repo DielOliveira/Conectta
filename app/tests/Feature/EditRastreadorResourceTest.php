@@ -157,6 +157,40 @@ class EditRastreadorResourceTest extends TestCase
             ->assertHasFormErrors(['status_rastreador_id' => 'required']);
     }
 
+    public function test_create_form_blocks_a_plate_already_registered(): void
+    {
+        $this->seed(ClienteSupportSeeder::class);
+        $this->seed(PaisSeeder::class);
+        $this->seed(RastreadorSupportSeeder::class);
+        $this->actingAs(User::query()->create([
+            'name' => 'Admin',
+            'email' => 'admin-placa-unica@example.com',
+            'password' => 'password',
+            'is_admin' => true,
+        ]));
+        $cliente = $this->cliente('Cliente placa única', '52998224725');
+        Veiculo::query()->create([
+            'cliente_id' => $cliente->id,
+            'veiculo' => 'Veículo existente',
+            'placa' => 'UNI-1A23',
+        ]);
+
+        Livewire::test(CreateRastreador::class)
+            ->fillForm([
+                'cliente_id' => $cliente->id,
+                'veiculo' => 'Veículo duplicado',
+                'placa' => 'uni 1a23',
+                'cor' => 'Prata',
+                'ano' => '2026',
+                'tipo_veiculo_id' => TipoVeiculo::query()->where('label', 'Carro')->value('id'),
+                'contato_pais' => 'BR',
+            ])
+            ->call('create')
+            ->assertHasFormErrors(['placa']);
+
+        $this->assertSame(1, Veiculo::query()->count());
+    }
+
     public function test_imei_linked_to_another_active_vehicle_is_blocked(): void
     {
         $this->seed(ClienteSupportSeeder::class);

@@ -52,6 +52,7 @@ class Veiculo extends Model
         static::saving(function (Veiculo $veiculo): void {
             $veiculo->contato = preg_replace('/\D+/', '', (string) $veiculo->contato) ?: null;
             $veiculo->contato_pais = Pais::normalizarCodigoTelefone($veiculo->contato_pais) ?: 'BR';
+            $veiculo->validatePlacaUnique();
             $veiculo->validateRastreadorRules();
             $veiculo->syncInstaladorFromRastreador();
         });
@@ -133,6 +134,42 @@ class Veiculo extends Model
     {
         return $this->statusRastreador?->label === 'Cancelado'
             || $this->status_rastreador_id === self::statusId('Cancelado');
+    }
+
+    private function validatePlacaUnique(): void
+    {
+        if (blank($this->placa) || ($this->exists && ! $this->isDirty('placa'))) {
+            return;
+        }
+
+        if (self::placaJaCadastrada((string) $this->placa, $this->exists ? (int) $this->getKey() : null)) {
+            throw ValidationException::withMessages([
+                'placa' => 'Esta placa já está cadastrada em outro veículo.',
+            ]);
+        }
+    }
+
+    public static function placaJaCadastrada(?string $placa, ?int $ignorarVeiculoId = null): bool
+    {
+        $placaNormalizada = self::normalizarPlaca($placa);
+
+        if ($placaNormalizada === '') {
+            return false;
+        }
+
+        $expressaoNormalizada = "UPPER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(TRIM(placa), '-', ''), ' ', ''), '.', ''), '/', ''), '_', ''))";
+        $query = self::query()->whereRaw("{$expressaoNormalizada} = ?", [$placaNormalizada]);
+
+        if ($ignorarVeiculoId !== null) {
+            $query->whereKeyNot($ignorarVeiculoId);
+        }
+
+        return $query->exists();
+    }
+
+    public static function normalizarPlaca(?string $placa): string
+    {
+        return strtoupper((string) preg_replace('/[^A-Z0-9]/i', '', (string) $placa));
     }
 
     private function validateRastreadorRules(): void

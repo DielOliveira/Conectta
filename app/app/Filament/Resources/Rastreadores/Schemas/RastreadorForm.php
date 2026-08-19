@@ -50,6 +50,17 @@ class RastreadorForm
                             TextInput::make('placa')
                                 ->label('Placa')
                                 ->required()
+                                ->rules([
+                                    fn (?Veiculo $record): \Closure => function (string $attribute, mixed $value, \Closure $fail) use ($record): void {
+                                        if ($record !== null && Veiculo::normalizarPlaca($record->placa) === Veiculo::normalizarPlaca((string) $value)) {
+                                            return;
+                                        }
+
+                                        if (Veiculo::placaJaCadastrada((string) $value, $record?->id)) {
+                                            $fail('Esta placa já está cadastrada em outro veículo.');
+                                        }
+                                    },
+                                ])
                                 ->maxLength(50)
                                 ->columnSpan(6),
                             TextInput::make('cor')
