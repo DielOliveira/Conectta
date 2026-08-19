@@ -115,7 +115,14 @@ class AgendaOrdensServico extends Page
                     $fimBloqueio = CarbonImmutable::parse($disponibilidade->data->format('Y-m-d').' '.$disponibilidade->hora_fim);
                     $blocosBloqueados = collect();
                     while ($inicioBloqueio->addMinutes(OrdemServicoAgendaService::DURACAO_MINUTOS)->lessThanOrEqualTo($fimBloqueio)) {
-                        $blocosBloqueados->push(['horario' => $inicioBloqueio, 'disponibilidade' => $disponibilidade, 'ordem' => null, 'bloqueio' => true, 'atendida' => false]);
+                        $blocosBloqueados->push([
+                            'horario' => $inicioBloqueio,
+                            'disponibilidade' => $disponibilidade,
+                            'ordem' => null,
+                            'bloqueio' => true,
+                            'status_classe' => null,
+                            'status_label' => null,
+                        ]);
                         $inicioBloqueio = $inicioBloqueio->addMinutes(OrdemServicoAgendaService::DURACAO_MINUTOS);
                     }
 
@@ -137,7 +144,8 @@ class AgendaOrdensServico extends Page
                             'disponibilidade' => $disponibilidade,
                             'ordem' => $ordem,
                             'bloqueio' => false,
-                            'atendida' => $ordem?->status === OrdemServicoStatus::FINALIZADA,
+                            'status_classe' => $ordem ? $this->statusClasse($ordem->status) : null,
+                            'status_label' => $ordem?->status->label(),
                         ]);
                     }
                     $inicio = $inicio->addMinutes(OrdemServicoAgendaService::DURACAO_MINUTOS);
@@ -164,6 +172,21 @@ class AgendaOrdensServico extends Page
         }
 
         return $grade;
+    }
+
+    public function statusClasse(OrdemServicoStatus $status): string
+    {
+        return match ($status) {
+            OrdemServicoStatus::ABERTA => 'status-aberta',
+            OrdemServicoStatus::ENVIADA => 'status-enviada',
+            OrdemServicoStatus::ACEITA => 'status-aceita',
+            OrdemServicoStatus::EM_ATENDIMENTO => 'status-em-atendimento',
+            OrdemServicoStatus::AGUARDANDO_CORRECAO_CADASTRAL => 'status-correcao-cadastral',
+            OrdemServicoStatus::EM_CONFERENCIA => 'status-em-conferencia',
+            OrdemServicoStatus::PENDENTE => 'status-pendente',
+            OrdemServicoStatus::FINALIZADA => 'status-finalizada',
+            OrdemServicoStatus::CANCELADA => 'status-cancelada',
+        };
     }
 
     public function atribuirAction(): Action

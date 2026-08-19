@@ -339,7 +339,7 @@ class OrdemServicoFlowTest extends TestCase
         $this->assertSame('2026-08-04 09:00:00', $ordem->fresh()->agendado_em?->format('Y-m-d H:i:s'));
     }
 
-    public function test_calendario_mostra_os_atendida_com_cor_propria_e_mantem_o_bloco_ocupado(): void
+    public function test_calendario_mostra_status_da_os_com_cor_propria_e_mantem_o_bloco_ocupado(): void
     {
         CarbonImmutable::setTestNow('2026-08-03 08:00:00');
         [$operador, $cliente, $veiculo, $tecnico] = $this->cenarioBase();
@@ -354,8 +354,18 @@ class OrdemServicoFlowTest extends TestCase
         $item = $pagina->agenda()->first(fn (array $item): bool => $item['ordem']?->is($ordem) ?? false);
 
         $this->assertNotNull($item);
-        $this->assertTrue($item['atendida']);
+        $this->assertSame('Finalizada', $item['status_label']);
+        $this->assertSame('status-finalizada', $item['status_classe']);
         $this->assertFalse($agenda->blocos($disponibilidade)->contains(fn (CarbonImmutable $bloco): bool => $bloco->format('H:i') === '09:00'));
+    }
+
+    public function test_calendario_define_uma_cor_para_todos_os_status_de_os(): void
+    {
+        $pagina = app(AgendaOrdensServico::class);
+
+        foreach (OrdemServicoStatus::cases() as $status) {
+            $this->assertNotSame('', $pagina->statusClasse($status), "Status {$status->value} ficou sem classe de cor.");
+        }
     }
 
     public function test_editar_dados_depois_do_agendamento_nao_reabre_a_ordem(): void
