@@ -44,7 +44,7 @@ class EstoqueChipsTest extends TestCase
         ], Fornecedor::query()->orderBy('id')->pluck('nome', 'id')->all());
     }
 
-    public function test_chip_form_does_not_offer_tracker_link(): void
+    public function test_chip_form_does_not_offer_tracker_link_and_only_shows_status_when_editing(): void
     {
         $this->actingAs($this->admin());
         $this->statusDisponivel();
@@ -52,6 +52,32 @@ class EstoqueChipsTest extends TestCase
         Livewire::test(EstoqueChips::class)
             ->assertFormFieldDoesNotExist('rastreador_id')
             ->assertFormFieldDoesNotExist('status_rastreador_id');
+    }
+
+    public function test_chip_status_can_be_changed_temporarily_from_stock_form(): void
+    {
+        $this->actingAs($this->admin());
+
+        $disponivel = $this->statusDisponivel();
+        $manutencao = StatusRastreador::query()->create([
+            'label' => 'Manutencao',
+            'order' => 2,
+            'is_active' => true,
+        ]);
+        $chip = Chip::query()->create([
+            'numero_chip' => '5562955554445',
+            'iccid' => '89550000000000000015',
+            'status_rastreador_id' => $disponivel->id,
+        ]);
+
+        Livewire::test(EstoqueChips::class)
+            ->call('editar', $chip->id)
+            ->assertFormFieldExists('status_rastreador_id')
+            ->fillForm(['status_rastreador_id' => $manutencao->id])
+            ->call('salvar')
+            ->assertHasNoErrors();
+
+        $this->assertSame($manutencao->id, $chip->refresh()->status_rastreador_id);
     }
 
     public function test_editing_chip_preserves_existing_tracker_link(): void

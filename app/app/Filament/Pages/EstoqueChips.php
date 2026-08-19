@@ -11,6 +11,7 @@ use App\Models\StatusRastreador;
 use App\Models\Tecnico;
 use App\Models\Veiculo;
 use App\Services\Audit\AuditLogger;
+use App\Services\Estoque\EquipamentoStatusWorkflow;
 use App\Support\ChipNumber;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
@@ -211,6 +212,17 @@ class EstoqueChips extends Page
                         ->preload()
                         ->native(false)
                         ->columnSpan(3),
+                    Select::make('status_rastreador_id')
+                        ->label('Status')
+                        ->options(fn (): array => StatusRastreador::query()
+                            ->orderBy('order')
+                            ->orderBy('label')
+                            ->pluck('label', 'id')
+                            ->all())
+                        ->native(false)
+                        ->required()
+                        ->visible(fn (): bool => $this->editingId !== null)
+                        ->columnSpan(3),
                 ]),
             ]);
     }
@@ -252,7 +264,9 @@ class EstoqueChips extends Page
                 $sincronizarTecnico = $this->chipPossuiVeiculoAtivo($chip)
                     && $chip->tecnico_id !== ($data['tecnico_id'] ?? null);
 
-                $chip->update($data);
+                // Liberacao temporaria: o estoque pode corrigir o status manualmente
+                // enquanto o fluxo operacional da empresa ainda esta em implantacao.
+                EquipamentoStatusWorkflow::executar(fn () => $chip->update($data));
                 $chip->refresh();
 
                 if ($sincronizarTecnico) {
@@ -316,6 +330,7 @@ class EstoqueChips extends Page
             'numero_chip' => (string) $chip->numero_chip,
             'iccid' => (string) $chip->iccid,
             'tecnico_id' => $chip->tecnico_id,
+            'status_rastreador_id' => $chip->status_rastreador_id,
         ]);
     }
 
@@ -573,6 +588,7 @@ class EstoqueChips extends Page
             'numero_chip' => '',
             'iccid' => '',
             'tecnico_id' => null,
+            'status_rastreador_id' => null,
         ];
     }
 

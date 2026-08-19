@@ -390,6 +390,18 @@
                     @error('tecnico_id') <span class="ct-error">{{ $message }}</span> @enderror
                 </label>
 
+                @if ($editingId)
+                    <label class="ct-field">
+                        <span class="ct-label">Status *</span>
+                        <select wire:model="status_rastreador_id" class="ct-select">
+                            @foreach ($this->statusOptions() as $status)
+                                <option value="{{ $status->id }}">{{ $status->label }}</option>
+                            @endforeach
+                        </select>
+                        @error('status_rastreador_id') <span class="ct-error">{{ $message }}</span> @enderror
+                    </label>
+                @endif
+
                 <div class="ct-actions">
                     <button
                         type="button"

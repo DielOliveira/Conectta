@@ -11,6 +11,7 @@ use App\Models\StatusRastreador;
 use App\Models\Tecnico;
 use App\Models\Veiculo;
 use App\Services\Audit\AuditLogger;
+use App\Services\Estoque\EquipamentoStatusWorkflow;
 use App\Services\OrdemServico\OrdemServicoEquipamentoReserva;
 use App\Support\ChipNumber;
 use Filament\Actions\Action;
@@ -424,6 +425,8 @@ class EstoqueRastreadores extends Page
 
     public ?int $tecnico_id = null;
 
+    public ?int $status_rastreador_id = null;
+
     public string $search = '';
 
     public ?int $filtroTecnicoId = null;
@@ -473,11 +476,15 @@ class EstoqueRastreadores extends Page
                 Rule::unique('rastreadores', 'imei')->ignore($this->editingId),
             ],
             'tecnico_id' => ['nullable', 'exists:tecnicos,id'],
+            'status_rastreador_id' => $this->editingId !== null
+                ? ['required', 'exists:status_rastreadores,id']
+                : ['nullable'],
         ], [], [
             'modelo' => 'modelo',
             'ativacao' => 'ativacao',
             'imei' => 'IMEI',
             'tecnico_id' => 'tecnico',
+            'status_rastreador_id' => 'status',
         ]);
 
         if ($this->deveConfirmarSincronizacaoTecnico($data)) {
@@ -491,7 +498,9 @@ class EstoqueRastreadores extends Page
             DB::transaction(function () use ($data): void {
                 $rastreador = Rastreador::query()->lockForUpdate()->findOrFail($this->editingId);
                 $antes = AuditLogger::snapshot($rastreador);
-                $rastreador->update($data);
+                // Liberacao temporaria: o estoque pode corrigir o status manualmente
+                // enquanto o fluxo operacional da empresa ainda esta em implantacao.
+                EquipamentoStatusWorkflow::executar(fn () => $rastreador->update($data));
                 $tecnicoAlterado = $rastreador->wasChanged('tecnico_id');
                 $rastreador->refresh();
 
@@ -574,6 +583,7 @@ class EstoqueRastreadores extends Page
         $this->ativacao = $rastreador->ativacao;
         $this->imei = (string) $rastreador->imei;
         $this->tecnico_id = $rastreador->tecnico_id;
+        $this->status_rastreador_id = $rastreador->status_rastreador_id;
     }
 
     public function excluir(int $id): void
@@ -600,7 +610,7 @@ class EstoqueRastreadores extends Page
 
     public function limparFormulario(): void
     {
-        $this->reset(['editingId', 'modelo', 'ativacao', 'imei', 'tecnico_id']);
+        $this->reset(['editingId', 'modelo', 'ativacao', 'imei', 'tecnico_id', 'status_rastreador_id']);
         $this->ativacao = (int) now()->year;
     }
 

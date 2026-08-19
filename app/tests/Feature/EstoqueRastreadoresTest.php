@@ -153,6 +153,29 @@ class EstoqueRastreadoresTest extends TestCase
         $this->assertSame($status->id, $chip->status_rastreador_id);
     }
 
+    public function test_tracker_status_can_be_changed_temporarily_from_stock_form(): void
+    {
+        $this->actingAs($this->admin());
+
+        $disponivel = $this->statusDisponivel();
+        $manutencao = StatusRastreador::query()->create([
+            'label' => 'Manutencao',
+            'order' => 2,
+            'is_active' => true,
+        ]);
+        $tecnico = Tecnico::query()->create(['nome' => 'Tecnico Status']);
+        $rastreador = $this->rastreador('333333333333334', $tecnico, $disponivel);
+
+        Livewire::test(EstoqueRastreadores::class)
+            ->call('editar', $rastreador->id)
+            ->assertSet('status_rastreador_id', $disponivel->id)
+            ->set('status_rastreador_id', $manutencao->id)
+            ->call('salvar')
+            ->assertHasNoErrors();
+
+        $this->assertSame($manutencao->id, $rastreador->refresh()->status_rastreador_id);
+    }
+
     public function test_changing_active_tracker_technician_requires_confirmation_and_syncs_vehicle(): void
     {
         $this->actingAs($this->admin());
