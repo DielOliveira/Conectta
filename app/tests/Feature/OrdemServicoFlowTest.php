@@ -6,6 +6,7 @@ use App\Enums\OrdemServicoStatus;
 use App\Filament\Pages\AgendaOrdensServico;
 use App\Filament\Resources\Disponibilidades\DisponibilidadeResource;
 use App\Filament\Resources\Disponibilidades\Pages\CreateDisponibilidade;
+use App\Filament\Resources\Disponibilidades\Pages\ListDisponibilidades;
 use App\Filament\Resources\OrdensServico\Pages\CreateOrdemServico;
 use App\Filament\Resources\OrdensServico\Pages\EditOrdemServico;
 use App\Models\Chip;
@@ -37,6 +38,50 @@ class OrdemServicoFlowTest extends TestCase
         $this->actingAs(User::factory()->create(['is_admin' => true]))
             ->get(DisponibilidadeResource::getUrl('create'))
             ->assertOk();
+    }
+
+    public function test_lista_de_agendas_esconde_vencidas_por_padrao_e_permite_filtra_las(): void
+    {
+        CarbonImmutable::setTestNow('2026-08-19 10:30:00');
+        [$operador, , , $tecnico] = $this->cenarioBase();
+        $vencidaOntem = OrdemServicoDisponibilidade::query()->create([
+            'tecnico_id' => $tecnico->id,
+            'tipo' => OrdemServicoDisponibilidade::TIPO_DISPONIBILIDADE,
+            'data' => '2026-08-18',
+            'hora_inicio' => '09:00:00',
+            'hora_fim' => '10:00:00',
+        ]);
+        $vencidaHoje = OrdemServicoDisponibilidade::query()->create([
+            'tecnico_id' => $tecnico->id,
+            'tipo' => OrdemServicoDisponibilidade::TIPO_DISPONIBILIDADE,
+            'data' => '2026-08-19',
+            'hora_inicio' => '08:00:00',
+            'hora_fim' => '09:00:00',
+        ]);
+        $presente = OrdemServicoDisponibilidade::query()->create([
+            'tecnico_id' => $tecnico->id,
+            'tipo' => OrdemServicoDisponibilidade::TIPO_DISPONIBILIDADE,
+            'data' => '2026-08-19',
+            'hora_inicio' => '10:00:00',
+            'hora_fim' => '11:00:00',
+        ]);
+        $futura = OrdemServicoDisponibilidade::query()->create([
+            'tecnico_id' => $tecnico->id,
+            'tipo' => OrdemServicoDisponibilidade::TIPO_DISPONIBILIDADE,
+            'data' => '2026-08-20',
+            'hora_inicio' => '09:00:00',
+            'hora_fim' => '10:00:00',
+        ]);
+        $this->actingAs($operador);
+
+        Livewire::test(ListDisponibilidades::class)
+            ->assertCanSeeTableRecords([$presente, $futura])
+            ->assertCanNotSeeTableRecords([$vencidaOntem, $vencidaHoje])
+            ->filterTable('periodo', 'vencidas')
+            ->assertCanSeeTableRecords([$vencidaOntem, $vencidaHoje])
+            ->assertCanNotSeeTableRecords([$presente, $futura])
+            ->filterTable('periodo', 'todas')
+            ->assertCanSeeTableRecords([$vencidaOntem, $vencidaHoje, $presente, $futura]);
     }
 
     public function test_central_cria_a_mesma_disponibilidade_de_segunda_a_sexta(): void

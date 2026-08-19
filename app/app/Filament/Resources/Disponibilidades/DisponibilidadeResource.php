@@ -25,6 +25,7 @@ use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use UnitEnum;
@@ -100,6 +101,39 @@ class DisponibilidadeResource extends Resource
             TextColumn::make('hora_inicio')->label('Início')->formatStateUsing(fn (?string $state): string => substr((string) $state, 0, 5)),
             TextColumn::make('hora_fim')->label('Fim')->formatStateUsing(fn (?string $state): string => substr((string) $state, 0, 5)),
             TextColumn::make('ordens_count')->counts('ordens')->label('OS vinculadas'),
+        ])->filters([
+            SelectFilter::make('periodo')
+                ->label('Período')
+                ->options([
+                    'atuais' => 'Presentes e futuras',
+                    'vencidas' => 'Vencidas',
+                    'todas' => 'Todas',
+                ])
+                ->default('atuais')
+                ->native(false)
+                ->query(function (Builder $query, array $data): Builder {
+                    $periodo = $data['value'] ?? 'atuais';
+                    $hoje = today()->toDateString();
+                    $horaAtual = now()->format('H:i:s');
+
+                    return match ($periodo) {
+                        'vencidas' => $query->where(function (Builder $query) use ($hoje, $horaAtual): void {
+                            $query->whereDate('data', '<', $hoje)
+                                ->orWhere(function (Builder $query) use ($hoje, $horaAtual): void {
+                                    $query->whereDate('data', $hoje)
+                                        ->where('hora_fim', '<', $horaAtual);
+                                });
+                        }),
+                        'todas' => $query,
+                        default => $query->where(function (Builder $query) use ($hoje, $horaAtual): void {
+                            $query->whereDate('data', '>', $hoje)
+                                ->orWhere(function (Builder $query) use ($hoje, $horaAtual): void {
+                                    $query->whereDate('data', $hoje)
+                                        ->where('hora_fim', '>=', $horaAtual);
+                                });
+                        }),
+                    };
+                }),
         ])->recordActions([
             EditAction::make()->label('Editar'),
             DeleteAction::make()->label('Excluir')->requiresConfirmation()->modalDescription('Deseja excluir esta disponibilidade?'),
