@@ -92,6 +92,17 @@ class OrdemServicoService
         });
     }
 
+    /** @return array{ordem: OrdemServico, token: string} */
+    public function agendarAbrindoHorario(OrdemServico $ordem, int $tecnicoId, CarbonImmutable $horario, User $operador): array
+    {
+        return DB::transaction(function () use ($ordem, $tecnicoId, $horario, $operador): array {
+            $ordem = OrdemServico::query()->lockForUpdate()->findOrFail($ordem->id);
+            $disponibilidade = $this->agenda->obterOuCriarHorario($tecnicoId, $horario);
+
+            return $this->agendar($ordem, $disponibilidade, $horario, $operador);
+        });
+    }
+
     public function porToken(string $token): OrdemServico
     {
         return OrdemServico::query()->where('token_hash', hash('sha256', $token))->whereNull('token_invalidado_em')->firstOrFail();

@@ -170,4 +170,109 @@ class OrdemServicoAgendaService
     {
         return $horario->addMinutes(self::DURACAO_MINUTOS)->isFuture();
     }
+
+    /** @return Collection<int, Tecnico> */
+    public function tecnicosDisponiveisParaAbrirHorario(CarbonImmutable $horario): Collection
+    {
+        if (! $this->blocoPodeSerAgendado($horario)) {
+            return collect();
+        }
+
+        return Tecnico::query()
+            ->where('is_ativo', true)
+            ->orderBy('nome')
+            ->get()
+            ->filter(fn (Tecnico $tecnico): bool => $this->telefoneValido($tecnico)
+                && $this->tecnicoPodeAbrirHorario($tecnico->id, $horario))
+            ->values();
+    }
+
+    public function obterOuCriarHorario(int $tecnicoId, CarbonImmutable $horario): OrdemServicoDisponibilidade
+    {
+        return DB::transaction(function () use ($tecnicoId, $horario): OrdemServicoDisponibilidade {
+            $tecnico = Tecnico::query()->lockForUpdate()->findOrFail($tecnicoId);
+
+            if (! $tecnico->is_ativo || ! $this->telefoneValido($tecnico)) {
+                throw ValidationException::withMessages(['tecnico_id' => 'O técnico precisa estar ativo e possuir um telefone válido.']);
+            }
+            if (! $this->blocoPodeSerAgendado($horario)) {
+                throw ValidationException::withMessages(['horario' => 'Este horário já foi encerrado.']);
+            }
+
+            if ($disponibilidade = $this->disponibilidadeLivreDoTecnico($tecnicoId, $horario, true)) {
+                return $disponibilidade;
+            }
+
+            if ($this->possuiIntervaloSobreposto($tecnicoId, $horario) || $this->possuiOrdemSobreposta($tecnicoId, $horario)) {
+                throw ValidationException::withMessages(['tecnico_id' => 'Este técnico não está mais livre no horário selecionado.']);
+            }
+
+            return $this->criarDisponibilidade(
+                $tecnicoId,
+                $horario->toDateString(),
+                $horario->format('H:i:s'),
+                $horario->addMinutes(self::DURACAO_MINUTOS)->format('H:i:s'),
+            );
+        });
+    }
+
+    private function tecnicoPodeAbrirHorario(int $tecnicoId, CarbonImmutable $horario): bool
+    {
+        if ($this->disponibilidadeLivreDoTecnico($tecnicoId, $horario) !== null) {
+            return true;
+        }
+
+        return ! $this->possuiIntervaloSobreposto($tecnicoId, $horario)
+            && ! $this->possuiOrdemSobreposta($tecnicoId, $horario);
+    }
+
+    private function disponibilidadeLivreDoTecnico(int $tecnicoId, CarbonImmutable $horario, bool $bloquear = false): ?OrdemServicoDisponibilidade
+    {
+        $query = OrdemServicoDisponibilidade::query()
+            ->where('tecnico_id', $tecnicoId)
+            ->where('tipo', OrdemServicoDisponibilidade::TIPO_DISPONIBILIDADE)
+            ->whereDate('data', $horario->toDateString())
+            ->where('hora_inicio', '<=', $horario->format('H:i:s'))
+            ->where('hora_fim', '>=', $horario->addMinutes(self::DURACAO_MINUTOS)->format('H:i:s'));
+
+        if ($bloquear) {
+            $query->lockForUpdate();
+        }
+
+        return $query->get()
+            ->first(fn (OrdemServicoDisponibilidade $disponibilidade): bool => $this->blocos($disponibilidade)
+                ->contains(fn (CarbonImmutable $bloco): bool => $bloco->equalTo($horario)));
+    }
+
+    private function possuiIntervaloSobreposto(int $tecnicoId, CarbonImmutable $horario): bool
+    {
+        return OrdemServicoDisponibilidade::query()
+            ->where('tecnico_id', $tecnicoId)
+            ->whereDate('data', $horario->toDateString())
+            ->where('hora_inicio', '<', $horario->addMinutes(self::DURACAO_MINUTOS)->format('H:i:s'))
+            ->where('hora_fim', '>', $horario->format('H:i:s'))
+            ->exists();
+    }
+
+    private function possuiOrdemSobreposta(int $tecnicoId, CarbonImmutable $horario): bool
+    {
+        $fim = $horario->addMinutes(self::DURACAO_MINUTOS);
+
+        return OrdemServico::query()
+            ->where('tecnico_id', $tecnicoId)
+            ->whereDate('agendado_em', $horario->toDateString())
+            ->whereNotIn('status', ['aberta', 'cancelada'])
+            ->get(['agendado_em'])
+            ->contains(function (OrdemServico $ordem) use ($horario, $fim): bool {
+                $agendado = CarbonImmutable::parse($ordem->agendado_em);
+
+                return $agendado->lessThan($fim)
+                    && $agendado->addMinutes(self::DURACAO_MINUTOS)->greaterThan($horario);
+            });
+    }
+
+    private function telefoneValido(Tecnico $tecnico): bool
+    {
+        return strlen(preg_replace('/\D+/', '', (string) $tecnico->telefone) ?? '') >= 10;
+    }
 }

@@ -113,6 +113,100 @@ class OrdemServicoFlowTest extends TestCase
         $this->assertSame('Técnico OS', $item['disponibilidade']->tecnico->nome);
     }
 
+    public function test_calendario_abre_horario_de_uma_hora_e_atribui_a_os_ao_tecnico_escolhido(): void
+    {
+        CarbonImmutable::setTestNow('2026-08-03 08:00:00');
+        [$operador, $cliente, $veiculo, $tecnicoComAgenda] = $this->cenarioBase();
+        $tecnicoSemAgenda = Tecnico::query()->create([
+            'nome' => 'Técnico sem agenda',
+            'telefone' => '62977777777',
+            'is_ativo' => true,
+        ]);
+        app(OrdemServicoAgendaService::class)->criarDisponibilidade(
+            $tecnicoComAgenda->id,
+            '2026-08-04',
+            '08:00',
+            '10:00',
+        );
+        $ordem = app(OrdemServicoService::class)->criar($this->dadosOrdem($cliente, $veiculo), $operador)['ordem'];
+        $horario = '2026-08-04 09:00:00';
+        $this->actingAs($operador);
+
+        Livewire::test(AgendaOrdensServico::class)
+            ->set('data', '2026-08-04')
+            ->assertSee('Abrir horário')
+            ->callAction('atribuir', data: [
+                'horario' => $horario,
+                'abrir_horario' => true,
+                'ordem_servico_id' => $ordem->id,
+                'tecnico_id' => $tecnicoSemAgenda->id,
+            ], arguments: [
+                'horario' => $horario,
+                'abrir_horario' => true,
+            ])
+            ->assertHasNoActionErrors()
+            ->assertNotified('OS agendada e enviada ao técnico.');
+
+        $disponibilidade = OrdemServicoDisponibilidade::query()
+            ->where('tecnico_id', $tecnicoSemAgenda->id)
+            ->firstOrFail();
+        $this->assertSame('2026-08-04', $disponibilidade->data->format('Y-m-d'));
+        $this->assertSame('09:00:00', $disponibilidade->hora_inicio);
+        $this->assertSame('10:00:00', $disponibilidade->hora_fim);
+        $this->assertSame($disponibilidade->id, $ordem->fresh()->disponibilidade_id);
+        $this->assertSame($tecnicoSemAgenda->id, $ordem->fresh()->tecnico_id);
+        $this->assertSame(OrdemServicoStatus::ENVIADA, $ordem->fresh()->status);
+    }
+
+    public function test_abrir_horario_reaproveita_bloco_livre_e_nao_lista_tecnico_bloqueado(): void
+    {
+        CarbonImmutable::setTestNow('2026-08-03 08:00:00');
+        [$operador, $cliente, $veiculo, $tecnicoLivre] = $this->cenarioBase();
+        $tecnicoBloqueado = Tecnico::query()->create([
+            'nome' => 'Técnico bloqueado',
+            'telefone' => '62966666666',
+            'is_ativo' => true,
+        ]);
+        $agenda = app(OrdemServicoAgendaService::class);
+        $disponibilidade = $agenda->criarDisponibilidade($tecnicoLivre->id, '2026-08-04', '08:00', '10:00');
+        $agenda->criarIntervalo(
+            $tecnicoBloqueado->id,
+            '2026-08-04',
+            '09:00',
+            '10:00',
+            OrdemServicoDisponibilidade::TIPO_BLOQUEIO,
+        );
+        $horario = CarbonImmutable::parse('2026-08-04 09:00:00');
+
+        $tecnicos = $agenda->tecnicosDisponiveisParaAbrirHorario($horario);
+        $this->assertTrue($tecnicos->contains('id', $tecnicoLivre->id));
+        $this->assertFalse($tecnicos->contains('id', $tecnicoBloqueado->id));
+
+        try {
+            $agenda->obterOuCriarHorario($tecnicoBloqueado->id, $horario);
+            $this->fail('O bloqueio do técnico deveria impedir a abertura do horário.');
+        } catch (ValidationException $exception) {
+            $this->assertArrayHasKey('tecnico_id', $exception->errors());
+        }
+        $this->assertSame(0, OrdemServicoDisponibilidade::query()
+            ->where('tecnico_id', $tecnicoBloqueado->id)
+            ->where('tipo', OrdemServicoDisponibilidade::TIPO_DISPONIBILIDADE)
+            ->count());
+
+        $ordem = app(OrdemServicoService::class)->criar($this->dadosOrdem($cliente, $veiculo), $operador)['ordem'];
+        app(OrdemServicoService::class)->agendarAbrindoHorario(
+            $ordem,
+            $tecnicoLivre->id,
+            $horario,
+            $operador,
+        );
+
+        $this->assertSame($disponibilidade->id, $ordem->fresh()->disponibilidade_id);
+        $this->assertSame(1, OrdemServicoDisponibilidade::query()
+            ->where('tecnico_id', $tecnicoLivre->id)
+            ->count());
+    }
+
     public function test_extrai_coordenadas_de_link_encurtado_do_google_maps(): void
     {
         [$operador, $cliente, $veiculo] = $this->cenarioBase();
