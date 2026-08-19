@@ -13,6 +13,7 @@ use App\Models\Tecnico;
 use App\Models\TipoVeiculo;
 use App\Models\User;
 use App\Models\Veiculo;
+use App\Services\Estoque\EquipamentoStatusWorkflow;
 use Database\Seeders\ClienteSupportSeeder;
 use Database\Seeders\PaisSeeder;
 use Database\Seeders\RastreadorSupportSeeder;
@@ -91,7 +92,9 @@ class EditRastreadorResourceTest extends TestCase
         $tecnico = Tecnico::query()->firstOrFail();
         $ativoId = StatusRastreador::query()->where('label', 'Ativo')->value('id');
         $rastreador = Rastreador::query()->firstOrFail();
-        $rastreador->update(['tecnico_id' => null, 'status_rastreador_id' => $ativoId, 'is_estoque' => false]);
+        EquipamentoStatusWorkflow::executar(
+            fn () => $rastreador->update(['tecnico_id' => null, 'status_rastreador_id' => $ativoId, 'is_estoque' => false]),
+        );
         $veiculo = $this->veiculo(
             $this->cliente('Cliente preservado', '11144477735'),
             $ativoId,
@@ -208,10 +211,10 @@ class EditRastreadorResourceTest extends TestCase
         $clienteNovo = $this->cliente('Cliente Novo', '04252011000110');
         $chip = Chip::query()->firstOrFail();
         $rastreador = Rastreador::query()->firstOrFail();
-        $rastreador->update([
+        EquipamentoStatusWorkflow::executar(fn () => $rastreador->update([
             'chip_id' => $chip->id,
             'status_rastreador_id' => $ativoId,
-        ]);
+        ]));
         $veiculoAnterior = $this->veiculo($clienteAnterior, $ativoId, $tipoVeiculoId, [
             'rastreador_id' => $rastreador->id,
             'veiculo' => 'Honda / Civic',

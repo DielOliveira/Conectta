@@ -201,15 +201,6 @@ class EstoqueChips extends Page
                             'pattern' => '[0-9]{20}',
                         ])
                         ->columnSpan(2),
-                    Select::make('status_rastreador_id')
-                        ->label('Status Estoque')
-                        ->options(fn (): array => StatusRastreador::query()
-                            ->orderBy('order')
-                            ->orderBy('label')
-                            ->pluck('label', 'id')
-                            ->all())
-                        ->native(false)
-                        ->columnSpan(3),
                     Select::make('tecnico_id')
                         ->label('Tecnico')
                         ->options(fn (): array => Tecnico::query()
@@ -277,7 +268,10 @@ class EstoqueChips extends Page
                 );
             });
         } else {
-            $chip = Chip::query()->create($data);
+            $chip = Chip::query()->create([
+                ...$data,
+                'status_rastreador_id' => StatusRastreador::query()->where('label', 'Disponivel')->value('id'),
+            ]);
             $chip->refresh();
 
             AuditLogger::registrar(
@@ -322,7 +316,6 @@ class EstoqueChips extends Page
             'numero_chip' => (string) $chip->numero_chip,
             'iccid' => (string) $chip->iccid,
             'tecnico_id' => $chip->tecnico_id,
-            'status_rastreador_id' => $chip->status_rastreador_id,
         ]);
     }
 
@@ -580,9 +573,6 @@ class EstoqueChips extends Page
             'numero_chip' => '',
             'iccid' => '',
             'tecnico_id' => null,
-            'status_rastreador_id' => StatusRastreador::query()
-                ->where('label', 'Disponivel')
-                ->value('id'),
         ];
     }
 

@@ -12,6 +12,7 @@ use App\Models\StatusRastreador;
 use App\Models\Tecnico;
 use App\Models\User;
 use App\Models\Veiculo;
+use App\Services\Estoque\EquipamentoStatusWorkflow;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use PHPUnit\Framework\Attributes\RequiresPhpExtension;
@@ -49,7 +50,8 @@ class EstoqueChipsTest extends TestCase
         $this->statusDisponivel();
 
         Livewire::test(EstoqueChips::class)
-            ->assertFormFieldDoesNotExist('rastreador_id');
+            ->assertFormFieldDoesNotExist('rastreador_id')
+            ->assertFormFieldDoesNotExist('status_rastreador_id');
     }
 
     public function test_editing_chip_preserves_existing_tracker_link(): void
@@ -72,7 +74,6 @@ class EstoqueChipsTest extends TestCase
             'status_rastreador_id' => $status->id,
             'is_estoque' => true,
         ]);
-
         Livewire::test(EstoqueChips::class)
             ->call('editar', $chip->id)
             ->fillForm([
@@ -80,7 +81,6 @@ class EstoqueChipsTest extends TestCase
                 'operadora_id' => Operadora::query()->where('nome', 'CLARO')->value('id'),
                 'numero_chip' => '62955554444',
                 'iccid' => $chip->iccid,
-                'status_rastreador_id' => $status->id,
                 'tecnico_id' => $tecnico->id,
             ])
             ->call('salvar')
@@ -120,6 +120,10 @@ class EstoqueChipsTest extends TestCase
             'status_rastreador_id' => $statusAtivo->id,
             'is_estoque' => true,
         ]);
+        EquipamentoStatusWorkflow::executar(function () use ($chip, $rastreador, $statusAtivo): void {
+            $chip->update(['status_rastreador_id' => $statusAtivo->id]);
+            $rastreador->update(['status_rastreador_id' => $statusAtivo->id, 'is_estoque' => false]);
+        });
         $cliente = Cliente::query()->create([
             'nome' => 'Cliente Chip Ativo',
             'cpf_cnpj' => '52998224725',
@@ -140,7 +144,6 @@ class EstoqueChipsTest extends TestCase
             ->fillForm([
                 'numero_chip' => '62955553333',
                 'iccid' => $chip->iccid,
-                'status_rastreador_id' => $statusAtivo->id,
                 'tecnico_id' => $novoTecnico->id,
             ])
             ->call('salvar')

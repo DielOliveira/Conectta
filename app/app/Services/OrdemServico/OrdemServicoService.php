@@ -12,6 +12,7 @@ use App\Models\Rastreador;
 use App\Models\StatusRastreador;
 use App\Models\User;
 use App\Models\Veiculo;
+use App\Services\Estoque\EquipamentoStatusWorkflow;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -213,9 +214,11 @@ class OrdemServicoService
             if ($ordem->tipo !== OrdemServicoTipo::RETIRADA && (! $ordem->check_funcionamento || ! $ordem->check_pos_chave || ! in_array($ordem->check_bloqueio, ['conferido', 'nao_se_aplica'], true))) {
                 throw ValidationException::withMessages(['checklist' => 'Conclua todos os itens obrigatórios da conferência.']);
             }
-            OrdemServicoEquipamentoReserva::duranteOrdem(
-                $ordem->id,
-                fn () => $this->movimentarEquipamentos($ordem),
+            EquipamentoStatusWorkflow::executar(
+                fn () => OrdemServicoEquipamentoReserva::duranteOrdem(
+                    $ordem->id,
+                    fn () => $this->movimentarEquipamentos($ordem),
+                ),
             );
             $anterior = $ordem->status;
             $ordem->update(['status' => OrdemServicoStatus::FINALIZADA, 'finalizada_em' => now(), 'finalizada_por' => $operador->id]);

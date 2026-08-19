@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\Estoque\EquipamentoStatusWorkflow;
 use App\Services\OrdemServico\OrdemServicoEquipamentoReserva;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
@@ -22,6 +23,10 @@ class Rastreador extends Model
 
     protected static function booted(): void
     {
+        static::creating(fn (Rastreador $rastreador) => EquipamentoStatusWorkflow::prepararNovo($rastreador));
+
+        static::updating(fn (Rastreador $rastreador) => EquipamentoStatusWorkflow::validarAlteracao($rastreador));
+
         static::saving(function (Rastreador $rastreador): void {
             if ($rastreador->exists && $rastreador->isDirty(['tecnico_id', 'chip_id', 'is_estoque', 'status_rastreador_id'])) {
                 OrdemServicoEquipamentoReserva::validarRastreador((int) $rastreador->getKey());

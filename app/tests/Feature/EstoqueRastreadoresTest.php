@@ -12,6 +12,7 @@ use App\Models\StatusRastreador;
 use App\Models\Tecnico;
 use App\Models\User;
 use App\Models\Veiculo;
+use App\Services\Estoque\EquipamentoStatusWorkflow;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use PHPUnit\Framework\Attributes\RequiresPhpExtension;
@@ -53,11 +54,11 @@ class EstoqueRastreadoresTest extends TestCase
 
         $this->assertSame($chip->id, $rastreador->refresh()->chip_id);
         $this->assertSame('89550000000000000001', $rastreador->chip?->iccid);
-        $this->assertSame($tecnico->id, $chip->tecnico_id);
+        $this->assertSame($tecnico->id, $chip->refresh()->tecnico_id);
         $this->assertSame($status->id, $chip->status_rastreador_id);
         $this->assertSame(7, $chip->operadora_id);
         $this->assertSame('VIVO', $chip->operadora);
-        $this->assertSame(1, $chip->fornecedor_id);
+        $this->assertSame(1, $chip->refresh()->fornecedor_id);
         $this->assertSame('HINOVA', $chip->fornecedor);
     }
 
@@ -78,6 +79,9 @@ class EstoqueRastreadoresTest extends TestCase
             'iccid' => '89550000000000000011',
             'status_rastreador_id' => $ativo->id,
         ]);
+        EquipamentoStatusWorkflow::executar(
+            fn () => $chip->update(['status_rastreador_id' => $ativo->id]),
+        );
 
         Livewire::test(EstoqueRastreadores::class)
             ->callAction('adicionarChip', [
@@ -87,7 +91,7 @@ class EstoqueRastreadoresTest extends TestCase
             ], [
                 'id' => $rastreador->id,
             ])
-            ->assertHasActionErrors(['chip_id']);
+            ->assertHasActionErrors(['numero_chip']);
 
         $this->assertNull($rastreador->refresh()->chip_id);
     }
@@ -99,38 +103,33 @@ class EstoqueRastreadoresTest extends TestCase
         $status = $this->statusDisponivel();
         $tecnico = Tecnico::query()->create(['nome' => 'Tecnico Novo Chip']);
         $rastreador = $this->rastreador('123456789012347', $tecnico, $status);
-
         Livewire::test(EstoqueRastreadores::class)
-            ->callAction('adicionarChip', [
+            ->mountAction('adicionarChip', ['id' => $rastreador->id])
+            ->setActionData([
                 'chip_id' => null,
+                'numero_chip' => '5562999990002',
+            ])
+            ->setActionData([
                 'fornecedor_id' => Fornecedor::query()->where('nome', 'HINOVA')->value('id'),
                 'operadora_id' => Operadora::query()->where('nome', 'VIVO')->value('id'),
-                'numero_chip' => '5562999990002',
                 'iccid' => '89550000000000000012',
-            ], [
-                'id' => $rastreador->id,
             ])
+            ->callMountedAction()
             ->assertHasNoActionErrors();
 
         $chip = Chip::query()->where('numero_chip', '5562999990002')->firstOrFail();
-
         $this->assertSame($chip->id, $rastreador->refresh()->chip_id);
-        $this->assertSame('HINOVA', $chip->fornecedor);
+        $this->assertSame('HINOVA', $chip->refresh()->fornecedor);
         $this->assertSame('VIVO', $chip->operadora);
         $this->assertSame($tecnico->id, $chip->tecnico_id);
         $this->assertSame($status->id, $chip->status_rastreador_id);
     }
 
-    public function test_changing_tracker_technician_and_status_also_changes_linked_chip(): void
+    public function test_changing_tracker_technician_preserves_status_and_changes_linked_chip_technician(): void
     {
         $this->actingAs($this->admin());
 
         $status = $this->statusDisponivel();
-        $novoStatus = StatusRastreador::query()->create([
-            'label' => 'Ativo',
-            'order' => 2,
-            'is_active' => true,
-        ]);
         $tecnicoAtual = Tecnico::query()->create(['nome' => 'Tecnico Atual']);
         $novoTecnico = Tecnico::query()->create(['nome' => 'Tecnico Novo']);
         $rastreador = $this->rastreador('333333333333333', $tecnicoAtual, $status);
@@ -145,20 +144,20 @@ class EstoqueRastreadoresTest extends TestCase
         Livewire::test(EstoqueRastreadores::class)
             ->call('editar', $rastreador->id)
             ->set('tecnico_id', $novoTecnico->id)
-            ->set('status_rastreador_id', $novoStatus->id)
             ->call('salvar')
             ->assertHasNoErrors();
 
         $this->assertSame($novoTecnico->id, $rastreador->refresh()->tecnico_id);
         $this->assertSame($novoTecnico->id, $chip->refresh()->tecnico_id);
-        $this->assertSame($novoStatus->id, $rastreador->status_rastreador_id);
-        $this->assertSame($novoStatus->id, $chip->status_rastreador_id);
+        $this->assertSame($status->id, $rastreador->status_rastreador_id);
+        $this->assertSame($status->id, $chip->status_rastreador_id);
     }
 
     public function test_changing_active_tracker_technician_requires_confirmation_and_syncs_vehicle(): void
     {
         $this->actingAs($this->admin());
 
+        $this->statusDisponivel();
         $statusAtivo = StatusRastreador::query()->create([
             'label' => 'Ativo',
             'order' => 1,
@@ -181,6 +180,10 @@ class EstoqueRastreadoresTest extends TestCase
             'status_rastreador_id' => $statusAtivo->id,
             'is_estoque' => true,
         ]);
+        EquipamentoStatusWorkflow::executar(function () use ($chip, $rastreador, $statusAtivo): void {
+            $chip->update(['status_rastreador_id' => $statusAtivo->id]);
+            $rastreador->update(['status_rastreador_id' => $statusAtivo->id, 'is_estoque' => false]);
+        });
         $cliente = Cliente::query()->create([
             'nome' => 'Cliente Rastreador Ativo',
             'cpf_cnpj' => '52998224725',
@@ -215,6 +218,8 @@ class EstoqueRastreadoresTest extends TestCase
 
         $this->assertSame($novoTecnico->id, $rastreador->refresh()->tecnico_id);
         $this->assertSame($novoTecnico->id, $chip->refresh()->tecnico_id);
+        $this->assertSame($statusAtivo->id, $rastreador->status_rastreador_id);
+        $this->assertFalse($rastreador->is_estoque);
         $this->assertSame($novoTecnico->id, $veiculo->refresh()->tecnico_instala_id);
         $this->assertSame('Tecnico Novo', $veiculo->instalador);
     }

@@ -380,17 +380,6 @@
                 </label>
 
                 <label class="ct-field">
-                    <span class="ct-label">Status Estoque</span>
-                    <select wire:model="status_rastreador_id" class="ct-select">
-                        <option value="">--</option>
-                        @foreach ($this->statusOptions() as $status)
-                            <option value="{{ $status->id }}">{{ $status->label }}</option>
-                        @endforeach
-                    </select>
-                    @error('status_rastreador_id') <span class="ct-error">{{ $message }}</span> @enderror
-                </label>
-
-                <label class="ct-field">
                     <span class="ct-label">Tecnico</span>
                     <select wire:model="tecnico_id" class="ct-select">
                         <option value="">--</option>

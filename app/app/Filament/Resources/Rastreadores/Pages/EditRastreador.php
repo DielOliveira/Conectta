@@ -9,6 +9,7 @@ use App\Models\Rastreador;
 use App\Models\StatusRastreador;
 use App\Models\Veiculo;
 use App\Services\Audit\AuditLogger;
+use App\Services\Estoque\EquipamentoStatusWorkflow;
 use App\Services\OrdemServico\OrdemServicoEquipamentoReserva;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
@@ -150,7 +151,7 @@ class EditRastreador extends EditRecord
 
     protected function afterSave(): void
     {
-        $this->sincronizarChipRastreador();
+        EquipamentoStatusWorkflow::executar(fn () => $this->sincronizarChipRastreador());
         $this->record->refresh();
 
         AuditLogger::registrar(

@@ -239,7 +239,9 @@ class EstoqueRastreadores extends Page
                         ->lockForUpdate()
                         ->findOrFail((int) $arguments['id']);
 
-                    if ($rastreador->chip_id !== null) {
+                    if ($rastreador->chip_id !== null
+                        || ! $rastreador->is_estoque
+                        || $rastreador->statusRastreador?->label !== 'Disponivel') {
                         return null;
                     }
 
@@ -256,12 +258,13 @@ class EstoqueRastreadores extends Page
                     if ($chip) {
                         $chip->update([
                             'tecnico_id' => $rastreador->tecnico_id,
-                            'status_rastreador_id' => $rastreador->status_rastreador_id,
                         ]);
                     } else {
                         $data['numero_chip'] = $numeroChip;
                         $data['tecnico_id'] = $rastreador->tecnico_id;
-                        $data['status_rastreador_id'] = $rastreador->status_rastreador_id;
+                        $data['status_rastreador_id'] = StatusRastreador::query()
+                            ->where('label', 'Disponivel')
+                            ->value('id');
                         unset($data['chip_id']);
 
                         $chip = Chip::query()->create($this->prepararDadosNovoChip($data));
@@ -419,8 +422,6 @@ class EstoqueRastreadores extends Page
 
     public string $imei = '';
 
-    public ?int $status_rastreador_id = null;
-
     public ?int $tecnico_id = null;
 
     public string $search = '';
@@ -449,9 +450,6 @@ class EstoqueRastreadores extends Page
     public function mount(): void
     {
         $this->ativacao = (int) now()->year;
-        $this->status_rastreador_id = StatusRastreador::query()
-            ->where('label', 'Disponivel')
-            ->value('id');
     }
 
     public function salvar(): void
@@ -474,13 +472,11 @@ class EstoqueRastreadores extends Page
                 'max:50',
                 Rule::unique('rastreadores', 'imei')->ignore($this->editingId),
             ],
-            'status_rastreador_id' => ['nullable', 'exists:status_rastreadores,id'],
             'tecnico_id' => ['nullable', 'exists:tecnicos,id'],
         ], [], [
             'modelo' => 'modelo',
             'ativacao' => 'ativacao',
             'imei' => 'IMEI',
-            'status_rastreador_id' => 'status estoque',
             'tecnico_id' => 'tecnico',
         ]);
 
@@ -491,34 +487,26 @@ class EstoqueRastreadores extends Page
             return;
         }
 
-        $data = [
-            ...$data,
-            'is_estoque' => true,
-            'criado_em' => now(),
-        ];
-
         if ($this->editingId) {
             DB::transaction(function () use ($data): void {
                 $rastreador = Rastreador::query()->lockForUpdate()->findOrFail($this->editingId);
                 $antes = AuditLogger::snapshot($rastreador);
                 $rastreador->update($data);
                 $tecnicoAlterado = $rastreador->wasChanged('tecnico_id');
-                $statusAlterado = $rastreador->wasChanged('status_rastreador_id');
                 $rastreador->refresh();
 
-                if (($tecnicoAlterado || $statusAlterado) && $rastreador->chip_id !== null) {
+                if ($tecnicoAlterado && $rastreador->chip_id !== null) {
                     $chip = Chip::query()->lockForUpdate()->find($rastreador->chip_id);
 
-                    if ($chip !== null && ($chip->tecnico_id !== $rastreador->tecnico_id || $chip->status_rastreador_id !== $rastreador->status_rastreador_id)) {
+                    if ($chip !== null && $chip->tecnico_id !== $rastreador->tecnico_id) {
                         $chipAntes = AuditLogger::snapshot($chip);
                         $chip->update([
                             'tecnico_id' => $rastreador->tecnico_id,
-                            'status_rastreador_id' => $rastreador->status_rastreador_id,
                         ]);
 
                         AuditLogger::registrar(
                             'chip.editado',
-                            'Tecnico e status do chip sincronizados com o rastreador vinculado.',
+                            'Tecnico do chip sincronizado com o rastreador vinculado.',
                             $chip,
                             antes: $chipAntes,
                             depois: AuditLogger::snapshot($chip->refresh()),
@@ -543,7 +531,12 @@ class EstoqueRastreadores extends Page
                 );
             });
         } else {
-            $rastreador = Rastreador::query()->create($data);
+            $rastreador = Rastreador::query()->create([
+                ...$data,
+                'status_rastreador_id' => StatusRastreador::query()->where('label', 'Disponivel')->value('id'),
+                'is_estoque' => true,
+                'criado_em' => now(),
+            ]);
 
             AuditLogger::registrar(
                 'rastreador.criado',
@@ -580,7 +573,6 @@ class EstoqueRastreadores extends Page
         $this->modelo = (string) $rastreador->modelo;
         $this->ativacao = $rastreador->ativacao;
         $this->imei = (string) $rastreador->imei;
-        $this->status_rastreador_id = $rastreador->status_rastreador_id;
         $this->tecnico_id = $rastreador->tecnico_id;
     }
 
@@ -610,9 +602,6 @@ class EstoqueRastreadores extends Page
     {
         $this->reset(['editingId', 'modelo', 'ativacao', 'imei', 'tecnico_id']);
         $this->ativacao = (int) now()->year;
-        $this->status_rastreador_id = StatusRastreador::query()
-            ->where('label', 'Disponivel')
-            ->value('id');
     }
 
     public function limparFiltros(): void

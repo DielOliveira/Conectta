@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\Estoque\EquipamentoStatusWorkflow;
 use App\Services\OrdemServico\OrdemServicoEquipamentoReserva;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
@@ -266,9 +267,11 @@ class Veiculo extends Model
         }
 
         if ($this->isAtivo()) {
-            Rastreador::query()
-                ->whereKey($this->rastreador_id)
-                ->update(['status_rastreador_id' => self::statusId('Ativo')]);
+            EquipamentoStatusWorkflow::executar(
+                fn () => Rastreador::query()
+                    ->whereKey($this->rastreador_id)
+                    ->update(['status_rastreador_id' => self::statusId('Ativo')]),
+            );
         }
     }
 
@@ -278,12 +281,14 @@ class Veiculo extends Model
             return;
         }
 
-        Rastreador::query()
-            ->whereKey($this->rastreador_id)
-            ->update(array_filter([
-                'status_rastreador_id' => self::statusId('Disponivel'),
-                'tecnico_id' => $this->tecnico_remocao_id,
-            ], fn ($value): bool => $value !== null));
+        EquipamentoStatusWorkflow::executar(
+            fn () => Rastreador::query()
+                ->whereKey($this->rastreador_id)
+                ->update(array_filter([
+                    'status_rastreador_id' => self::statusId('Disponivel'),
+                    'tecnico_id' => $this->tecnico_remocao_id,
+                ], fn ($value): bool => $value !== null)),
+        );
     }
 
     private function syncClientesStatusAfterChange(): void

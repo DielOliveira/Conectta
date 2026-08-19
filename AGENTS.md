@@ -439,7 +439,9 @@ Principio operacional: conter, diagnosticar, preservar evidencias, corrigir de f
   - `Cadastro > Rastreadores`: lista `veiculos` com rastreador vinculado/instalado.
   - `Estoque > Rastreadores`: lista a tabela real `rastreadores`.
 - A combo `IMEI` em `Cadastro > Rastreadores` mostra apenas rastreadores com status `Disponivel`, alem do rastreador ja vinculado quando estiver editando um registro existente.
-- Ao criar rastreador em `Estoque > Rastreadores`, o status padrao deve ser `Disponivel`, para evitar criar estoque novo como `Ativo`.
+- Chips e rastreadores novos entram obrigatoriamente com status `Disponivel`; qualquer status enviado manualmente na criacao deve ser ignorado e substituido por `Disponivel`.
+- Depois da criacao, o status de chips e rastreadores e controlado exclusivamente pelos workflows do sistema, como instalacao, manutencao, retirada, cadastro de veiculo e restore/importacao controlada. As telas `Estoque > Rastreadores` e `Estoque > Chips` nao exibem nem aceitam edicao de status.
+- Ao editar um rastreador pela tela de estoque, preservar `status_rastreador_id` e `is_estoque`; a tela pode manter dados cadastrais e posse do tecnico, mas nao pode recolocar equipamento instalado no estoque.
 - Chips sao vinculados ao rastreador, nao ao veiculo. A tabela `rastreadores` possui `chip_id`; o campo legado `veiculos.chip_id` nao deve ser usado em novas regras/telas.
 - Em `Estoque > Chips`, o formulario usa schema Filament e o campo `IMEI` e um `Select` pesquisavel por busca remota, sem preload da tabela inteira. Pode haver chip sem rastreador vinculado.
 - Em `Estoque > Chips`, `Numero Chip` e `ICCID` sao campos separados: `numero_chip` contem o numero telefonico/numero atual do chip; `iccid` contem o ICCID real, deve ser unico quando preenchido e ter exatamente 20 digitos no formulario.

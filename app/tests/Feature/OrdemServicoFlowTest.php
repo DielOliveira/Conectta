@@ -18,6 +18,7 @@ use App\Models\StatusRastreador;
 use App\Models\Tecnico;
 use App\Models\User;
 use App\Models\Veiculo;
+use App\Services\Estoque\EquipamentoStatusWorkflow;
 use App\Services\OrdemServico\OrdemServicoAgendaService;
 use App\Services\OrdemServico\OrdemServicoEquipamentoReserva;
 use App\Services\OrdemServico\OrdemServicoService;
@@ -1087,6 +1088,11 @@ class OrdemServicoFlowTest extends TestCase
             'is_estoque' => true,
             'status_rastreador_id' => $statusAtivo->id,
         ]);
+        EquipamentoStatusWorkflow::executar(function () use ($chipAtivo, $statusAtivo): void {
+            $chipAtivo->update(['status_rastreador_id' => $statusAtivo->id]);
+            Rastreador::query()->where('imei', '860000000000022')->firstOrFail()
+                ->update(['status_rastreador_id' => $statusAtivo->id]);
+        });
         $token = str_repeat('a', 64);
         $ordem = app(OrdemServicoService::class)->criar($this->dadosOrdem($cliente, $veiculo), $operador)['ordem'];
         $ordem->update([
