@@ -16,6 +16,7 @@ use App\Models\Permission;
 use App\Models\Veiculo;
 use BackedEnum;
 use Filament\Forms\Components\Hidden;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -108,6 +109,28 @@ class OrdemServicoResource extends Resource
                     Toggle::make('notificar_cliente')->label('Notificar cliente pelo WhatsApp')->disabled($bloquearDadosAbertura)->default(false)->columnSpan(3),
                 ]),
             ])->columnSpanFull(),
+            Section::make('Equipamentos vinculados ao veículo')
+                ->description(fn (?OrdemServico $record): string => $record?->status === OrdemServicoStatus::EM_CONFERENCIA
+                    ? 'Confira os equipamentos que ficarão vinculados ao veículo após a aprovação da OS.'
+                    : 'Equipamentos que ficaram vinculados ao veículo na conclusão desta OS.')
+                ->schema([
+                    Grid::make(3)->schema([
+                        Placeholder::make('rastreador_vinculado_ao_concluir')
+                            ->label('Rastreador (IMEI)')
+                            ->content(fn (?OrdemServico $record): string => $record?->rastreadorVinculadoAoConcluir()?->imei ?: 'Nenhum rastreador vinculado'),
+                        Placeholder::make('chip_vinculado_ao_concluir')
+                            ->label('Número do chip')
+                            ->content(fn (?OrdemServico $record): string => $record?->chipVinculadoAoConcluir()?->numero_chip ?: 'Nenhum chip vinculado'),
+                        Placeholder::make('iccid_vinculado_ao_concluir')
+                            ->label('ICCID')
+                            ->content(fn (?OrdemServico $record): string => $record?->chipVinculadoAoConcluir()?->iccid ?: 'Não informado'),
+                    ]),
+                ])
+                ->visible(fn (?OrdemServico $record): bool => $record !== null && in_array($record->status, [
+                    OrdemServicoStatus::EM_CONFERENCIA,
+                    OrdemServicoStatus::FINALIZADA,
+                ], true))
+                ->columnSpanFull(),
             Section::make('Conferência da central')->schema([
                 Grid::make(3)->schema([
                     ToggleButtons::make('check_funcionamento')->label('Funcionamento do equipamento')->options([1 => 'Conferido', 0 => 'Não conferido'])->inline()->grouped()->disabled(),

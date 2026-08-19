@@ -788,6 +788,67 @@ class OrdemServicoFlowTest extends TestCase
         );
     }
 
+    public function test_painel_exibe_equipamentos_que_ficarao_no_veiculo_em_conferencia_e_apos_finalizar(): void
+    {
+        [$operador, $cliente, $veiculo] = $this->cenarioBase();
+        $chipAnterior = Chip::query()->create([
+            'numero_chip' => '5562999990041',
+            'iccid' => '89550000000000000041',
+        ]);
+        $rastreadorAnterior = Rastreador::query()->create([
+            'imei' => '860000000000041',
+            'chip_id' => $chipAnterior->id,
+        ]);
+        $rastreadorNovo = Rastreador::query()->create(['imei' => '860000000000042']);
+        $veiculo->update(['rastreador_id' => $rastreadorAnterior->id]);
+
+        $dados = $this->dadosOrdem($cliente, $veiculo);
+        $dados['tipo'] = 'manutencao';
+        $ordem = app(OrdemServicoService::class)->criar($dados, $operador)['ordem'];
+        $ordem->update([
+            'rastreador_novo_id' => $rastreadorNovo->id,
+            'resultado_manutencao' => 'troca_rastreador',
+            'status' => OrdemServicoStatus::EM_CONFERENCIA,
+        ]);
+        $this->actingAs($operador);
+
+        Livewire::test(EditOrdemServico::class, ['record' => $ordem->getRouteKey()])
+            ->assertSee('Equipamentos vinculados ao veículo')
+            ->assertSee('que ficarão vinculados ao veículo')
+            ->assertSee($rastreadorNovo->imei)
+            ->assertSee($chipAnterior->numero_chip)
+            ->assertSee($chipAnterior->iccid);
+
+        $ordem->update(['status' => OrdemServicoStatus::FINALIZADA]);
+
+        Livewire::test(EditOrdemServico::class, ['record' => $ordem->getRouteKey()])
+            ->assertSee('Equipamentos que ficaram vinculados ao veículo')
+            ->assertSee($rastreadorNovo->imei)
+            ->assertSee($chipAnterior->numero_chip)
+            ->assertSee($chipAnterior->iccid);
+    }
+
+    public function test_painel_de_retirada_informa_que_nenhum_equipamento_ficou_vinculado(): void
+    {
+        [$operador, $cliente, $veiculo] = $this->cenarioBase();
+        $chip = Chip::query()->create(['numero_chip' => '5562999990043']);
+        $rastreador = Rastreador::query()->create([
+            'imei' => '860000000000043',
+            'chip_id' => $chip->id,
+        ]);
+        $veiculo->update(['rastreador_id' => $rastreador->id]);
+        $dados = $this->dadosOrdem($cliente, $veiculo);
+        $dados['tipo'] = 'retirada';
+        $ordem = app(OrdemServicoService::class)->criar($dados, $operador)['ordem'];
+        $ordem->update(['status' => OrdemServicoStatus::FINALIZADA]);
+        $this->actingAs($operador);
+
+        Livewire::test(EditOrdemServico::class, ['record' => $ordem->getRouteKey()])
+            ->assertSee('Equipamentos vinculados ao veículo')
+            ->assertSee('Nenhum rastreador vinculado')
+            ->assertSee('Nenhum chip vinculado');
+    }
+
     public function test_popup_informa_o_item_nao_conferido_ao_tentar_finalizar(): void
     {
         [$operador, $cliente, $veiculo] = $this->cenarioBase();

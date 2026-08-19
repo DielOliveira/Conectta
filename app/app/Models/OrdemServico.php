@@ -91,6 +91,24 @@ class OrdemServico extends Model
         return $this->belongsTo(Chip::class, 'chip_novo_id');
     }
 
+    public function rastreadorVinculadoAoConcluir(): ?Rastreador
+    {
+        if ($this->tipo === OrdemServicoTipo::RETIRADA) {
+            return null;
+        }
+
+        return $this->rastreadorNovo ?? $this->rastreadorAnterior;
+    }
+
+    public function chipVinculadoAoConcluir(): ?Chip
+    {
+        if ($this->tipo === OrdemServicoTipo::RETIRADA) {
+            return null;
+        }
+
+        return $this->chipNovo ?? $this->chipAnterior;
+    }
+
     public function scopeAtivas(Builder $query): Builder
     {
         return $query->whereNotIn('status', [OrdemServicoStatus::FINALIZADA->value, OrdemServicoStatus::CANCELADA->value]);
