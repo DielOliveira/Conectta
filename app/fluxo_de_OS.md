@@ -512,7 +512,7 @@ Enquanto a OS estiver `Em conferencia`:
 
 Na finalizacao de uma instalacao, o IMEI do rastreador e o chip informados no atendimento sao vinculados automaticamente ao veiculo do cliente dono da OS.
 
-Na finalizacao de uma retirada, o rastreador e o chip sao desvinculados do veiculo e passam para o estoque do tecnico que executou a OS.
+Na finalizacao de uma retirada, o veiculo passa para `Cancelado` e preserva o vinculo com o rastreador como historico. O rastreador e o chip passam para `Disponivel` no estoque do tecnico que executou a OS.
 
 Observacao tecnica ja conhecida no sistema: o chip e vinculado ao rastreador por `rastreadores.chip_id`; novas regras nao devem usar o campo legado `veiculos.chip_id`.
 
@@ -543,7 +543,7 @@ Os itens substituidos sao transferidos para o estoque do tecnico que realizou o 
 ## Decisoes registradas durante o levantamento
 
 - Na retirada, o tecnico visualiza e confirma o IMEI e o chip atualmente associados ao veiculo.
-- Ao finalizar a retirada, o rastreador e o chip sao desvinculados do veiculo e transferidos para o estoque do tecnico que realizou o atendimento.
+- Ao finalizar a retirada, o veiculo passa para `Cancelado` e preserva o vinculo historico com o rastreador; o rastreador e o chip ficam `Disponivel` no estoque do tecnico que realizou o atendimento.
 - Toda retirada exige pelo menos uma foto do equipamento retirado.
 - Se houver divergencia de IMEI ou chip na retirada, o tecnico nao pode fechar a OS. Ele registra fotos e observacao, o operador corrige o cadastro e somente depois o tecnico pode confirmar e prosseguir.
 - Durante a divergencia da retirada, a OS fica como `Aguardando correcao cadastral` e retorna para `Em atendimento` depois da correcao pelo operador.

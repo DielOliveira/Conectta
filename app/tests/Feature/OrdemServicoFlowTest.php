@@ -25,6 +25,7 @@ use App\Services\OrdemServico\OrdemServicoService;
 use App\Services\OrdemServico\TecnicoAgendaPublicaService;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
@@ -940,15 +941,62 @@ class OrdemServicoFlowTest extends TestCase
         app(OrdemServicoService::class)->finalizar($ordem->fresh(), $operador);
 
         $this->assertSame(OrdemServicoStatus::FINALIZADA, $ordem->fresh()->status);
-        $this->assertNull($veiculo->fresh()->rastreador_id);
-        $this->assertSame($tecnico->id, $veiculo->fresh()->tecnico_remocao_id);
-        $this->assertSame('2026-08-14', $veiculo->fresh()->data_retirada?->format('Y-m-d'));
+        $veiculo = $veiculo->fresh();
+        $this->assertSame($rastreador->id, $veiculo->rastreador_id);
+        $this->assertSame(
+            StatusRastreador::query()->where('label', 'Cancelado')->value('id'),
+            $veiculo->status_rastreador_id,
+        );
+        $this->assertSame($tecnico->id, $veiculo->tecnico_remocao_id);
+        $this->assertSame('2026-08-14', $veiculo->data_retirada?->format('Y-m-d'));
         $this->assertSame($tecnico->id, $rastreador->fresh()->tecnico_id);
         $this->assertSame($statusDisponivel->id, $rastreador->fresh()->status_rastreador_id);
         $this->assertTrue($rastreador->fresh()->is_estoque);
         $this->assertSame($chip->id, $rastreador->fresh()->chip_id);
         $this->assertSame($tecnico->id, $chip->fresh()->tecnico_id);
         $this->assertSame($statusDisponivel->id, $chip->fresh()->status_rastreador_id);
+    }
+
+    public function test_migration_restaura_vinculo_historico_de_retirada_antiga(): void
+    {
+        CarbonImmutable::setTestNow('2026-08-20 16:00:00');
+        [$operador, $cliente, $veiculo, $tecnico] = $this->cenarioBase();
+        $statusAtivo = StatusRastreador::query()->where('label', 'Ativo')->firstOrFail();
+        $rastreador = Rastreador::query()->create([
+            'imei' => '860000000000099',
+            'status_rastreador_id' => $statusAtivo->id,
+        ]);
+        $veiculo->update([
+            'rastreador_id' => $rastreador->id,
+            'status_rastreador_id' => $statusAtivo->id,
+        ]);
+        $ordem = OrdemServico::query()->create(array_merge($this->dadosOrdem($cliente, $veiculo), [
+            'numero' => 99,
+            'tipo' => 'retirada',
+            'status' => OrdemServicoStatus::FINALIZADA,
+            'tecnico_id' => $tecnico->id,
+            'rastreador_anterior_id' => $rastreador->id,
+            'finalizada_em' => '2026-08-19 14:30:00',
+        ]));
+
+        DB::table('veiculos')->where('id', $veiculo->id)->update([
+            'rastreador_id' => null,
+            'status_rastreador_id' => $statusAtivo->id,
+            'tecnico_remocao_id' => null,
+            'data_retirada' => null,
+        ]);
+
+        $migration = require database_path('migrations/2026_08_20_000002_restore_tracker_history_for_completed_removals.php');
+        $migration->up();
+
+        $veiculo = $veiculo->fresh();
+        $this->assertSame($rastreador->id, $veiculo->rastreador_id);
+        $this->assertSame(StatusRastreador::query()->where('label', 'Cancelado')->value('id'), $veiculo->status_rastreador_id);
+        $this->assertSame($tecnico->id, $veiculo->tecnico_remocao_id);
+        $this->assertSame('2026-08-19', $veiculo->data_retirada?->format('Y-m-d'));
+        $this->assertDatabaseHas('audit_logs', [
+            'acao' => 'os.retiradas_historico_rastreador_restaurado',
+        ]);
     }
 
     public function test_operador_aprova_e_finaliza_instalacao_pelo_popup_de_conferencia(): void

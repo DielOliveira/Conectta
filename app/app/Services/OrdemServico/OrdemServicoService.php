@@ -281,6 +281,7 @@ class OrdemServicoService
     {
         $disponivel = StatusRastreador::query()->where('label', 'Disponivel')->value('id');
         $ativo = StatusRastreador::query()->where('label', 'Ativo')->value('id');
+        $cancelado = StatusRastreador::query()->where('label', 'Cancelado')->value('id');
         $chipInstaladoId = $ordem->chip_novo_id;
         if ($ordem->tipo === OrdemServicoTipo::MANUTENCAO && $ordem->rastreador_novo_id !== null && $chipInstaladoId === null) {
             $chipInstaladoId = $ordem->chip_anterior_id;
@@ -309,7 +310,12 @@ class OrdemServicoService
             Rastreador::query()->where('chip_id', $chip->id)->when($ordem->rastreador_novo_id, fn ($q) => $q->whereKeyNot($ordem->rastreador_novo_id))->update(['chip_id' => null]);
         }
         if ($ordem->tipo === OrdemServicoTipo::RETIRADA) {
-            $ordem->veiculo->update(['rastreador_id' => null, 'tecnico_remocao_id' => $ordem->tecnico_id, 'data_retirada' => today()]);
+            $ordem->veiculo->update([
+                'rastreador_id' => $ordem->rastreador_anterior_id,
+                'status_rastreador_id' => $cancelado,
+                'tecnico_remocao_id' => $ordem->tecnico_id,
+                'data_retirada' => today(),
+            ]);
             $ordem->rastreadorAnterior()->update([
                 'tecnico_id' => $ordem->tecnico_id,
                 'status_rastreador_id' => $disponivel,
