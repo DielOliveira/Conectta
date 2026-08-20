@@ -10,6 +10,7 @@ use App\Models\StatusRastreador;
 use App\Models\Tecnico;
 use App\Models\TipoVeiculo;
 use App\Models\Veiculo;
+use App\Services\Estoque\EquipamentoStatusWorkflow;
 use Database\Seeders\ClienteSupportSeeder;
 use Database\Seeders\RastreadorSupportSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -157,14 +158,20 @@ class RastreadorFlowTest extends TestCase
 
         $cliente = $this->cliente();
         $rastreador = Rastreador::query()->first();
+        $chip = Chip::query()->first();
         $tecnicoRemocao = Tecnico::query()->where('nome', 'Romeu')->first();
+
+        EquipamentoStatusWorkflow::executar(fn () => $rastreador->update([
+            'chip_id' => $chip->id,
+            'is_estoque' => false,
+        ]));
 
         $veiculo = Veiculo::query()->create([
             'cliente_id' => $cliente->id,
             'status_rastreador_id' => $this->statusRastreadorId('Ativo'),
             'tipo_veiculo_id' => TipoVeiculo::query()->where('label', 'Carro')->value('id'),
             'rastreador_id' => $rastreador->id,
-            'chip_id' => Chip::query()->first()->id,
+            'chip_id' => $chip->id,
             'veiculo' => 'Toyota / Yaris',
             'placa' => 'PQY-0719',
             'cor' => 'Branca',
@@ -185,6 +192,9 @@ class RastreadorFlowTest extends TestCase
             $this->assertSame('Inativo', $cliente->refresh()->statusCliente->label);
             $this->assertSame('Disponivel', $rastreador->refresh()->statusRastreador->label);
             $this->assertSame($tecnicoRemocao->id, $rastreador->tecnico_id);
+            $this->assertTrue($rastreador->is_estoque);
+            $this->assertSame('Disponivel', $chip->refresh()->statusRastreador->label);
+            $this->assertSame($tecnicoRemocao->id, $chip->tecnico_id);
         }
     }
 

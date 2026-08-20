@@ -150,7 +150,7 @@ class CreateRastreador extends CreateRecord
 
     private function sincronizarChipRastreador(): void
     {
-        if ($this->record->rastreador_id === null) {
+        if ($this->record->rastreador_id === null || ! $this->record->isAtivo()) {
             return;
         }
 

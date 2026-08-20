@@ -62,6 +62,37 @@ class EstoqueRastreadoresTest extends TestCase
         $this->assertSame('HINOVA', $chip->fornecedor);
     }
 
+    public function test_available_existing_chip_can_be_linked_when_tracker_is_not_marked_as_stock(): void
+    {
+        $this->actingAs($this->admin());
+
+        $status = $this->statusDisponivel();
+        $tecnico = Tecnico::query()->create(['nome' => 'Tecnico Fora Estoque']);
+        $rastreador = $this->rastreador('123456789012349', $tecnico, $status);
+        EquipamentoStatusWorkflow::executar(
+            fn () => $rastreador->update(['is_estoque' => false]),
+        );
+        $chip = Chip::query()->create([
+            'numero_chip' => '5562999990003',
+            'iccid' => '89550000000000000013',
+            'status_rastreador_id' => $status->id,
+        ]);
+
+        Livewire::test(EstoqueRastreadores::class)
+            ->callAction('adicionarChip', [
+                'chip_id' => $chip->id,
+                'numero_chip' => $chip->numero_chip,
+                'iccid' => $chip->iccid,
+            ], [
+                'id' => $rastreador->id,
+            ])
+            ->assertHasNoActionErrors();
+
+        $this->assertFalse($rastreador->refresh()->is_estoque);
+        $this->assertSame($chip->id, $rastreador->chip_id);
+        $this->assertSame($tecnico->id, $chip->refresh()->tecnico_id);
+    }
+
     public function test_unavailable_existing_chip_cannot_be_linked_from_tracker_row_action(): void
     {
         $this->actingAs($this->admin());

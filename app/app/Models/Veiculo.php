@@ -281,13 +281,31 @@ class Veiculo extends Model
             return;
         }
 
+        $rastreador = Rastreador::query()->find($this->rastreador_id);
+
+        if ($rastreador === null) {
+            return;
+        }
+
+        $disponivelId = self::statusId('Disponivel');
+
         EquipamentoStatusWorkflow::executar(
-            fn () => Rastreador::query()
-                ->whereKey($this->rastreador_id)
-                ->update(array_filter([
-                    'status_rastreador_id' => self::statusId('Disponivel'),
+            function () use ($rastreador, $disponivelId): void {
+                $rastreador->update(array_filter([
+                    'status_rastreador_id' => $disponivelId,
                     'tecnico_id' => $this->tecnico_remocao_id,
-                ], fn ($value): bool => $value !== null)),
+                    'is_estoque' => true,
+                ], fn ($value): bool => $value !== null));
+
+                if ($rastreador->chip_id !== null) {
+                    Chip::query()
+                        ->whereKey($rastreador->chip_id)
+                        ->update(array_filter([
+                            'status_rastreador_id' => $disponivelId,
+                            'tecnico_id' => $this->tecnico_remocao_id,
+                        ], fn ($value): bool => $value !== null));
+                }
+            },
         );
     }
 

@@ -241,7 +241,6 @@ class EstoqueRastreadores extends Page
                         ->findOrFail((int) $arguments['id']);
 
                     if ($rastreador->chip_id !== null
-                        || ! $rastreador->is_estoque
                         || $rastreador->statusRastreador?->label !== 'Disponivel') {
                         return null;
                     }

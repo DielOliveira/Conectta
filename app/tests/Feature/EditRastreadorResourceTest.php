@@ -114,6 +114,65 @@ class EditRastreadorResourceTest extends TestCase
         $this->assertSame($tecnico->nome, $veiculo->fresh()->instalador);
     }
 
+    public function test_cancelling_vehicle_does_not_reactivate_tracker_and_chip_after_save(): void
+    {
+        $this->seed(ClienteSupportSeeder::class);
+        $this->seed(PaisSeeder::class);
+        $this->seed(RastreadorSupportSeeder::class);
+        $this->actingAs(User::query()->create([
+            'name' => 'Admin',
+            'email' => 'admin-cancel-rastreador@example.com',
+            'password' => 'password',
+            'is_admin' => true,
+        ]));
+
+        $ativoId = StatusRastreador::query()->where('label', 'Ativo')->value('id');
+        $canceladoId = StatusRastreador::query()->where('label', 'Cancelado')->value('id');
+        $disponivelId = StatusRastreador::query()->where('label', 'Disponivel')->value('id');
+        $tecnicoRemocao = Tecnico::query()->firstOrFail();
+        $chip = Chip::query()->firstOrFail();
+        $rastreador = Rastreador::query()->firstOrFail();
+
+        EquipamentoStatusWorkflow::executar(function () use ($ativoId, $chip, $rastreador): void {
+            $chip->update(['tecnico_id' => null, 'status_rastreador_id' => $ativoId]);
+            $rastreador->update([
+                'chip_id' => $chip->id,
+                'tecnico_id' => null,
+                'status_rastreador_id' => $ativoId,
+                'is_estoque' => false,
+            ]);
+        });
+
+        $veiculo = $this->veiculo(
+            $this->cliente('Cliente cancelamento', '39053344705'),
+            $ativoId,
+            TipoVeiculo::query()->where('label', 'Carro')->value('id'),
+            [
+                'rastreador_id' => $rastreador->id,
+                'veiculo' => 'Veículo cancelado pela tela',
+                'placa' => 'CAN-9Z99',
+            ],
+        );
+
+        Livewire::test(EditRastreador::class, ['record' => $veiculo->getRouteKey()])
+            ->set('data.status_rastreador_id', $canceladoId)
+            ->set('data.data_retirada', '2026-08-20')
+            ->set('data.tecnico_remocao_id', $tecnicoRemocao->id)
+            ->call('save')
+            ->assertHasNoFormErrors();
+
+        $rastreador->refresh();
+        $chip->refresh();
+
+        $this->assertSame($canceladoId, $veiculo->fresh()->status_rastreador_id);
+        $this->assertSame($disponivelId, $rastreador->status_rastreador_id);
+        $this->assertSame($tecnicoRemocao->id, $rastreador->tecnico_id);
+        $this->assertTrue($rastreador->is_estoque);
+        $this->assertSame($chip->id, $rastreador->chip_id);
+        $this->assertSame($disponivelId, $chip->status_rastreador_id);
+        $this->assertSame($tecnicoRemocao->id, $chip->tecnico_id);
+    }
+
     public function test_tracker_status_is_required_only_when_an_imei_is_selected(): void
     {
         $this->seed(ClienteSupportSeeder::class);
