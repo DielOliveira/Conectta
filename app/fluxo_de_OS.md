@@ -78,6 +78,7 @@ Em retiradas ou manutencoes com divergencia de IMEI ou chip, a OS sai de `Em ate
 - Enquanto nao for atribuida, a OS permanece sem data e horario.
 - A OS somente passa para `Enviada` quando a central atribui um tecnico e a vincula a um bloco disponivel da agenda dele.
 - Ao atribuir o tecnico, o operador deve escolher obrigatoriamente um bloco livre de 1 hora da agenda.
+- Quando o tecnico cadastrado selecionado for `Outros`, o operador informa no popup o nome do prestador externo. Esse nome fica gravado e aparece como complemento na OS; agenda, telefone, mensagens e todo o restante do fluxo continuam usando o cadastro `Outros` normalmente.
 - A data e o horario do bloco escolhido passam a ser o horario efetivo da OS.
 - A atribuicao exige que o tecnico possua um telefone valido no cadastro para receber o link por WhatsApp.
 - Sem telefone valido, a atribuicao e recusada, nenhum bloco e ocupado e a OS permanece `Aberta`.
@@ -223,6 +224,7 @@ Regras de edicao:
 
 - Tipo, cliente e veiculo ficam bloqueados assim que a OS e criada e nao podem ser alterados posteriormente.
 - O tecnico, a data e o horario sao definidos exclusivamente pela atribuicao de um bloco livre da agenda.
+- A atribuicao de tecnico e horario e feita exclusivamente pelo popup do calendario; a tela individual da OS nao possui acao de atribuicao.
 - A partir de `Em atendimento`, permanecem disponiveis apenas observacoes, a correcao cadastral prevista para retirada, a conferencia e o cancelamento com motivo.
 - Cancelamento do agendamento e nova atribuicao devem ocorrer antes do inicio do atendimento.
 - Depois de `Finalizada`, a OS fica totalmente bloqueada para edicao tambem na central.

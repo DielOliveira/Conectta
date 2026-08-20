@@ -4,18 +4,13 @@ namespace App\Filament\Resources\OrdensServico\Pages;
 
 use App\Enums\OrdemServicoStatus;
 use App\Filament\Resources\OrdensServico\OrdemServicoResource;
-use App\Models\OrdemServicoDisponibilidade;
 use App\Models\Permission;
-use App\Services\OrdemServico\OrdemServicoAgendaService;
 use App\Services\OrdemServico\OrdemServicoService;
-use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
-use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\ToggleButtons;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
-use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
@@ -42,37 +37,6 @@ class EditOrdemServico extends EditRecord
                     app(OrdemServicoService::class)->cadastroCorrigido($this->record, auth()->user());
                     Notification::make()->title('Cadastro validado; atendimento liberado.')->success()->send();
                     $this->refreshFormData(['status', 'rastreador_anterior_id', 'chip_anterior_id']);
-                }),
-            Action::make('agendar')->label('Atribuir técnico')
-                ->icon(Heroicon::OutlinedCalendarDays)->color('primary')
-                ->visible($podeEscrever && $this->record->status === OrdemServicoStatus::ABERTA && $this->record->tecnico_id === null)
-                ->schema([
-                    Select::make('disponibilidade_id')->label('Disponibilidade')->options(fn () => OrdemServicoDisponibilidade::query()->with('tecnico')->where('tipo', OrdemServicoDisponibilidade::TIPO_DISPONIBILIDADE)->where('data', '>=', today())->orderBy('data')->get()->filter(fn ($d) => app(OrdemServicoAgendaService::class)->blocos($d, $this->record->id)->contains(fn (CarbonImmutable $bloco) => app(OrdemServicoAgendaService::class)->blocoPodeSerAgendado($bloco)))->mapWithKeys(fn ($d) => [$d->id => $d->tecnico->nome.' — '.$d->data->format('d/m/Y').' '.substr($d->hora_inicio, 0, 5).' às '.substr($d->hora_fim, 0, 5)])->all())
-                        ->searchable()
-                        ->noOptionsMessage('Nenhuma disponibilidade futura cadastrada. Cadastre um intervalo em Agenda dos técnicos.')
-                        ->noSearchResultsMessage('Nenhuma disponibilidade encontrada.')
-                        ->live()
-                        ->required(),
-                    Select::make('agendado_em')->label('Bloco livre')->options(function (Get $get): array {
-                        $disponibilidade = OrdemServicoDisponibilidade::query()->find($get('disponibilidade_id'));
-                        if (! $disponibilidade) {
-                            return [];
-                        }
-
-                        $agenda = app(OrdemServicoAgendaService::class);
-
-                        return $agenda->blocos($disponibilidade, $this->record->id)
-                            ->filter(fn (CarbonImmutable $bloco) => $agenda->blocoPodeSerAgendado($bloco))
-                            ->mapWithKeys(fn (CarbonImmutable $b) => [$b->format('Y-m-d H:i:s') => $b->format('d/m/Y H:i')])->all();
-                    })
-                        ->noOptionsMessage('Selecione uma disponibilidade que possua blocos livres.')
-                        ->required(),
-                ])->action(function (array $data): void {
-                    $disponibilidade = OrdemServicoDisponibilidade::query()->findOrFail($data['disponibilidade_id']);
-                    app(OrdemServicoService::class)->agendar($this->record, $disponibilidade, CarbonImmutable::parse($data['agendado_em']), auth()->user());
-                    Notification::make()->title('OS atribuída e pronta para envio ao técnico.')->success()->send();
-                    $this->record->refresh();
-                    $this->refreshFormData(['status', 'tecnico_id', 'disponibilidade_id', 'agendado_em']);
                 }),
             Action::make('pendente')->label('Marcar pendente')->icon(Heroicon::OutlinedArrowUturnLeft)->color('warning')
                 ->visible($podeEscrever && $this->record->status === OrdemServicoStatus::EM_CONFERENCIA)

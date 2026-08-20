@@ -15,6 +15,7 @@ use Carbon\CarbonInterface;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Utilities\Get;
@@ -105,7 +106,7 @@ class AgendaOrdensServico extends Page
     {
         $dias = $this->dias();
 
-        return OrdemServicoDisponibilidade::query()->with(['tecnico', 'ordens.cliente', 'ordens.veiculo'])
+        return OrdemServicoDisponibilidade::query()->with(['tecnico', 'ordens.cliente', 'ordens.veiculo', 'ordens.tecnico'])
             ->whereDate('data', '>=', $dias->first()->toDateString())
             ->whereDate('data', '<=', $dias->last()->toDateString())
             ->when($this->tecnicoId, fn ($q) => $q->where('tecnico_id', $this->tecnicoId))->orderBy('data')->orderBy('hora_inicio')->get()
@@ -201,6 +202,7 @@ class AgendaOrdensServico extends Page
                 'abrir_horario' => ! empty($arguments['abrir_horario']),
                 'ordem_servico_id' => null,
                 'tecnico_id' => null,
+                'nome_tecnico_externo' => null,
             ])
             ->schema([
                 Hidden::make('horario'),
@@ -243,7 +245,14 @@ class AgendaOrdensServico extends Page
                     ->noOptionsMessage(fn (Get $get): string => $get('abrir_horario')
                         ? 'Nenhum técnico está livre para abrir este horário.'
                         : 'O horário não possui mais técnicos livres.')
+                    ->live()
                     ->required(),
+                TextInput::make('nome_tecnico_externo')
+                    ->label('Nome do técnico')
+                    ->helperText('Informe o nome do prestador que realizará esta OS.')
+                    ->visible(fn (Get $get): bool => $this->tecnicoSelecionadoEhOutros($get('tecnico_id')))
+                    ->required(fn (Get $get): bool => $this->tecnicoSelecionadoEhOutros($get('tecnico_id')))
+                    ->maxLength(255),
             ])
             ->action(function (array $data, array $arguments, Action $action): void {
                 abort_unless(auth()->user()?->hasPermission(Permission::OS_ESCRITA), 403);
@@ -264,6 +273,7 @@ class AgendaOrdensServico extends Page
                             (int) $data['tecnico_id'],
                             $horario,
                             auth()->user(),
+                            $data['nome_tecnico_externo'] ?? null,
                         );
                     } else {
                         $disponibilidade = $this->disponibilidadesLivres($horario)
@@ -273,7 +283,13 @@ class AgendaOrdensServico extends Page
                             throw ValidationException::withMessages(['tecnico_id' => 'Este técnico não está mais livre no horário selecionado.']);
                         }
 
-                        app(OrdemServicoService::class)->agendar($ordem, $disponibilidade, $horario, auth()->user());
+                        app(OrdemServicoService::class)->agendar(
+                            $ordem,
+                            $disponibilidade,
+                            $horario,
+                            auth()->user(),
+                            $data['nome_tecnico_externo'] ?? null,
+                        );
                     }
                 } catch (ValidationException $exception) {
                     Notification::make()->title('Não foi possível agendar a OS.')->body(collect($exception->errors())->flatten()->first())->danger()->send();
@@ -314,6 +330,11 @@ class AgendaOrdensServico extends Page
             ->whereKey($ordemId)
             ->whereIn('status', [OrdemServicoStatus::ENVIADA->value, OrdemServicoStatus::ACEITA->value])
             ->exists();
+    }
+
+    private function tecnicoSelecionadoEhOutros(mixed $tecnicoId): bool
+    {
+        return filled($tecnicoId) && Tecnico::query()->find((int) $tecnicoId)?->isOutros() === true;
     }
 
     private function disponibilidadesLivres(CarbonImmutable $horario): Collection

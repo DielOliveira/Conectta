@@ -107,6 +107,11 @@ class OrdemServicoResource extends Resource
                     Textarea::make('observacoes')->label('Observações')->rows(3)->columnSpanFull(),
                     TextInput::make('localizacao_url')->label('Link de localização')->disabled($bloquearDadosAbertura)->url()->columnSpan(9),
                     Toggle::make('notificar_cliente')->label('Notificar cliente pelo WhatsApp')->disabled($bloquearDadosAbertura)->default(false)->columnSpan(3),
+                    Placeholder::make('tecnico_responsavel')
+                        ->label('Técnico responsável')
+                        ->content(fn (?OrdemServico $record): string => $record?->nome_tecnico_exibicao ?: 'Não atribuído')
+                        ->visibleOn('edit')
+                        ->columnSpan(4),
                 ]),
             ])->columnSpanFull(),
             Section::make('Equipamentos vinculados ao veículo')
@@ -152,7 +157,9 @@ class OrdemServicoResource extends Resource
                 TextColumn::make('veiculo.placa')->label('Placa')->sortable(),
                 TextColumn::make('tipo')->label('Tipo')->formatStateUsing(fn (OrdemServicoTipo $state) => $state->label())->badge()->sortable(),
                 TextColumn::make('status')->label('Status')->formatStateUsing(fn (OrdemServicoStatus $state) => $state->label())->badge()->sortable(),
-                TextColumn::make('tecnico.nome')->label('Técnico')->placeholder('Não atribuído')->sortable(),
+                TextColumn::make('tecnico.nome')->label('Técnico')
+                    ->formatStateUsing(fn ($state, OrdemServico $record): string => $record->nome_tecnico_exibicao ?: 'Não atribuído')
+                    ->sortable(),
                 TextColumn::make('agendado_em')->label('Atendimento')->dateTime('d/m/Y H:i')->placeholder('Não agendado')->sortable(),
             ])
             ->modifyQueryUsing(fn ($query, ListOrdensServico $livewire) => $livewire->aplicarFiltrosOrdensServico($query))

@@ -109,7 +109,7 @@ class ListOrdensServico extends ListRecords
                     $ordemServico->veiculo?->placa,
                     $ordemServico->tipo->label(),
                     $ordemServico->status->label(),
-                    $ordemServico->tecnico?->nome,
+                    $ordemServico->nome_tecnico_exibicao,
                     $ordemServico->agendado_em?->format('d/m/Y H:i'),
                 ], ';');
             }

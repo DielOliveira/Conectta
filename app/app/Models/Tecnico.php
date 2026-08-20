@@ -38,6 +38,11 @@ class Tecnico extends Model
         return $this->hasMany(OrdemServicoDisponibilidade::class);
     }
 
+    public function isOutros(): bool
+    {
+        return mb_strtolower(trim($this->nome)) === 'outros';
+    }
+
     public static function formatarCpf(?string $cpf): string
     {
         $digits = preg_replace('/\D+/', '', (string) $cpf) ?? '';

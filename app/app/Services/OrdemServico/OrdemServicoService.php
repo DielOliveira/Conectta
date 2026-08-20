@@ -67,9 +67,9 @@ class OrdemServicoService
     }
 
     /** @return array{ordem: OrdemServico, token: string} */
-    public function agendar(OrdemServico $ordem, OrdemServicoDisponibilidade $disponibilidade, CarbonImmutable $horario, User $operador): array
+    public function agendar(OrdemServico $ordem, OrdemServicoDisponibilidade $disponibilidade, CarbonImmutable $horario, User $operador, ?string $nomeTecnicoExterno = null): array
     {
-        return DB::transaction(function () use ($ordem, $disponibilidade, $horario, $operador): array {
+        return DB::transaction(function () use ($ordem, $disponibilidade, $horario, $operador, $nomeTecnicoExterno): array {
             $ordem = OrdemServico::query()->lockForUpdate()->findOrFail($ordem->id);
             $disponibilidade = OrdemServicoDisponibilidade::query()->with('tecnico')->lockForUpdate()->findOrFail($disponibilidade->id);
             if (! in_array($ordem->status, [OrdemServicoStatus::ABERTA, OrdemServicoStatus::ENVIADA, OrdemServicoStatus::ACEITA], true)) {
@@ -78,11 +78,19 @@ class OrdemServicoService
             if (! $this->telefoneValido($disponibilidade->tecnico->telefone)) {
                 throw ValidationException::withMessages(['tecnico_id' => 'Corrija o telefone do técnico antes de atribuir a ordem.']);
             }
+            $nomeTecnicoExterno = trim((string) $nomeTecnicoExterno);
+            if ($disponibilidade->tecnico->isOutros() && $nomeTecnicoExterno === '') {
+                throw ValidationException::withMessages(['nome_tecnico_externo' => 'Informe o nome do técnico.']);
+            }
+            if (mb_strlen($nomeTecnicoExterno) > 255) {
+                throw ValidationException::withMessages(['nome_tecnico_externo' => 'O nome do técnico deve ter no máximo 255 caracteres.']);
+            }
             $this->agenda->validarBloco($disponibilidade, $horario, $ordem->id);
             $anterior = $ordem->status;
             $token = Str::random(64);
             $ordem->update([
                 'tecnico_id' => $disponibilidade->tecnico_id, 'disponibilidade_id' => $disponibilidade->id,
+                'nome_tecnico_externo' => $disponibilidade->tecnico->isOutros() ? $nomeTecnicoExterno : null,
                 'agendado_em' => $horario, 'status' => OrdemServicoStatus::ENVIADA,
                 'token_hash' => hash('sha256', $token), 'token_credencial' => $token, 'token_invalidado_em' => null, 'aceita_em' => null,
             ]);
@@ -94,13 +102,13 @@ class OrdemServicoService
     }
 
     /** @return array{ordem: OrdemServico, token: string} */
-    public function agendarAbrindoHorario(OrdemServico $ordem, int $tecnicoId, CarbonImmutable $horario, User $operador): array
+    public function agendarAbrindoHorario(OrdemServico $ordem, int $tecnicoId, CarbonImmutable $horario, User $operador, ?string $nomeTecnicoExterno = null): array
     {
-        return DB::transaction(function () use ($ordem, $tecnicoId, $horario, $operador): array {
+        return DB::transaction(function () use ($ordem, $tecnicoId, $horario, $operador, $nomeTecnicoExterno): array {
             $ordem = OrdemServico::query()->lockForUpdate()->findOrFail($ordem->id);
             $disponibilidade = $this->agenda->obterOuCriarHorario($tecnicoId, $horario);
 
-            return $this->agendar($ordem, $disponibilidade, $horario, $operador);
+            return $this->agendar($ordem, $disponibilidade, $horario, $operador, $nomeTecnicoExterno);
         });
     }
 
@@ -121,7 +129,7 @@ class OrdemServicoService
             throw ValidationException::withMessages(['motivo' => 'Informe o motivo da rejeição.']);
         }
         $this->transicionarTecnico($ordem, OrdemServicoStatus::ENVIADA, OrdemServicoStatus::ABERTA, 'rejeicao', [
-            'tecnico_id' => null, 'disponibilidade_id' => null, 'agendado_em' => null,
+            'tecnico_id' => null, 'nome_tecnico_externo' => null, 'disponibilidade_id' => null, 'agendado_em' => null,
             'token_invalidado_em' => now(), 'token_hash' => null, 'token_credencial' => null,
         ], $motivo);
     }
@@ -185,6 +193,7 @@ class OrdemServicoService
             $ordem->update([
                 'status' => OrdemServicoStatus::ABERTA,
                 'tecnico_id' => null,
+                'nome_tecnico_externo' => null,
                 'disponibilidade_id' => null,
                 'agendado_em' => null,
                 'aceita_em' => null,

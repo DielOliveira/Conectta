@@ -205,6 +205,59 @@ class OrdemServicoFlowTest extends TestCase
         $this->assertSame(OrdemServicoStatus::ENVIADA, $ordem->fresh()->status);
     }
 
+    public function test_calendario_exige_e_grava_nome_do_prestador_quando_tecnico_for_outros(): void
+    {
+        CarbonImmutable::setTestNow('2026-08-03 08:00:00');
+        [$operador, $cliente, $veiculo] = $this->cenarioBase();
+        $outros = Tecnico::query()->create([
+            'nome' => 'Outros',
+            'telefone' => '62977777777',
+            'is_ativo' => true,
+        ]);
+        $ordem = app(OrdemServicoService::class)->criar($this->dadosOrdem($cliente, $veiculo), $operador)['ordem'];
+        $horario = '2026-08-04 09:00:00';
+        $this->actingAs($operador);
+
+        Livewire::test(AgendaOrdensServico::class)
+            ->callAction('atribuir', data: [
+                'horario' => $horario,
+                'abrir_horario' => true,
+                'ordem_servico_id' => $ordem->id,
+                'tecnico_id' => $outros->id,
+            ], arguments: [
+                'horario' => $horario,
+                'abrir_horario' => true,
+            ])
+            ->assertHasActionErrors(['nome_tecnico_externo']);
+
+        $this->assertSame(OrdemServicoStatus::ABERTA, $ordem->fresh()->status);
+
+        Livewire::test(AgendaOrdensServico::class)
+            ->callAction('atribuir', data: [
+                'horario' => $horario,
+                'abrir_horario' => true,
+                'ordem_servico_id' => $ordem->id,
+                'tecnico_id' => $outros->id,
+                'nome_tecnico_externo' => 'José da Silva',
+            ], arguments: [
+                'horario' => $horario,
+                'abrir_horario' => true,
+            ])
+            ->assertHasNoActionErrors();
+
+        $ordem->refresh();
+        $this->assertSame($outros->id, $ordem->tecnico_id);
+        $this->assertSame('José da Silva', $ordem->nome_tecnico_externo);
+        $this->assertSame('Outros — José da Silva', $ordem->nome_tecnico_exibicao);
+        $this->assertStringContainsString('Olá, Outros', $ordem->notificacoes()->where('destinatario_tipo', 'tecnico')->firstOrFail()->mensagem);
+
+        Livewire::test(EditOrdemServico::class, ['record' => $ordem->getRouteKey()])
+            ->assertSee('Outros — José da Silva');
+        Livewire::test(AgendaOrdensServico::class)
+            ->set('data', '2026-08-04')
+            ->assertSee('Outros — José da Silva');
+    }
+
     public function test_abrir_horario_reaproveita_bloco_livre_e_nao_lista_tecnico_bloqueado(): void
     {
         CarbonImmutable::setTestNow('2026-08-03 08:00:00');
@@ -375,13 +428,15 @@ class OrdemServicoFlowTest extends TestCase
         [$operador, $cliente, $veiculo, $tecnico] = $this->cenarioBase();
         $ordem = app(OrdemServicoService::class)->criar($this->dadosOrdem($cliente, $veiculo), $operador)['ordem'];
         $disponibilidade = app(OrdemServicoAgendaService::class)->criarDisponibilidade($tecnico->id, '2026-08-15', '08:00', '12:00');
+        app(OrdemServicoService::class)->agendar(
+            $ordem,
+            $disponibilidade,
+            CarbonImmutable::parse('2026-08-15 09:00:00'),
+            $operador,
+        );
         $this->actingAs($operador);
 
         Livewire::test(EditOrdemServico::class, ['record' => $ordem->getRouteKey()])
-            ->callAction('agendar', data: [
-                'disponibilidade_id' => $disponibilidade->id,
-                'agendado_em' => '2026-08-15 09:00:00',
-            ])
             ->set('data.status', OrdemServicoStatus::ABERTA->value)
             ->set('data.observacoes', 'Observação atualizada depois do agendamento.')
             ->call('save')
@@ -395,6 +450,16 @@ class OrdemServicoFlowTest extends TestCase
 
         app(OrdemServicoService::class)->aceitar($ordem);
         $this->assertSame(OrdemServicoStatus::ACEITA, $ordem->fresh()->status);
+    }
+
+    public function test_tela_da_os_nao_oferece_atribuicao_direta_de_tecnico(): void
+    {
+        [$operador, $cliente, $veiculo] = $this->cenarioBase();
+        $ordem = app(OrdemServicoService::class)->criar($this->dadosOrdem($cliente, $veiculo), $operador)['ordem'];
+        $this->actingAs($operador);
+
+        Livewire::test(EditOrdemServico::class, ['record' => $ordem->getRouteKey()])
+            ->assertActionDoesNotExist('agendar');
     }
 
     public function test_impede_duas_ordens_ativas_para_o_mesmo_veiculo(): void

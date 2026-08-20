@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['numero', 'tipo', 'status', 'cliente_id', 'veiculo_id', 'associado', 'tecnico_id', 'disponibilidade_id',
+#[Fillable(['numero', 'tipo', 'status', 'cliente_id', 'veiculo_id', 'associado', 'tecnico_id', 'nome_tecnico_externo', 'disponibilidade_id',
     'agendado_em', 'endereco', 'descricao', 'observacoes', 'localizacao_url',
     'localizacao_latitude', 'localizacao_longitude', 'notificar_cliente', 'token_hash', 'token_credencial', 'token_invalidado_em',
     'aceita_em', 'iniciada_em', 'inicio_latitude', 'inicio_longitude', 'termino_tecnico_em', 'finalizada_em',
@@ -136,5 +136,16 @@ class OrdemServico extends Model
     public function getTelefonePaisAtendimentoAttribute(): string
     {
         return (string) ($this->associado ? ($this->veiculo?->contato_pais ?: 'BR') : ($this->cliente?->telefone1_pais ?: 'BR'));
+    }
+
+    public function getNomeTecnicoExibicaoAttribute(): ?string
+    {
+        if (! $this->tecnico) {
+            return null;
+        }
+
+        return $this->tecnico->isOutros() && filled($this->nome_tecnico_externo)
+            ? $this->tecnico->nome.' — '.$this->nome_tecnico_externo
+            : $this->tecnico->nome;
     }
 }
