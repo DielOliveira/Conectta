@@ -7,6 +7,7 @@ use App\Filament\Pages\AgendaOrdensServico;
 use App\Filament\Resources\Disponibilidades\DisponibilidadeResource;
 use App\Filament\Resources\Disponibilidades\Pages\CreateDisponibilidade;
 use App\Filament\Resources\Disponibilidades\Pages\ListDisponibilidades;
+use App\Filament\Resources\OrdensServico\OrdemServicoResource;
 use App\Filament\Resources\OrdensServico\Pages\CreateOrdemServico;
 use App\Filament\Resources\OrdensServico\Pages\EditOrdemServico;
 use App\Models\Chip;
@@ -256,6 +257,9 @@ class OrdemServicoFlowTest extends TestCase
             ->assertSee('Outros — José da Silva');
         Livewire::test(AgendaOrdensServico::class)
             ->set('data', '2026-08-04')
+            ->assertSee('Outros — José da Silva');
+        $this->get(OrdemServicoResource::getUrl())
+            ->assertOk()
             ->assertSee('Outros — José da Silva');
     }
 
