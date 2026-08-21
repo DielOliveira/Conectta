@@ -286,6 +286,10 @@ class Veiculo extends Model
             return;
         }
 
+        if ($this->hasAnotherActiveWith('rastreador_id', (int) $this->rastreador_id)) {
+            return;
+        }
+
         $rastreador = Rastreador::query()->find($this->rastreador_id);
 
         if ($rastreador === null) {

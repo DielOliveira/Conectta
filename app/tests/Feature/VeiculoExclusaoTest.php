@@ -4,14 +4,18 @@ namespace Tests\Feature;
 
 use App\Enums\OrdemServicoStatus;
 use App\Filament\Resources\Rastreadores\Pages\ListRastreadores;
+use App\Models\Chip;
 use App\Models\Cliente;
 use App\Models\OrdemServico;
+use App\Models\Rastreador;
 use App\Models\StatusRastreador;
 use App\Models\User;
 use App\Models\Veiculo;
+use App\Services\Estoque\EquipamentoStatusWorkflow;
 use App\Services\OrdemServico\OrdemServicoService;
 use App\Services\Veiculo\VeiculoExclusaoService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -140,6 +144,63 @@ class VeiculoExclusaoTest extends TestCase
 
         $this->assertSame(0, Veiculo::query()->whereKey([$primeiro->id, $segundo->id])->count());
         $this->assertSame(2, Veiculo::query()->withTrashed()->whereKey([$primeiro->id, $segundo->id])->count());
+    }
+
+    public function test_exclusao_nao_libera_equipamento_usado_por_outro_veiculo_ativo(): void
+    {
+        $this->criarStatusRastreadores();
+        $operador = User::factory()->create(['is_admin' => true]);
+        $cliente = $this->criarCliente('Cliente duplicidade legada', '39053344705');
+        $ativoId = StatusRastreador::query()->where('label', 'Ativo')->value('id');
+        $chip = Chip::query()->create([
+            'numero_chip' => '5562999990101',
+            'iccid' => '89550000000000000101',
+        ]);
+        $rastreador = Rastreador::query()->create([
+            'imei' => '860000000000101',
+        ]);
+
+        EquipamentoStatusWorkflow::executar(function () use ($chip, $rastreador, $ativoId): void {
+            $chip->update([
+                'status_rastreador_id' => $ativoId,
+                'tecnico_id' => null,
+            ]);
+            $rastreador->update([
+                'chip_id' => $chip->id,
+                'status_rastreador_id' => $ativoId,
+                'tecnico_id' => null,
+                'is_estoque' => false,
+            ]);
+        });
+
+        $veiculoExcluido = Veiculo::query()->create([
+            'cliente_id' => $cliente->id,
+            'status_rastreador_id' => $ativoId,
+            'rastreador_id' => $rastreador->id,
+            'veiculo' => 'Cadastro antigo duplicado',
+            'placa' => 'DUP-1A23',
+        ]);
+
+        $outroVeiculoId = DB::table('veiculos')->insertGetId([
+            'cliente_id' => $cliente->id,
+            'status_rastreador_id' => $ativoId,
+            'rastreador_id' => $rastreador->id,
+            'veiculo' => 'Cadastro ativo correto',
+            'placa' => 'DUP-1A23',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->actingAs($operador);
+        app(VeiculoExclusaoService::class)->excluir([$veiculoExcluido], $operador);
+
+        $this->assertNull(Veiculo::query()->find($veiculoExcluido->id));
+        $this->assertSame($rastreador->id, Veiculo::query()->findOrFail($outroVeiculoId)->rastreador_id);
+        $this->assertSame((int) $ativoId, (int) $rastreador->refresh()->status_rastreador_id);
+        $this->assertNull($rastreador->tecnico_id);
+        $this->assertFalse($rastreador->is_estoque);
+        $this->assertSame((int) $ativoId, (int) $chip->refresh()->status_rastreador_id);
+        $this->assertNull($chip->tecnico_id);
     }
 
     private function criarStatusRastreadores(): void
