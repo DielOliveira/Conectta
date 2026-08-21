@@ -438,6 +438,10 @@ Principio operacional: conter, diagnosticar, preservar evidencias, corrigir de f
 - Existem duas telas com nomes parecidos:
   - `Cadastro > Rastreadores`: lista `veiculos` com rastreador vinculado/instalado.
   - `Estoque > Rastreadores`: lista a tabela real `rastreadores`.
+- A exclusao de um veiculo em `Cadastro > Rastreadores` e logica: preenche `veiculos.data_exclusao`, oculta o registro das consultas, buscas, selecoes e validacoes operacionais, libera a placa para novo cadastro e preserva o veiculo nos historicos de OS e contratos.
+- A exclusao logica do veiculo e transacional. Todas as OS ainda ativas desse veiculo passam para `Cancelada`, com motivo `Veículo excluído do cadastro.`, operador e historico registrados; OS ja `Finalizada` ou `Cancelada` permanecem inalteradas. Os avisos de cancelamento seguem as regras normais da OS.
+- Ao excluir um veiculo, rastreador e chip somente sao liberados para `Disponivel` quando nenhum outro veiculo ativo usa o mesmo rastreador. Em duplicidades legadas, se outro veiculo ativo ainda estiver vinculado ao equipamento, rastreador e chip devem permanecer inalterados (`Ativo`, sem tecnico e fora do estoque quando esse ja for o estado vigente).
+- Esse fluxo e coberto por `tests/Feature/VeiculoExclusaoTest.php`; na protecao adicional para duplicidade legada em 2026-08-21, a suite completa passou com 128 testes e 623 assercoes.
 - A combo `IMEI` em `Cadastro > Rastreadores` mostra apenas rastreadores com status `Disponivel`, alem do rastreador ja vinculado quando estiver editando um registro existente.
 - Chips e rastreadores novos entram obrigatoriamente com status `Disponivel`; qualquer status enviado manualmente na criacao deve ser ignorado e substituido por `Disponivel`.
 - Regra temporaria: enquanto o fluxo operacional da empresa ainda nao estiver totalmente implementado, usuarios com `Estoque_Escrita` podem alterar manualmente o status de equipamentos existentes nos formularios `Estoque > Rastreadores` e `Estoque > Chips`. No futuro, remover essa liberacao e voltar a controlar o status exclusivamente pelos workflows do sistema.
@@ -514,6 +518,9 @@ Principio operacional: conter, diagnosticar, preservar evidencias, corrigir de f
 - Para OS atribuidas a `Outros`, o vinculo continua sendo com o cadastro `Outros`: agenda, telefone, mensagens, historico e restante do fluxo permanecem normais; o nome digitado e apenas complementar. Ao rejeitar ou cancelar o agendamento, `nome_tecnico_externo` e limpo.
 - Migration desse complemento: `2026_08_20_000001_add_nome_tecnico_externo_to_ordens_servico_table.php`.
 - O tecnico aceita ou rejeita, inicia o atendimento, informa equipamentos e fotos e solicita conferencia. A central aprova, devolve como pendencia ou cancela.
+- Na tela publica mobile do tecnico, o seletor de fotos oferece duas acoes visuais: `Tirar foto`, que abre a camera traseira com `capture="environment"`, e `Escolher da galeria`, que abre o seletor de imagens sem o atributo `capture`.
+- Camera e galeria usam o mesmo limite de quatro fotos por OS, considerando tambem as fotos ja salvas. Antes do envio, cada nova imagem exibe miniatura, origem (`Camera` ou `Galeria`) e acao para remover. O componente e usado nas fotos do atendimento e nas fotos de divergencia.
+- Essa melhoria foi implementada localmente em 2026-08-21 em `resources/views/ordens-servico/tecnico.blade.php`, com cobertura em `tests/Feature/OrdemServicoFlowTest.php`. O teste completo desse arquivo passou com 42 testes e 318 assercoes. Alteracao ainda nao publicada em producao.
 - Tipo, cliente e veiculo ficam bloqueados depois da criacao. Uma OS ativa por veiculo e preservada; OS nao e excluida definitivamente.
 - Instalacao, retirada e manutencao movimentam rastreadores e chips pelo fluxo da OS, reduzindo atualizacoes manuais do estoque.
 - Regras de movimentacao de equipamentos ao finalizar a OS:
@@ -556,6 +563,14 @@ Principio operacional: conter, diagnosticar, preservar evidencias, corrigir de f
 - Testes focados apos as correcoes: 28 testes aprovados, 218 assercoes.
 - As correcoes encontradas nessa validacao foram commitadas e publicadas em producao no commit `5710fc5 correções para primeiros atendimentos da os`; a VPS foi conferida nesse commit, com worktree limpa e alinhada a `origin/main`.
 - Backup anterior a correcao da OS 7: `conectta-conectta-20260814-173902.sql.gz`, SHA256 `deca34a59b9541bc046022995e5b0628301b4e2bed9d636f9a9dbbfd65e4f5ca`, salvo na VPS e no Google Drive.
+
+### Estado local da agenda - 2026-08-21
+
+- Em desenvolvimento, foram aplicadas individualmente as migrations `2026_08_18_000001_add_tipo_to_ordem_servico_disponibilidades_table.php` e `2026_08_20_000001_add_nome_tecnico_externo_to_ordens_servico_table.php`. Elas corrigiram, respectivamente, o erro ao criar disponibilidade (`Unknown column 'tipo'`) e o erro ao atribuir uma OS ao tecnico (`Unknown column 'nome_tecnico_externo'`).
+- A migration `2026_08_20_000002_restore_tracker_history_for_completed_removals.php` permanece pendente no banco local porque nao tem relacao com esses dois erros.
+- A tela Filament de criar disponibilidade estava usando apenas metade da largura do formulario. A unica alteracao visual desejada e `->columnSpanFull()` na `Section` principal de `DisponibilidadeResource::form()`; o restante do layout original foi preservado.
+- Depois das migrations, os testes focados da agenda passaram: 10 testes e 93 assercoes. Os dois fluxos especificos de atribuicao (tecnico comum e tecnico `Outros`) passaram: 2 testes e 37 assercoes.
+- Ha outras alteracoes locais no worktree que ja pertenciam ao usuario; nao desfazer nem sobrescrever arquivos fora do ajuste solicitado.
 
 ## Identidade Visual
 

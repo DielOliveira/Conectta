@@ -1232,6 +1232,10 @@ class OrdemServicoFlowTest extends TestCase
 
         $this->get(route('ordens-servico.tecnico', $token))
             ->assertOk()
+            ->assertSee('Tirar foto')
+            ->assertSee('Escolher da galeria')
+            ->assertSee("adicionarFoto('camera-atendimento','camera')", false)
+            ->assertSee("adicionarFoto('camera-atendimento','galeria')", false)
             ->assertSee('860000000000020')
             ->assertSee($chipDisponivelVinculado->numero_chip)
             ->assertSee($chipDisponivelLivre->numero_chip)

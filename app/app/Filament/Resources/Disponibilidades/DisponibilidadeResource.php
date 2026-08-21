@@ -88,7 +88,7 @@ class DisponibilidadeResource extends Resource
                     })->columnSpan(['default' => 1, 'md' => 2, 'xl' => 2]),
                 TextInput::make('hora_inicio')->label('Início')->type('time')->required(),
                 TextInput::make('hora_fim')->label('Fim')->type('time')->required(),
-            ])])->columns(1)]);
+            ])])->columns(1)->columnSpanFull()]);
     }
 
     public static function table(Table $table): Table
