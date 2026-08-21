@@ -3,614 +3,230 @@
 ## Projeto
 
 - Aplicacao Laravel/Filament do sistema Conectta.
-- Raiz do repositório: `/home/diel_/Conectta`.
-- Aplicacao principal: `/home/diel_/Conectta/app`.
-- Trabalhe normalmente dentro de `/home/diel_/Conectta/app`.
-- Stack local: Laravel 13, Filament, MySQL, Vite/NPM.
-- Idioma da interface: portugues do Brasil.
-- Painel Filament em `/admin`; a rota raiz redireciona para `/admin/login`.
-- Navegacao superior do Filament, nesta ordem: `Cadastro`, `Financeiro`, `Estoque`, `Rotinas`, `Administrativo`.
-- Principais pastas:
-  - `app/Filament/Pages`: telas customizadas como Financeiro, Boletos, Faturamento, Integracoes e Restore.
-  - `app/Filament/Resources`: CRUDs Filament de Clientes, Rastreadores, Contratos, Vendedores, Tecnicos, Usuarios, Auditoria e Rotinas.
-  - `app/Services`: integracoes Lytex/ZapSign/WhatsApp, cobrancas, auditoria e restore.
+- Raiz do repositorio: `/home/diel_/Conectta`.
+- Aplicacao principal e diretorio normal de trabalho: `/home/diel_/Conectta/app`.
+- Stack local: Laravel 13, Filament, MySQL e Vite/NPM.
+- Interface em portugues do Brasil.
+- Painel Filament em `/admin`; a raiz redireciona para `/admin/login`.
+- Pastas principais:
+  - `app/Filament/Pages`: telas customizadas.
+  - `app/Filament/Resources`: CRUDs Filament.
+  - `app/Services`: integracoes, cobrancas, auditoria, estoque e restore.
   - `routes/api.php`: webhooks externos.
-  - `routes/console.php`: comandos artisan e scheduler.
-  - `scripts/`: automacoes locais de deploy, ngrok e backups.
+  - `routes/console.php`: comandos e scheduler.
+  - `scripts/`: deploy, ngrok e backups.
+- Historico de migracoes, incidentes e correcoes antigas: [`docs/historico-operacional.md`](docs/historico-operacional.md). Consultar somente quando a tarefa depender desses eventos.
 
 ## Cuidados Gerais
 
-- Nao commitar `.env`, tokens, senhas, payloads de API ou arquivos de backup.
-- A pasta `payloads-whatsapp/` deve ficar ignorada no git porque contem traces e tokens.
-- `.env` e `storage/app/private` estao ignorados; dumps `.sql.gz` de producao nao devem entrar no Git.
-- Antes de alterar algo, preferir ler o padrao existente do projeto.
-- Usar `rg` para buscas.
-- Usar `apply_patch` para edicoes manuais.
+- Antes de alterar algo, ler o padrao existente do projeto.
+- Usar `rg` para buscas e `apply_patch` para edicoes manuais.
 - Nao reverter mudancas do usuario sem pedido explicito.
-- Evitar comandos destrutivos como `git reset --hard` ou `git checkout --` sem autorizacao clara.
-- Em alertas GitGuardian, conferir o commit e procurar valor real de segredo. Em 2026-07-07 houve alerta de `Generic Database Assignment` por causa do script de backup com nomes `DB_PASSWORD`/MySQL; nao havia senha real versionada.
+- Nao commitar `.env`, tokens, senhas, payloads de API ou backups.
+- `payloads-whatsapp/`, `.env`, `storage/app/private` e dumps `.sql.gz` devem permanecer fora do Git.
+- Nao usar comandos destrutivos como `git reset --hard` ou `git checkout --` sem autorizacao clara.
+- Em producao, comecar por diagnostico. Antes de qualquer saneamento, confirmar alvos, impacto, backup e autorizacao.
+- Mudancas de dados em producao devem ser protegidas por pre-condicoes, preferencialmente transacionais, auditadas e validadas depois.
+- Nao confiar em commits, migrations ou estados descritos em historicos como se fossem atuais; verificar Git, banco e VPS no momento da tarefa.
 
-## Comandos Locais Uteis
-
-Rodar servidor local:
+## Comandos Essenciais
 
 ```bash
-cd ~/Conectta/app
+cd /home/diel_/Conectta/app
 php artisan serve --host=127.0.0.1 --port=8000
-```
-
-Expor local via ngrok:
-
-```bash
-/home/diel_/bin/ngrok http 8000
-curl -s http://127.0.0.1:4040/api/tunnels
-```
-
-Build frontend:
-
-```bash
-cd ~/Conectta/app
 npm run build
-```
-
-Migrations:
-
-```bash
-cd ~/Conectta/app
 php artisan migrate
 php artisan migrate:status --pending
-```
-
-Limpar caches:
-
-```bash
-cd ~/Conectta/app
 php artisan optimize:clear
-```
-
-Testes e lint simples:
-
-```bash
-php -l app/Services/Backup/BackupRestoreService.php
 php artisan test
 ```
 
-Seeders usados com frequencia:
+Deploy e manutencao:
 
 ```bash
-php artisan db:seed --class=PaisSeeder
-php artisan db:seed --class=CobrancaMensagemModeloSeeder
-```
-
-## Git E Deploy
-
-- Branch principal: `main`.
-- O script de deploy exige worktree limpo antes de publicar.
-- Script de deploy criado:
-
-```bash
-cd ~/Conectta/app
-./scripts/deploy-production.sh
-```
-
-Para salvar log do deploy:
-
-```bash
-./scripts/deploy-production.sh 2>&1 | tee /tmp/conectta-deploy.log
-```
-
-Ao analisar deploy:
-
-```bash
-tail -n 100 /tmp/conectta-deploy.log
-grep -nEi "error|failed|fatal|exception|denied|timeout|not found" /tmp/conectta-deploy.log || true
-```
-
-Script de commit local:
-
-```bash
-cd ~/Conectta/app
 ./scripts/commit-local.sh
-```
-
-Backup manual/instalacao de rotina do banco em producao:
-
-```bash
-cd ~/Conectta/app
+./scripts/deploy-production.sh
 ./scripts/backup-production-db.sh
-```
-
-O script instala/atualiza `/usr/local/sbin/conectta-db-backup` na VPS, configura o cron diario `15 2 * * *` em `/etc/cron.d/conectta-db-backup`, cria dump MySQL com `mysqldump | gzip`, guarda os backups remotos em `/var/backups/conectta/mysql` e baixa o backup gerado para `storage/app/private/backups/production-db/`.
-
-Observacao do script de backup: apos alerta GitGuardian em 2026-07-07, a versao local pendente passou a evitar `MYSQL_PWD` e usa arquivo temporario MySQL com permissao `600`.
-
-Outras acoes:
-
-```bash
-./scripts/backup-production-db.sh install
-./scripts/backup-production-db.sh run
-./scripts/backup-production-db.sh download-latest
 ./scripts/list-production-backups.sh
 ```
 
-O deploy usa SSH para GitHub com `~/.ssh/id_ed25519`. Se falhar com `Permission denied (publickey)`, carregar a chave antes:
+- O deploy exige worktree limpo.
+- Para expor o ambiente local: `/home/diel_/bin/ngrok http 8000`.
+- Seeders usados com frequencia: `PaisSeeder` e `CobrancaMensagemModeloSeeder`.
 
-```bash
-eval "$(ssh-agent -s)"
-ssh-add ~/.ssh/id_ed25519
-ssh -T git@github.com
-```
+## Producao
 
-## VPS Producao
-
-- IP: `191.252.200.172`.
-- Host: `vps68591.publiccloud.com.br`.
-- Usuario SSH: `root`.
-- Chave SSH local: `~/.ssh/conectta_vps`.
-- Comando SSH:
+- Dominio: `https://sistemaconectta.com.br`.
+- VPS: `root@191.252.200.172` (`vps68591.publiccloud.com.br`).
+- Chave SSH: `~/.ssh/conectta_vps`.
+- Repositorio: `/var/www/conectta/repo`.
+- Aplicacao: `/var/www/conectta/repo/app`.
+- Timezone esperado: `America/Sao_Paulo`.
+- Senha admin: `/root/conectta-admin-password`.
+- Senha do banco: `/root/conectta-db-password`.
 
 ```bash
 ssh -F /dev/null -i ~/.ssh/conectta_vps -o IdentitiesOnly=yes root@191.252.200.172
 ```
 
-- App na VPS: `/var/www/conectta/repo/app`.
-- Repo na VPS: `/var/www/conectta/repo`.
-- Dominio: `https://sistemaconectta.com.br`.
-- Login admin local/producao inicial: `admin@conectta.local`.
-- Senha admin da VPS fica em `/root/conectta-admin-password`.
-- Senha DB da VPS fica em `/root/conectta-db-password`.
-- Timezone esperado: `America/Sao_Paulo`.
-
-Validacoes comuns na VPS:
-
-```bash
-ssh -F /dev/null -i ~/.ssh/conectta_vps -o IdentitiesOnly=yes root@191.252.200.172 'cd /var/www/conectta/repo && git status --short --branch && git rev-parse --short HEAD && cd app && php artisan migrate:status --pending'
-curl -I https://sistemaconectta.com.br/admin/login
-```
-
-Observacao: a VPS pode emitir `Deprecation Notice` do Composer por usar Composer antigo com PHP 8.4. Se o deploy concluir, isso nao bloqueia. Melhor melhoria futura: atualizar Composer global da VPS.
+- O backup de producao usa `/usr/local/sbin/conectta-db-backup`, cron diario `15 2 * * *`, diretorio remoto `/var/backups/conectta/mysql` e copia local em `storage/app/private/backups/production-db/`.
+- O script de backup usa arquivo temporario MySQL com permissao `600`; nao voltar a usar `MYSQL_PWD`.
+- O Composer antigo da VPS pode emitir avisos deprecados no PHP 8.4; isso nao bloqueia um deploy concluido.
 
 ## Integracoes
 
-Para tarefas envolvendo o serviço próprio de WhatsApp, envio de PIX ou boleto/PDF pelo J-API, ler primeiro [`J-API.md`](J-API.md). Esse guia documenta endpoints localhost, payloads, segurança, limitações do WhatsApp Web, estado de produção e o fluxo recomendado de migração com rollback para Z-API. Não iniciar a migração apenas por encontrar o documento; aguardar pedido explícito do usuário.
-
-Endpoints de producao para webhooks:
-
-```text
-Lytex:   https://sistemaconectta.com.br/api/webhooks/lytex
-ZapSign: https://sistemaconectta.com.br/api/webhooks/zapsign
-```
-
-Endpoints locais quando usar ngrok:
-
-```text
-Lytex:   {NGROK_URL}/api/webhooks/lytex
-ZapSign: {NGROK_URL}/api/webhooks/zapsign
-```
+- Para WhatsApp proprio, PIX ou boleto/PDF via J-API, ler primeiro [`J-API.md`](J-API.md).
+- Nao iniciar migracao de Z-API para J-API sem pedido explicito.
+- Webhooks de producao:
+  - Lytex: `https://sistemaconectta.com.br/api/webhooks/lytex`.
+  - ZapSign: `https://sistemaconectta.com.br/api/webhooks/zapsign`.
+- Em desenvolvimento, trocar a base pelo endereco do ngrok.
 
 ### Lytex
 
-- Configuracoes ficam na tela `Integracoes`.
-- Existe suporte a producao e homologacao.
-- Ambiente local pode estar apontado para homologacao.
-- Servico principal: `App\Services\Lytex\LytexInvoiceService`.
-- Helper de campos da invoice: `App\Services\Lytex\LytexInvoiceData`.
+- Configuracao pela tela `Integracoes`, com producao e homologacao.
+- Servico: `App\Services\Lytex\LytexInvoiceService`.
+- Helper: `App\Services\Lytex\LytexInvoiceData`.
 - Webhook: `App\Http\Controllers\LytexWebhookController`.
-- Logs de webhook: `lytex_webhook_logs`.
-- Invoices ficam em `invoices`.
-- Campos importantes:
-  - `fatura_id`
-  - `hash_id`
-  - `link_checkout`
-  - `link_boleto`
-  - `linha_digitavel`
-  - `pix_copia_cola`
+- Tabelas: `invoices` e `lytex_webhook_logs`.
+- Campos importantes: `fatura_id`, `hash_id`, `link_checkout`, `link_boleto`, `linha_digitavel` e `pix_copia_cola`.
+- `detalhesFatura` pode trazer linha digitavel e PIX em `transactions`.
 
-Links Lytex por `hash_id`:
+### WhatsApp
 
-```text
-Producao invoice: https://checkout-pay.lytex.com.br/fatura/{hashId}
-Producao boleto:  https://public-api-pay.lytex.com.br/v1/invoices/print/{hashId}
-Sandbox invoice:  https://sandbox-checkout-pay.lytex.com.br/fatura/{hashId}
-Sandbox boleto:   https://sandbox-public-api-pay.lytex.com.br/v1/invoices/print/{hashId}
-```
-
-`detalhesFatura` pode retornar dados de pagamento em `transactions`:
-
-- `transactions[].paymentMethod = boleto`
-- `transactions[].boleto.digitableLine`
-- `transactions[].pix.qrcode`
-- `transactions[].boleto.qrCode.emv`
-
-### WhatsApp / Z-API
-
-- Servico: `App\Services\Whatsapp\ZapiWhatsappService`.
-- Orquestracao de cobrancas: `App\Services\Cobranca\CobrancaWhatsappService`.
-- Variaveis esperadas:
-
-```env
-WHATSAPP_ZAPI_BASE_URL=https://api.z-api.io
-WHATSAPP_ZAPI_INSTANCE_ID=
-WHATSAPP_ZAPI_TOKEN=
-WHATSAPP_ZAPI_CLIENT_TOKEN=
-WHATSAPP_ZAPI_TIMEOUT=30
-WHATSAPP_ZAPI_PIX_ENDPOINT=send-button-pix
-```
-
-Metodos usados:
-
-- `send-text`
-- `send-document/PDF`
-- `send-button-pix` configuravel por env.
+- Z-API: `App\Services\Whatsapp\ZapiWhatsappService`.
+- Cobrancas: `App\Services\Cobranca\CobrancaWhatsappService`.
+- Metodos usados: `send-text`, `send-document/PDF` e endpoint configuravel de PIX.
+- Nunca expor variaveis `WHATSAPP_ZAPI_*` ou seus valores.
 
 ### ZapSign
 
 - Servico: `App\Services\ZapSign\ZapSignService`.
 - Webhook: `App\Http\Controllers\ZapSignWebhookController`.
-- Logs de webhook: `zapsign_webhook_logs`.
-- Contratos usam rota autenticada para documento em `/admin/contratos/{contrato}/documento`.
+- Logs: `zapsign_webhook_logs`.
+- Documentos de contrato usam rota autenticada `/admin/contratos/{contrato}/documento`.
 
 ## Restore E Dados Legados
 
-- Tela `Administrativo > Restore Backup` existe e deve ficar disponivel para `Tecnico`/admin; nao remover porque ajuda investigar bugs de importacao.
-- Servico principal: `App\Services\Backup\BackupRestoreService`.
-- Leitor XLSX: `App\Services\Backup\XlsxTableReader`.
-- Arquivos esperados pelo restore incluem: `Cliente.xlsx`, `Veiculo.xlsx`, `Lancamento.xlsx`, `Contrato.xlsx`, `Rastreador.xlsx`, `Chip.xlsx`, `Vendedor.xlsx`, `Tecnico.xlsx`.
-- O restore trunca/importa tabelas controladas e depois garante dados padrao via seeders quando aplicavel.
-- O restore corrige relacoes por criterio/label em alguns pontos; cuidado com tabelas legadas de tipo/status porque IDs antigos podem nao bater com IDs atuais.
-- No restore, somente para `lancamentos.numero_boleto` e `lancamentos.observacao`, os marcadores `-` e `'-` devem ser preservados como `-`; nas demais tabelas o marcador de importacao continua sendo tratado como vazio quando aplicavel.
+- `Administrativo > Restore Backup` deve permanecer disponivel para `Tecnico` e admin.
+- Servicos: `App\Services\Backup\BackupRestoreService` e `App\Services\Backup\XlsxTableReader`.
+- Arquivos esperados incluem `Cliente.xlsx`, `Veiculo.xlsx`, `Lancamento.xlsx`, `Contrato.xlsx`, `Rastreador.xlsx`, `Chip.xlsx`, `Vendedor.xlsx` e `Tecnico.xlsx`.
+- O restore trunca/importa somente tabelas controladas e garante dados padrao ao final.
+- Relacoes legadas devem ser corrigidas por criterio/label; IDs antigos de tipos e status podem nao coincidir com os atuais.
+- Somente em `lancamentos.numero_boleto` e `lancamentos.observacao`, os marcadores `-` e `'-` devem ser preservados como `-`. Nos demais casos, o marcador pode representar vazio.
+- O seeder `CobrancaMensagemModeloSeeder` usa `firstOrCreate` e nao pode sobrescrever textos editados pela interface.
 
-Correcoes de dados ja aplicadas em producao em 2026-07-07:
+## Cobrancas Automaticas
 
-- `tipo_veiculo_id`: corrigido por mapa legado; 9.230 veiculos atualizados. Caso validado: Juscelon Ferreira de Jesus voltou para `Carro`.
-- `cliente_origem_id`: 793 clientes corrigidos.
-- `status_contrato_id`: 2.202 clientes e 457 contratos corrigidos.
-- `status_rastreador_id`: 1 rastreador corrigido para `Lixo`.
-- `lancamentos.numero_boleto`: 6.756 registros corrigidos para `-`, com base nos arquivos iniciais do restore.
-- `lancamentos.observacao`: 6.637 registros corrigidos para `-`; registros com conteudo real foram preservados.
-- Backup antes da correcao dos hifens: `storage/app/private/backups/production-db/conectta-conectta-20260707-195453.sql.gz`, SHA256 `c4eb88e94e21298db005d194ea15614e8858d94a125edd02d501737847e41945`.
-
-## Rotinas De Cobranca
-
-Menu principal: `Rotinas`.
-
-No menu superior, `Rotinas` deve ficar entre `Estoque` e `Administrativo`.
-
-O acesso, visualizacao e manipulacao das telas de `Rotinas` deve ser restrito a usuarios com permissao `Tecnico`; admin continua acessando porque `User::hasPermission()` libera tudo para `is_admin`.
-
-Telas:
-
-- `Cobranças automáticas`
-- `Mensagens de cobrança`
-
-`Envios de cobrança` existe como resource interno, mas nao deve aparecer no menu. Os envios aparecem no detalhe de uma execucao.
-
-Tabelas:
-
-- `cobranca_execucoes`
-- `cobranca_envios`
-- `cobranca_mensagem_modelos`
-
-Modelo atual:
-
-- Cada execucao representa um unico `tipo`.
-- Ao rodar o comando completo, ele cria uma execucao separada para cada tipo.
-
-Tipos:
-
-- `boleto_7_dias`
-- `lembrete_vencimento`
-- `atraso_2`
-- `atraso_5`
-- `atraso_7`
-- `atraso_10`
-- `atraso_12`
-- `atraso_15`
-
-Regras principais:
-
-- Cliente inativo tambem pode receber cobranca.
-- Roda sabado, domingo e feriado normalmente.
-- `valor_planejado` precisa ser maior que zero.
-- Se houver qualquer `valor_efetivado > 0` na referencia, nao cobra mais, mesmo pagamento parcial.
-- Dia de pagamento 30/31 em mes menor cai no ultimo dia do mes.
-- `boleto_7_dias`:
-  - vencimento daqui a 7 dias;
-  - se `numero_boleto` vazio, gera boleto na Lytex;
-  - ao gerar, grava `numero_boleto = Lytex`;
-  - cria envio `pendente_whatsapp` quando executado de verdade.
-- `lembrete_vencimento`:
-  - vencimento hoje;
-  - envia apenas mensagem, sem boleto.
-- Atrasos:
-  - vencido ha 2, 5, 7, 10, 12 ou 15 dias;
-  - nao gera boleto;
-  - exige `numero_boleto = Lytex`;
-  - usa invoice existente;
-  - se houver outros boletos vencidos de meses anteriores do mesmo cliente, inclui tambem no mesmo envio;
-  - no atraso, o WhatsApp envia apenas mensagem principal e PDF(s) de boleto, sem linha digitavel, PIX ou finalizacao.
-
-Comando de processamento:
-
-```bash
-php artisan cobrancas:processar
-```
-
-Por seguranca, sem `--executar` roda em simulacao.
-
-Exemplos:
-
-```bash
-php artisan cobrancas:processar --limit=1
-php artisan cobrancas:processar --tipo=boleto_7_dias --limit=1
-php artisan cobrancas:processar --cliente=1470 --limit=1
-php artisan cobrancas:processar --tipo=boleto_7_dias --cliente=1470 --limit=1 --executar
-```
-
-Comando de envio WhatsApp:
-
-```bash
-php artisan cobrancas:enviar-whatsapp
-```
-
-Tambem simula por padrao. Para enviar real:
-
-```bash
-php artisan cobrancas:enviar-whatsapp --envio=ID --executar
-php artisan cobrancas:enviar-whatsapp --cliente=1470 --limit=1 --executar
-```
-
-Fluxo WhatsApp de boleto 7 dias antes:
-
-1. mensagem principal;
-2. PDF do boleto;
-3. linha digitavel;
-4. mensagem de instrucao PIX;
-5. botao PIX;
-6. finalizacao.
-
-Fluxo WhatsApp de lembrete de vencimento:
-
-1. mensagem principal apenas.
-
-Fluxo WhatsApp de atraso:
-
-1. mensagem principal;
-2. PDF do boleto principal;
-3. PDFs de outros boletos vencidos de meses anteriores do mesmo cliente, quando existirem.
-
-Os PDFs de boleto usam nome com mes/ano da referencia, por exemplo `BoletoConectta_Julho_2026.pdf`.
-
-Os textos principais ficam em `cobranca_mensagem_modelos`, pela tela `Rotinas > Mensagens de cobrança`. A ordem/tipo das etapas ainda fica fixa em `App\Services\Cobranca\CobrancaWhatsappService`.
-
-O restore garante os modelos padrao de mensagens de cobranca ao final do processo. O seeder `CobrancaMensagemModeloSeeder` usa `firstOrCreate`, entao cria quando faltar, mas nao sobrescreve textos editados pela tela.
+- Menu `Rotinas`, restrito a permissao `Tecnico`; admin continua com acesso total.
+- Telas: `Cobrancas automaticas` e `Mensagens de cobranca`.
+- `Envios de cobranca` e resource interno e nao aparece no menu.
+- Tabelas: `cobranca_execucoes`, `cobranca_envios` e `cobranca_mensagem_modelos`.
+- Cada execucao representa um unico tipo: `boleto_7_dias`, `lembrete_vencimento`, `atraso_2`, `atraso_5`, `atraso_7`, `atraso_10`, `atraso_12` ou `atraso_15`.
+- Cliente inativo tambem pode receber; a rotina roda em fins de semana e feriados.
+- Exigir `valor_planejado > 0`. Qualquer `valor_efetivado > 0` na referencia impede nova cobranca, inclusive pagamento parcial.
+- Dia de pagamento 30/31 em mes menor cai no ultimo dia.
+- `boleto_7_dias`: vencimento em sete dias; gera Lytex se necessario, grava `numero_boleto = Lytex` e cria envio `pendente_whatsapp` em execucao real.
+- `lembrete_vencimento`: vencimento no dia e somente mensagem.
+- Atrasos: nao geram boleto, exigem invoice existente e `numero_boleto = Lytex`; incluem PDFs vencidos de referencias anteriores do cliente quando existirem.
+- Fluxo boleto: mensagem, PDF, linha digitavel, instrucao PIX, botao PIX e finalizacao.
+- Fluxo atraso: mensagem principal e PDF(s), sem linha digitavel, PIX ou finalizacao.
+- Os comandos `cobrancas:processar` e `cobrancas:enviar-whatsapp` simulam por padrao. Envio real exige `--executar`.
+- Os agendamentos de cobranca em producao devem permanecer inativos ate autorizacao explicita.
 
 ## Financeiro
 
-- Tela principal: `App\Filament\Pages\Financeiro` + `resources/views/filament/pages/financeiro.blade.php`.
-- Acesso: `Financeiro_Leitura`; alteracoes usam `Financeiro_Escrita`.
-- Busca digitavel principal usa sessao `conectta.busca_cadastros` e sincroniza com `Cadastro > Clientes` e `Cadastro > Rastreadores`.
-- Filtro de status do cliente usa sessao `conectta.status_cliente` e sincroniza somente entre `Financeiro` e `Cadastro > Clientes`.
-- Ao limpar filtros no Financeiro, a busca compartilhada e o status compartilhado tambem sao atualizados.
-- Ordenacao permitida no bloco de clientes: `qtd`, `vendedor`, `cliente`, `vencimento`. Nao ordenar pelos blocos de meses.
-- Layout atual do bloco de clientes prioriza espaco para `Cliente` e `Anotacoes`; vendedor deve ficar mais compacto.
-- Valores `0,00` nos blocos dos meses devem aparecer em branco.
-- O botao `Historico` fica dentro da tela Financeiro, entre `Limpar` e `Exportar`; a tela de historico nao aparece no menu.
-- Export CSV do Financeiro usa os filtros/linhas atuais e inclui dados dos dois meses exibidos.
-- Modal de lancamento:
-  - aba `Lancamento` salva tambem ao apertar Enter nos campos da aba;
-  - campo `Data Lancamento` abre com a data salva quando existir; se estiver vazio, abre preenchido com a data do dia;
-  - gerar boleto mostra estado de loading no botao/link `Gerar Boleto` ate a resposta da Lytex;
-  - boleto gerado pela Lytex grava `numero_boleto = Lytex` no lancamento da referencia.
-- Modal de boleto usa vencimento padrao calculado pelo dia de pagamento do cliente; dia 30/31 em mes menor cai no ultimo dia do mes.
-- A tela `Financeiro > Historico Financeiro` usa a tabela `audit_logs` para exibir alteracoes de lancamentos e parcelamentos financeiros.
-- O historico financeiro deve exibir somente logs em que houve alteracao de `valor_efetivado` ou `data_lancamento`; alteracoes de observacao, numero de boleto, valor planejado ou outros campos nao devem aparecer nessa tela.
-- A tela considera as acoes:
-  - `financeiro.lancamento_criado`;
-  - `financeiro.lancamento_editado`;
-  - `financeiro.parcelamento_criado`;
-  - `financeiro.parcelamento_excluido`.
-- Os campos `Total Antes` e `Total Depois` sao gravados no `contexto` dos logs novos; logs antigos podem aparecer sem esses totais porque esse dado nao era persistido no momento da operacao.
-- O acesso ao historico financeiro usa a permissao `Financeiro_Leitura`.
+- Tela: `App\Filament\Pages\Financeiro` e `resources/views/filament/pages/financeiro.blade.php`.
+- Leitura: `Financeiro_Leitura`; alteracoes: `Financeiro_Escrita`.
+- Busca principal usa `conectta.busca_cadastros` e sincroniza Financeiro, Clientes e Cadastro de Rastreadores.
+- Status do cliente usa `conectta.status_cliente` e sincroniza somente Financeiro e Clientes.
+- Ordenacao do bloco de clientes: `qtd`, `vendedor`, `cliente` e `vencimento`; nao ordenar pelos meses.
+- Valores mensais `0,00` aparecem em branco.
+- `Historico` fica dentro do Financeiro e nao no menu. Export CSV respeita filtros e os dois meses exibidos.
+- Modal de lancamento salva com Enter, preserva/preenche data e mostra loading ao gerar boleto.
+- Boleto Lytex grava `numero_boleto = Lytex`; vencimentos 30/31 respeitam o ultimo dia do mes.
+- Historico financeiro usa `audit_logs` e mostra somente alteracoes de `valor_efetivado` ou `data_lancamento` nas acoes financeiras suportadas.
+- Logs antigos podem nao possuir `Total Antes` e `Total Depois` no contexto.
 
-## Playbook De Incidentes Financeiros
+## Incidentes Financeiros
 
-Use este procedimento ao investigar boletos duplicados, cobrancas ou mensagens financeiras indevidas em producao:
+1. Comecar somente com diagnostico e avisar antes de alterar.
+2. Procurar todos os casos afetados, nao apenas os exemplos informados.
+3. Correlacionar clientes, lancamentos, invoices, envios, webhooks, auditorias e Lytex.
+4. Conter a causa no codigo com idempotencia, protecao contra duplicidade e testes.
+5. Confirmar os alvos e gerar backup antes do saneamento quando o procedimento autorizado permitir.
+6. Classificar em nao pago/cancelavel, pago unico e pagamentos multiplos/ambiguos. Casos ambiguos dependem da central.
+7. Preferir saneamento reversivel e preservar evidencias.
+8. Invalidar lancamentos duplicados por `invalidado_em` e `motivo_invalidacao`; consultas operacionais usam `Lancamento::validos()`.
+9. Cancelar na Lytex somente duplicata confirmada como nao paga e reverificar o status imediatamente antes.
+10. Auditar comunicacoes e correcoes ao cliente.
+11. Validar commit, migrations, quantidades, consultas operacionais e HTTP depois da mudanca.
+12. Nunca preencher `valor_efetivado`, `data_lancamento` ou `is_baixado` apenas pelo status Lytex; a baixa depende de autorizacao da central.
+13. Reversoes usam snapshots de `audit_logs`, preservam alteracoes posteriores e geram nova auditoria.
 
-1. Comecar somente com diagnostico e avisar o usuario antes de qualquer alteracao.
-2. Identificar todos os casos afetados, sem presumir que os exemplos informados sao a lista completa.
-3. Correlacionar `clientes`, `lancamentos`, `invoices`, `cobranca_envios`, webhooks, auditorias e o estado real na Lytex.
-4. Conter primeiro a causa no codigo, com idempotencia, bloqueio de duplicidade e testes proporcionais ao risco.
-5. Antes do saneamento em PD, confirmar os alvos e gerar backup quando o procedimento autorizado permitir.
-6. Classificar os casos por estado: nao pago/cancelavel, pago unico e pagamentos multiplos ou ambiguos. Nao decidir casos ambiguos sem confirmacao da central.
-7. Preferir saneamento reversivel. Nao excluir lancamentos, invoices, envios, webhooks ou auditorias quando for possivel invalidar o registro operacionalmente.
-8. Para lancamentos duplicados, usar `invalidado_em` e `motivo_invalidacao`. Consultas operacionais usam `Lancamento::validos()` ou `WHERE invalidado_em IS NULL`; telas historicas e auditorias preservam os invalidos.
-9. Cancelar na Lytex somente o boleto duplicado confirmado como nao pago. Verificar novamente o status imediatamente antes de cancelar ou comunicar o cliente.
-10. Quando necessario, enviar correcao ao cliente com apenas o boleto/PDF e PIX validos, mantendo auditoria de cada etapa e evitando novo envio duplicado.
-11. Validar depois da mudanca: commit em PD, migration aplicada, quantidade de registros afetados, ausencia de neutralizados nas consultas operacionais e resposta HTTP da aplicacao.
-12. Nunca preencher ou consolidar automaticamente `valor_efetivado`, `data_lancamento` ou `is_baixado` com base apenas no status da Lytex. Esses campos sao responsabilidade da central apos a validacao financeira. A investigacao pode relatar o pagamento confirmado, mas deve aguardar autorizacao explicita da central para registrar a baixa.
-13. Se uma acao indevida precisar ser revertida, usar os snapshots de `audit_logs`, preservar alteracoes posteriores feitas por usuarios/central e registrar uma nova auditoria da reversao.
-
-Principio operacional: conter, diagnosticar, preservar evidencias, corrigir de forma reversivel, comunicar, auditar e validar em producao.
+Principio: conter, diagnosticar, preservar evidencias, corrigir de forma reversivel, comunicar, auditar e validar.
 
 ## Rastreadores E Estoque
 
-- Existem duas telas com nomes parecidos:
-  - `Cadastro > Rastreadores`: lista `veiculos` com rastreador vinculado/instalado.
-  - `Estoque > Rastreadores`: lista a tabela real `rastreadores`.
-- A exclusao de um veiculo em `Cadastro > Rastreadores` e logica: preenche `veiculos.data_exclusao`, oculta o registro das consultas, buscas, selecoes e validacoes operacionais, libera a placa para novo cadastro e preserva o veiculo nos historicos de OS e contratos.
-- A exclusao logica do veiculo e transacional. Todas as OS ainda ativas desse veiculo passam para `Cancelada`, com motivo `Veículo excluído do cadastro.`, operador e historico registrados; OS ja `Finalizada` ou `Cancelada` permanecem inalteradas. Os avisos de cancelamento seguem as regras normais da OS.
-- Ao excluir um veiculo, rastreador e chip somente sao liberados para `Disponivel` quando nenhum outro veiculo ativo usa o mesmo rastreador. Em duplicidades legadas, se outro veiculo ativo ainda estiver vinculado ao equipamento, rastreador e chip devem permanecer inalterados (`Ativo`, sem tecnico e fora do estoque quando esse ja for o estado vigente).
-- Esse fluxo e coberto por `tests/Feature/VeiculoExclusaoTest.php`; na protecao adicional para duplicidade legada em 2026-08-21, a suite completa passou com 128 testes e 623 assercoes.
-- A combo `IMEI` em `Cadastro > Rastreadores` mostra apenas rastreadores com status `Disponivel`, alem do rastreador ja vinculado quando estiver editando um registro existente.
-- Chips e rastreadores novos entram obrigatoriamente com status `Disponivel`; qualquer status enviado manualmente na criacao deve ser ignorado e substituido por `Disponivel`.
-- Regra temporaria: enquanto o fluxo operacional da empresa ainda nao estiver totalmente implementado, usuarios com `Estoque_Escrita` podem alterar manualmente o status de equipamentos existentes nos formularios `Estoque > Rastreadores` e `Estoque > Chips`. No futuro, remover essa liberacao e voltar a controlar o status exclusivamente pelos workflows do sistema.
-- Ao editar um rastreador pela tela de estoque, preservar `is_estoque`; `status_rastreador_id` somente muda quando o usuario escolher outro status no campo temporariamente liberado. A tela pode manter dados cadastrais e posse do tecnico, mas nao pode recolocar equipamento instalado no estoque.
-- Na acao `Adicionar chip` de `Estoque > Rastreadores`, `is_estoque` nao participa da validacao. A operacao continua exigindo rastreador `Disponivel` e sem chip, alem de chip `Disponivel`, sem vinculo com outro rastreador e sem reserva em OS.
-- A protecao central de status fica em `App\Services\Estoque\EquipamentoStatusWorkflow` e nos eventos dos models `Chip` e `Rastreador`; fluxos autorizados e, temporariamente, os dois formularios de estoque executam a mudanca dentro de `EquipamentoStatusWorkflow::executar()`.
-- A regra e coberta por `tests/Feature/EquipamentoStatusWorkflowTest.php` e pelos testes de estoque, cadastro de rastreadores e OS. Na liberacao temporaria de edicao manual de status em 2026-08-19, a suite completa passou com 118 testes e 549 assercoes.
-- Correcao de producao em 2026-08-20: o tecnico `Temporário - Estoque` (ID 19537) tinha 1.072 chips e 15 rastreadores. Foram identificados 555 chips vinculados, um a um, a 555 rastreadores e veiculos ativos; todos ainda estavam `Disponivel` e com `tecnico_id = 19537`, enquanto os rastreadores ja estavam corretamente `Ativo`, sem tecnico e fora do estoque. Os 555 chips foram atualizados para `Ativo` e `tecnico_id = null`, com auditoria individual `estoque.chip_instalado_regularizado` e auditoria-resumo `estoque.temporario_instalados_regularizados`.
-- Backup anterior a essa correcao: `storage/app/private/backups/production-db/conectta-conectta-20260820-092610.sql.gz`, SHA256 `d131131fcba2d70add51a6aee9d0663d1c102588c5c3332c74c0805fa8cd127e`, salvo localmente, na VPS e no Google Drive.
-- Depois da correcao dos instalados, o tecnico temporario permaneceu com 517 chips e 15 rastreadores, nenhum deles vinculado a veiculo ativo. Em uma segunda correcao autorizada, sem novo backup, 14 chips e 3 rastreadores `Ativo` ligados somente a veiculos `Cancelado` foram marcados como `Disponivel`; os 3 rastreadores tambem receberam `is_estoque = true`. Foram registradas auditorias individuais `estoque.chip_cancelado_disponibilizado` e `estoque.rastreador_cancelado_disponibilizado`, alem da auditoria-resumo `estoque.temporario_cancelados_disponibilizados`.
-- Em uma terceira correcao autorizada, sem novo backup, os 12 rastreadores `Ativo` restantes e seus 12 chips foram confirmados sem qualquer veiculo ou OS, alterados para `Disponivel` e retirados do tecnico temporario (`tecnico_id = null`); os rastreadores tambem receberam `is_estoque = true`. Foram registradas 12 auditorias `estoque.rastreador_sem_vinculo_disponibilizado`, 12 `estoque.chip_sem_vinculo_disponibilizado` e a auditoria-resumo `estoque.temporario_sem_vinculo_disponibilizados`.
-- Em uma quarta correcao autorizada, sem novo backup, foi solicitado retirar todos os chips restantes do tecnico temporario preservando os status. Entre a primeira contagem de 505 e a execucao, 6 chips ja haviam sido retirados; a operacao protegida abortou sem mudancas, recontou 499 chips, todos `Disponivel` e sem reserva de OS, e entao definiu `tecnico_id = null` nos 499. Foram registradas 499 auditorias `estoque.chip_retirado_tecnico_temporario` e a auditoria-resumo `estoque.temporario_todos_chips_retirados`.
-- Estado final validado em 2026-08-20: o tecnico `Temporário - Estoque` (ID 19537) ficou sem chips e sem rastreadores vinculados.
-- A varredura global posterior encontrou outros dados legados fora do tecnico temporario: entre 4.465 veiculos ativos, 3.337 chips vinculados ainda estavam com status diferente de `Ativo`, 250 chips ainda tinham tecnico, 187 rastreadores nao tinham chip e havia outras anomalias menores. Nao corrigir esse conjunto global sem autorizacao especifica e revisao por categoria.
-- Regularizacao global autorizada em 2026-08-20, sem novo backup: havia 29 rastreadores e 39 chips com status `Ativo` ainda vinculados a tecnicos. Os 6 rastreadores e 5 chips em veiculos ativos permaneceram `Ativo` e receberam `tecnico_id = null`; os rastreadores tambem receberam `is_estoque = false`. Os 23 rastreadores e 34 chips sem veiculo ativo (sem veiculo ou somente em cancelados) foram marcados `Disponivel`, preservando o tecnico; os rastreadores receberam `is_estoque = true`. A validacao final confirmou zero chips/rastreadores `Ativo` com tecnico e zero rastreadores `Ativo` marcados como estoque. Acoes de auditoria: `estoque.rastreador_instalado_retirado_tecnico`, `estoque.rastreador_sem_veiculo_disponibilizado`, `estoque.chip_instalado_retirado_tecnico`, `estoque.chip_sem_veiculo_disponibilizado` e resumo `estoque.tecnicos_equipamentos_ativos_regularizados`.
-- Sincronizacao de status autorizada em 2026-08-20, sem novo backup: 3.334 pares vinculados tinham rastreador `Ativo` e chip `Disponivel` em veiculo ativo. Os 3.334 chips foram atualizados para `Ativo` e `tecnico_id = null`; 247 deles ainda tinham tecnico antes da correcao. Foram registradas 3.334 auditorias `estoque.chip_status_sincronizado_rastreador_ativo` e a auditoria-resumo `estoque.chips_status_sincronizados_rastreadores_ativos`. A categoria foi zerada.
-- Outra divergencia em veiculo ativo, rastreador ID 19777 (`Disponivel`) com chip ID 5892 (`Ativo`), foi corrigida sem backup: o rastreador passou para `Ativo`, `tecnico_id = null` e `is_estoque = false`, com auditoria `estoque.rastreador_status_sincronizado_veiculo_ativo`. Restaram 103 divergencias entre pares vinculados: 91 `Disponivel -> Ativo`, 10 `Cancelado -> Disponivel` e 2 `Ativo -> Disponivel` em outras classes ainda nao corrigidas.
-- Outra divergencia em veiculo ativo, rastreador ID 21556 (`Cancelado`) com chip ID 6338 (`Disponivel`), foi corrigida sem backup: ambos passaram para `Ativo` e `tecnico_id = null`; o rastreador recebeu `is_estoque = false`. Auditorias: `estoque.chip_status_sincronizado_veiculo_ativo` e `estoque.rastreador_cancelado_sincronizado_veiculo_ativo`. Restaram 102 divergencias vinculadas: 91 `Disponivel -> Ativo`, 9 `Cancelado -> Disponivel` e 2 `Ativo -> Disponivel`.
-- As 102 divergencias vinculadas restantes foram corrigidas em 2026-08-20, sem novo backup: todos os pares sem veiculo ativo (sem veiculo ou somente em cancelados) foram sincronizados para `Disponivel`, preservando os tecnicos e garantindo `is_estoque = true` nos rastreadores. Foram alterados 91 chips e 89 rastreadores (11 mudancas de status e as demais correcoes de `is_estoque`). Auditorias individuais: `estoque.chip_par_sem_veiculo_disponibilizado` e `estoque.rastreador_par_sem_veiculo_disponibilizado`; resumo: `estoque.pares_vinculados_sem_veiculo_disponibilizados`. Validacao final: zero divergencias de status entre os 4.527 pares rastreador-chip vinculados.
-- Correcao de estoque do tecnico Erivan (ID 19501) em 2026-08-20, sem novo backup: 60 chips foram retirados da posse do tecnico por nao formarem par com rastreador no estoque dele. Foi mantido somente o chip ID 8161, vinculado ao rastreador ID 32492, que tambem esta no estoque do Erivan. Validacao final: 1 chip restante e zero chips incoerentes. Auditorias: 60 registros `estoque.chip_retirado_erivan_sem_par_estoque` e um resumo `estoque.erivan_chips_coerencia_rastreadores`.
-- Correcao de regra em 2026-08-20: ao cancelar diretamente um veiculo em `Cadastro > Rastreadores`, o rastreador e seu chip vinculado passam para `Disponivel` e recebem o tecnico de remocao; o rastreador tambem recebe `is_estoque = true`. A sincronizacao posterior das telas de criacao/edicao so ativa equipamentos quando o veiculo esta `Ativo`, evitando reativacao acidental de equipamento cancelado. Cobertura em `RastreadorFlowTest` e `EditRastreadorResourceTest`; suite completa validada com 119 testes e 562 assercoes.
-- Chips sao vinculados ao rastreador, nao ao veiculo. A tabela `rastreadores` possui `chip_id`; o campo legado `veiculos.chip_id` nao deve ser usado em novas regras/telas.
-- Em `Estoque > Chips`, o formulario usa schema Filament e o campo `IMEI` e um `Select` pesquisavel por busca remota, sem preload da tabela inteira. Pode haver chip sem rastreador vinculado.
-- Em `Estoque > Chips`, `Numero Chip` e `ICCID` sao campos separados: `numero_chip` contem o numero telefonico/numero atual do chip; `iccid` contem o ICCID real, deve ser unico quando preenchido e ter exatamente 20 digitos no formulario.
-- Em `Cadastro > Rastreadores`, o chip nao e selecionado manualmente. O campo `Numero Chip` e somente leitura e exibe o chip vinculado ao IMEI/rastreador escolhido.
-- Em `Cadastro > Rastreadores`, se o IMEI escolhido nao tiver chip vinculado, o campo `Numero Chip` mostra aviso amarelo: `O rastreador selecionado nao possui chip vinculado.`
-- Ao salvar um veiculo ativo com rastreador/chip pela tela `Cadastro > Rastreadores`, os equipamentos instalados devem sair do estoque do tecnico:
-  - o rastreador fica com status `Ativo`, `tecnico_id = null` e `is_estoque = false`;
-  - o chip vinculado fica com status `Ativo` e `tecnico_id = null`;
-  - o vinculo do chip permanece em `rastreadores.chip_id` e o rastreador permanece em `veiculos.rastreador_id`;
-  - antes de limpar o tecnico do equipamento, o tecnico de instalacao deve ficar preservado em `veiculos.tecnico_instala_id` e `veiculos.instalador`;
-  - edicoes posteriores do veiculo nao podem apagar o tecnico de instalacao somente porque o rastreador instalado ja esta com `tecnico_id = null`.
-- Regra de integridade: um mesmo IMEI/rastreador nao pode estar vinculado a outro veiculo ativo. Clientes com frota podem ter varios rastreadores ativos; nao bloquear por cliente nem por placa duplicada.
-- Regra de integridade: um chip deve ficar vinculado a no maximo um rastreador. Na migracao de dados legados, quando um chip aparecia em mais de um rastreador ativo, foi mantido no registro mais recente por `data_instalacao`, depois `updated_at`, depois `id`; os demais ficaram sem chip para verificacao manual.
-- O restore cria/encontra chips por `numero_chip` e vincula o chip ao `rastreador_id` importado, deixando `veiculos.chip_id` nulo.
-- A busca em `Cadastro > Rastreadores` pesquisa placa, veiculo e cliente. A busca por IMEI so deve entrar quando a parte numerica tiver pelo menos 6 digitos, para uma placa como `QDW-9C47` nao buscar IMEIs contendo `947`.
-- A busca em `Cadastro > Rastreadores` tambem pesquisa CPF/CNPJ do cliente apenas quando a parte numerica tiver pelo menos 6 digitos, para placas Mercosul como `RBO-6G53` nao buscarem CPFs/CNPJs contendo poucos digitos.
-- A busca digitavel principal e compartilhada via sessao entre `Financeiro`, `Cadastro > Clientes` e `Cadastro > Rastreadores`; ao digitar em uma dessas telas, o mesmo termo deve ser reaplicado ao navegar para as outras. O botao `Limpar` dessas telas tambem limpa a busca compartilhada.
-- O filtro de status do cliente e compartilhado via sessao somente entre `Financeiro` e `Cadastro > Clientes`; `Cadastro > Rastreadores` nao participa desse status compartilhado.
-- Em `Cadastro > Rastreadores`, a busca tambem deve encontrar pelo CPF/CNPJ do cliente vinculado.
-- O export CSV de `Cadastro > Clientes` deve conter: Data Adesao, Nome, RG, CPF CNPJ, Telefone, DN, Email, Status, Empresa, Qtd Veiculos, Origem e Vendedor.
-- Nas listas `Clientes` e `Cadastro > Rastreadores`, a linha inteira nao deve abrir o detalhe. A navegacao deve ficar nos icones/botoes de acao, especialmente `Editar`.
-- Usuarios com `Cadastro_Leitura` podem abrir `Clientes` e `Cadastro > Rastreadores` pelo botao `Ver`, que reaproveita a tela de edicao com formulario desabilitado e sem botao de salvar; `Cadastro_Escrita` ve a mesma acao como `Editar`.
-- Essas duas listas usam a classe `ct-selectable-table` e o CSS `public/css/conectta-admin.css` para permitir selecionar/copiar texto das celulas.
+- `Cadastro > Rastreadores` lista `veiculos`; `Estoque > Rastreadores` lista a tabela `rastreadores`.
+- Chips pertencem ao rastreador por `rastreadores.chip_id`; nao usar o legado `veiculos.chip_id` em novas regras.
+- Um rastreador pode estar em no maximo um veiculo ativo. Um chip pode estar em no maximo um rastreador.
+- Clientes com frota podem ter varios rastreadores; nao bloquear por cliente.
+- A exclusao de veiculo e logica (`veiculos.data_exclusao`), libera placa e preserva historicos. Cancela transacionalmente OS ativas; OS finalizadas/canceladas nao mudam.
+- Ao excluir ou cancelar veiculo, liberar rastreador/chip somente se nenhum outro veiculo ativo usar o rastreador.
+- Ao cancelar diretamente, rastreador e chip ficam `Disponivel` com o tecnico da remocao; rastreador recebe `is_estoque = true`.
+- Equipamento instalado fica `Ativo`, sem tecnico; rastreador fica fora do estoque. Preservar o tecnico de instalacao no veiculo antes de limpar a posse.
+- Novos chips e rastreadores entram sempre `Disponivel`, ignorando status manual na criacao.
+- Temporariamente, `Estoque_Escrita` pode alterar status de equipamentos existentes nas duas telas de estoque.
+- Ao editar rastreador no estoque, preservar `is_estoque`; mudar status somente quando escolhido pelo usuario.
+- A protecao central de status esta em `App\Services\Estoque\EquipamentoStatusWorkflow` e nos eventos de `Chip` e `Rastreador`. Fluxos autorizados devem usar `EquipamentoStatusWorkflow::executar()`.
+- `Adicionar chip` exige rastreador e chip `Disponivel`, sem vinculos/reservas conflitantes; `is_estoque` nao participa dessa validacao.
+- Em `Estoque > Chips`, `numero_chip` e telefone; `iccid` e unico quando preenchido e tem exatamente 20 digitos no formulario.
+- Em `Cadastro > Rastreadores`, o chip e somente leitura e vem do IMEI selecionado; mostrar aviso quando o rastreador nao possuir chip.
+- Busca por IMEI e CPF/CNPJ somente entra quando a parte numerica tiver ao menos seis digitos, evitando conflito com placas Mercosul.
+- Busca compartilhada: Financeiro, Clientes e Rastreadores. Status compartilhado: somente Financeiro e Clientes.
+- Listas de Clientes e Rastreadores nao abrem pela linha inteira. Leitura usa `Ver`; escrita usa `Editar`. Preservar selecao de texto via `ct-selectable-table`.
+- Testes centrais: `VeiculoExclusaoTest`, `EquipamentoStatusWorkflowTest`, testes de estoque, cadastro de rastreadores e OS.
+- Anomalias globais ou dados legados nao devem ser corrigidos em massa sem autorizacao especifica e revisao por categoria.
 
 ## Menus E Permissoes
 
-- Grupo `Cadastro`: Clientes, Rastreadores, Contratos e Vendedores.
-- Grupo `Financeiro`: Financeiro, Relatorio Geral, Boletos, Faturamento; Historico Financeiro existe por botao interno e nao registra menu.
-- Grupo `Estoque`: Rastreadores, Chips e Tecnicos.
-- Grupo `Rotinas`: Cobrancas automaticas e Mensagens de cobranca; Envios/Execucoes podem existir como resources internos.
-- Grupo `Administrativo`: Integracoes, Usuarios, Auditoria e Restore Backup, conforme permissoes abaixo.
-- `Vendedores` usa permissoes de cadastro:
-  - leitura: `Cadastro_Leitura`;
-  - criar/editar: `Cadastro_Escrita`;
-  - excluir: `Cadastro_Exclusao`.
-- As telas administrativas `Integracoes` e `Restore Backup` ficam visiveis apenas para usuarios com a permissao `Tecnico`; admin continua acessando porque `User::hasPermission()` libera tudo para `is_admin`.
-- As telas administrativas `Usuarios` e `Auditoria` ficam visiveis para usuarios com a permissao `Coordenador`; em `Usuarios`, essa permissao permite criar, editar e excluir usuarios.
-- Usuarios com permissao `Coordenador` nao podem criar/promover administradores, editar/excluir usuarios admin nem alterar permissoes de usuarios admin; somente admin pode mexer em admin.
-- Usuarios com permissao `Coordenador` tambem podem manter `Vendedores` e `Tecnicos`, mesmo sem as permissoes de `Cadastro` ou `Estoque`.
-- Usuarios admin continuam com acesso total porque `User::hasPermission()` libera tudo para `is_admin`.
-- `canAccessPanel()` retorna true para usuarios autenticados; o controle real fica em `canAccess`, `canCreate`, `canEdit`, `canDelete` e visibilidade de actions/resources.
-- Catalogo central de permissoes: `App\Models\Permission::catalogo()`. Seeders/migrations recentes garantem `Tecnico` e `Coordenador`.
+- Ordem principal: `Cadastro`, `Financeiro`, `Estoque`, `Rotinas`, `Administrativo`.
+- Cadastro: Clientes, Rastreadores, Contratos e Vendedores.
+- Financeiro: Financeiro, Relatorio Geral, Boletos e Faturamento.
+- Estoque: Rastreadores, Chips e Tecnicos.
+- Rotinas: Cobrancas automaticas e Mensagens de cobranca.
+- Administrativo: Integracoes, Usuarios, Auditoria e Restore Backup.
+- Vendedores: `Cadastro_Leitura`, `Cadastro_Escrita` e `Cadastro_Exclusao`.
+- Integracoes e Restore: permissao `Tecnico`.
+- Usuarios e Auditoria: permissao `Coordenador`.
+- Coordenador pode manter Vendedores e Tecnicos, mas nao pode criar/promover admin nem editar/excluir usuarios admin.
+- Admin tem acesso total por `User::hasPermission()`.
+- `canAccessPanel()` libera autenticados; autorizacao real fica em resources, pages e actions.
+- Catalogo central: `App\Models\Permission::catalogo()`.
 
 ## Ordens De Servico
 
-- O fluxo funcional completo esta documentado em `app/fluxo_de_OS.md`; este arquivo e a fonte principal para regras, status, agenda, atendimento tecnico, conferencia, estoque, mensagens e cancelamentos.
-- O modulo de OS foi integrado a `main` e publicado em producao em 2026-08-04.
-- Grupo de menu: `Ordens de Servico`, com `Ordens de servico`, `Disponibilidades` e `Agenda de OS`.
-- Permissoes: `OS_Leitura` e `OS_Escrita`; admin continua com acesso total.
-- Cada disponibilidade gera blocos fixos de 1 hora. A atribuicao ocorre pela agenda e envia ao tecnico um link publico unico protegido por token.
-- A atribuicao de tecnico, data e horario e feita exclusivamente pelo popup do calendario. A tela individual da OS nao possui o botao/acao `Atribuir tecnico`.
-- Quando o tecnico selecionado no popup do calendario for `Outros`, aparece o campo obrigatorio `Nome do tecnico`. O valor e salvo em `ordens_servico.nome_tecnico_externo` e exibido como `Outros — Nome informado` no calendario, no detalhe e na lista de OS e no CSV.
-- Para OS atribuidas a `Outros`, o vinculo continua sendo com o cadastro `Outros`: agenda, telefone, mensagens, historico e restante do fluxo permanecem normais; o nome digitado e apenas complementar. Ao rejeitar ou cancelar o agendamento, `nome_tecnico_externo` e limpo.
-- Migration desse complemento: `2026_08_20_000001_add_nome_tecnico_externo_to_ordens_servico_table.php`.
-- O tecnico aceita ou rejeita, inicia o atendimento, informa equipamentos e fotos e solicita conferencia. A central aprova, devolve como pendencia ou cancela.
-- Na tela publica mobile do tecnico, o seletor de fotos oferece duas acoes visuais: `Tirar foto`, que abre a camera traseira com `capture="environment"`, e `Escolher da galeria`, que abre o seletor de imagens sem o atributo `capture`.
-- Camera e galeria usam o mesmo limite de quatro fotos por OS, considerando tambem as fotos ja salvas. Antes do envio, cada nova imagem exibe miniatura, origem (`Camera` ou `Galeria`) e acao para remover. O componente e usado nas fotos do atendimento e nas fotos de divergencia.
-- Essa melhoria foi implementada localmente em 2026-08-21 em `resources/views/ordens-servico/tecnico.blade.php`, com cobertura em `tests/Feature/OrdemServicoFlowTest.php`. O teste completo desse arquivo passou com 42 testes e 318 assercoes. Alteracao ainda nao publicada em producao.
-- Tipo, cliente e veiculo ficam bloqueados depois da criacao. Uma OS ativa por veiculo e preservada; OS nao e excluida definitivamente.
-- Instalacao, retirada e manutencao movimentam rastreadores e chips pelo fluxo da OS, reduzindo atualizacoes manuais do estoque.
-- Regras de movimentacao de equipamentos ao finalizar a OS:
-  - instalacao: rastreador e chip novos ficam `Ativo`, sem tecnico; o rastreador recebe `is_estoque = false`; ambos ficam vinculados ao veiculo, e o tecnico da OS fica registrado como tecnico de instalacao;
-  - manutencao sem troca de equipamento: nao movimenta rastreador nem chip;
-  - manutencao trocando somente o chip: o chip novo fica `Ativo` e sem tecnico; o chip retirado fica `Disponivel` e vinculado ao tecnico da OS;
-  - manutencao trocando rastreador e chip: os equipamentos novos ficam `Ativo`, sem tecnico, vinculados ao veiculo e com o rastreador fora do estoque; os equipamentos retirados ficam `Disponivel`, vinculados ao tecnico da OS, e o rastreador retirado recebe `is_estoque = true`;
-  - retirada: rastreador e chip saem do veiculo, ficam `Disponivel` e vinculados ao tecnico da OS; o rastreador recebe `is_estoque = true`;
-  - chips nao possuem campo `is_estoque`; sua disponibilidade e posse sao controladas por `status_rastreador_id` e `tecnico_id`.
-- Na manutencao com `troca_rastreador` e sem troca de chip, o chip atual deve ser desvinculado do rastreador retirado e reaproveitado no rastreador novo. O veiculo nao pode ficar sem chip nesse resultado.
-- Campos controlados pelo workflow (`status`, tecnico, disponibilidade e horario agendado) nao podem ser sobrescritos pelo salvamento comum do formulario da OS. Depois de atribuir/agendar, o registro da pagina deve ser atualizado antes de recarregar o formulario.
-- O historico da OS preserva eventos, fotos e todas as mensagens geradas para tecnico e cliente.
-- Mensagens de OS ficam fixas e centralizadas em `App\Services\OrdemServico\OrdemServicoNotificacaoService`; usam saudacao, dados do atendimento e formatacao adequada ao WhatsApp.
-- `Enviada` no historico de mensagens significa que a Z-API aceitou a chamada sem erro; nao confirma entrega nem leitura. Webhooks de entregue/lida nao fazem parte da primeira versao.
-- O scheduler executa `ordens-servico:enviar-notificacoes` a cada minuto e o lembrete da OS a cada cinco minutos.
-- O tratamento atual de mensagens com erro deve permanecer como esta ate nova decisao explicita; nao implementar retentativa automaticamente.
-- Na implementacao validada em 2026-08-14, o upload inicial das fotos usa o disco privado `local`, em `storage/app/private/ordens-servico`; o comando diario `ordens-servico:arquivar-fotos` move para `gdrive:Conectta/ordens-servico` as fotos elegiveis de OS finalizadas ha pelo menos um mes.
-- O rclone de producao usa a configuracao privada `/etc/conectta/rclone.conf`; acesso ao remote e escrita/limpeza local como `www-data` foram validados em 2026-08-14.
-- O banco guarda o caminho local ou remoto conforme a fase do arquivo, e a visualizacao continua pela rota protegida da OS; o Drive nao e exposto diretamente.
-- A unica foto criada antes dessa correcao continua local em `storage/app/private/ordens-servico/1/` e com caminho local no banco. Sua migracao para o Drive exige autorizacao explicita do usuario por envolver arquivo real de producao.
-- Em desenvolvimento, o driver de fotos permanece `local` por padrao. Em producao, o `.env` usa `ORDENS_SERVICO_FOTOS_DRIVER=rclone`.
-- Ultimos commits do modulo: `df3f3ea` (primeira versao), `cf26028` (validacao visivel ao criar), `da301a7` (mensagens aprimoradas) e `d19afa2` (fotos no Google Drive).
-- Producao foi validada no commit `d19afa2`, versao `1.1.3`, sem migrations pendentes.
-- Testes relevantes: `tests/Feature/OrdemServicoFlowTest.php` e `tests/Unit/OrdemServicoFotoStorageTest.php`.
-- Materiais de apresentacao gerados localmente:
-  - `/home/diel_/Conectta/tmp/banner-fluxo-ordem-servico-conectta.png`;
-  - `/home/diel_/Conectta/tmp/banner-vantagens-ordem-servico-conectta.png`.
-
-### Primeiras OS reais - 2026-08-15
-
-- As OS 7 e 8 sao manutencoes atribuidas ao tecnico Hiago para 2026-08-15, respectivamente as 09:00 e 10:00.
-- Em 2026-08-14, ambas foram validadas em producao: tecnico e clientes com telefone valido, veiculos ativos com rastreador/chip, tokens validos, links publicos HTTP 200 e mensagens de atribuicao enviadas sem erro.
-- Estoque elegivel do Hiago na validacao: 10 rastreadores disponiveis, todos com chip disponivel, e 3 chips livres disponiveis.
-- `notificar_cliente` esta desativado nas duas OS; portanto, clientes nao recebem automaticamente as mensagens de aceite/finalizacao.
-- Os horarios sao consecutivos. A OS 7 precisa sair de `em_atendimento` e ser enviada para conferencia antes que o tecnico consiga iniciar a OS 8; o sistema impede duas OS simultaneamente em atendimento para o mesmo tecnico.
-- A OS 7 teve o status sobrescrito indevidamente de `enviada` para `aberta` ao editar dados depois do agendamento. Em producao, o status foi restaurado para `enviada` e registrado no historico como `correcao_status_pre_operacao`; tecnico, agenda e token foram preservados.
-- A causa foi corrigida localmente em `EditOrdemServico`: o formulario comum deixa de gravar campos do workflow e o registro e atualizado depois da atribuicao. Existe teste para `agendar -> editar -> aceitar` sem reabrir a OS.
-- Tambem foi corrigido localmente o resultado `troca_rastreador` sem troca de chip, para reaproveitar o chip atual no rastreador novo. Existe teste especifico desse fluxo.
-- Foi feita simulacao transacional real em producao nas OS 7 e 8, cobrindo aceite, inicio, dados de manutencao, foto simulada, solicitacao de conferencia e finalizacao como `reparo_sem_troca`. Ambas finalizaram na simulacao e o rollback foi confirmado; nenhum dado/foto simulado permaneceu.
-- Testes focados apos as correcoes: 28 testes aprovados, 218 assercoes.
-- As correcoes encontradas nessa validacao foram commitadas e publicadas em producao no commit `5710fc5 correções para primeiros atendimentos da os`; a VPS foi conferida nesse commit, com worktree limpa e alinhada a `origin/main`.
-- Backup anterior a correcao da OS 7: `conectta-conectta-20260814-173902.sql.gz`, SHA256 `deca34a59b9541bc046022995e5b0628301b4e2bed9d636f9a9dbbfd65e4f5ca`, salvo na VPS e no Google Drive.
-
-### Estado local da agenda - 2026-08-21
-
-- Em desenvolvimento, foram aplicadas individualmente as migrations `2026_08_18_000001_add_tipo_to_ordem_servico_disponibilidades_table.php` e `2026_08_20_000001_add_nome_tecnico_externo_to_ordens_servico_table.php`. Elas corrigiram, respectivamente, o erro ao criar disponibilidade (`Unknown column 'tipo'`) e o erro ao atribuir uma OS ao tecnico (`Unknown column 'nome_tecnico_externo'`).
-- A migration `2026_08_20_000002_restore_tracker_history_for_completed_removals.php` permanece pendente no banco local porque nao tem relacao com esses dois erros.
-- A tela Filament de criar disponibilidade estava usando apenas metade da largura do formulario. A unica alteracao visual desejada e `->columnSpanFull()` na `Section` principal de `DisponibilidadeResource::form()`; o restante do layout original foi preservado.
-- Depois das migrations, os testes focados da agenda passaram: 10 testes e 93 assercoes. Os dois fluxos especificos de atribuicao (tecnico comum e tecnico `Outros`) passaram: 2 testes e 37 assercoes.
-- Ha outras alteracoes locais no worktree que ja pertenciam ao usuario; nao desfazer nem sobrescrever arquivos fora do ajuste solicitado.
+- Fonte principal: [`app/fluxo_de_OS.md`](app/fluxo_de_OS.md). Nao duplicar aqui detalhes que possam ser consultados nesse documento.
+- Menu `Ordens de Servico`: Ordens de servico, Disponibilidades e Agenda de OS.
+- Permissoes: `OS_Leitura` e `OS_Escrita`.
+- Uma OS ativa por veiculo; OS nao e excluida definitivamente. Tipo, cliente e veiculo ficam bloqueados apos criacao.
+- Disponibilidades usam blocos de uma hora; atribuicao ocorre exclusivamente pelo calendario e gera link publico protegido por token.
+- Tecnico `Outros` exige `nome_tecnico_externo`; o vinculo operacional continua no cadastro `Outros`.
+- Campos de workflow nao podem ser sobrescritos pelo salvamento comum do formulario.
+- Instalacao: equipamentos novos ficam `Ativo`, sem tecnico; rastreador fora do estoque; tecnico registrado no veiculo.
+- Retirada: rastreador e chip ficam `Disponivel` com o tecnico; rastreador em estoque.
+- Manutencao sem troca nao movimenta equipamentos.
+- Troca de chip: novo fica ativo; retirado fica disponivel com o tecnico.
+- Troca de rastreador/chip: novos ficam ativos; retirados ficam disponiveis com o tecnico.
+- Troca somente de rastreador reaproveita o chip atual no rastreador novo.
+- Historico preserva eventos, fotos e mensagens.
+- `Enviada` significa aceite da chamada pela Z-API, nao entrega/leitura.
+- Nao implementar retentativa automatica de mensagens com erro sem decisao explicita.
+- Fotos usam armazenamento privado e rota protegida. Producao usa `ORDENS_SERVICO_FOTOS_DRIVER=rclone` e `/etc/conectta/rclone.conf`; desenvolvimento usa `local`.
+- Arquivamento diario move fotos elegiveis para `gdrive:Conectta/ordens-servico`.
+- Testes principais: `tests/Feature/OrdemServicoFlowTest.php` e `tests/Unit/OrdemServicoFotoStorageTest.php`.
 
 ## Identidade Visual
 
-- O favicon do painel Filament usa `public/favicon.svg`, um marcador de mapa cinza.
-
-## Cliente De Teste Usado
-
-- Cliente: `Diel Oliveira de Faria`.
-- ID: `1470`.
-- Pode ser usado para testes controlados quando o usuario autorizar.
-- Ja foram criados lancamentos de homologacao locais para testes; se poluirem a tela, podem ser removidos com cuidado.
-
-## Estado Atual Importante
-
-- Ultimo commit funcional conhecido em `main`/GitHub/producao: `5710fc5 correções para primeiros atendimentos da os`.
-- Em 2026-08-14, producao foi conferida no commit `5710fc5`, com worktree limpa e alinhada a `origin/main`; esse commit contem as protecoes contra reabertura acidental apos agendamento e o reaproveitamento do chip atual na troca somente de rastreador.
-- Em 2026-08-04, producao estava na versao `1.1.3`, commit `d19afa2`, com o modulo de OS ativo e sem migrations pendentes.
-- Em 2026-07-08, producao estava no commit `58cc7e1`; deploy validado com `/admin/login` HTTP 200 e `php artisan migrate:status --pending` sem pendencias.
-- Em 2026-07-08, a migracao de chips para rastreadores foi aplicada em producao. Validacao: `rastreadores.chip_id` existe, 4.259 rastreadores ficaram com chip migrado, e nao restaram chips compartilhados entre rastreadores ativos.
-- Em 2026-07-08, antes da migracao em producao, 12 chips ainda estavam compartilhados. Foi mantido o vinculo no registro mais recente e 12 rastreadores ficaram sem chip para verificacao manual:
-  - veiculo `19942`, rastreador `23138`, IMEI `865209075229493`, cliente `Bacana Veículos LTDA`, placa `BBZ-2H06`;
-  - veiculo `19952`, rastreador `20724`, IMEI `869731052574415`, cliente `SPEED Proteção Veicular`, placa `RBM-3F20`;
-  - veiculo `20222`, rastreador `19937`, IMEI `865209074809212`, cliente `Rejane Ribeiro e Silva`, placa `PQR-9271`;
-  - veiculo `20468`, rastreador `21205`, IMEI `861768073280786`, cliente `Jorge Alberto Vaz da Silva Junior`, placa `JHS-1A11`;
-  - veiculo `21456`, rastreador `18807`, IMEI `869412079536501`, cliente `Patrícia Monica da Costa Baldez`, placa `TDZ-4C68`;
-  - veiculo `22071`, rastreador `31176`, IMEI `862667083497381`, cliente `Maxientregas Servicos de Entregas LTDA`, placa `PRB-8035`;
-  - veiculo `22207`, rastreador `18741`, IMEI `865209070405411`, cliente `Paulo Cesar Silva Coelho`, placa `PRO-4D30`;
-  - veiculo `23323`, rastreador `31833`, IMEI `863767071751630`, cliente `Nayane Maria da Silva`, placa `QCU-0J36`;
-  - veiculo `23329`, rastreador `31868`, IMEI `863767071642953`, cliente `Matias Loaiza`, placa `RBY-3C78`;
-  - veiculo `23533`, rastreador `22974`, IMEI `868018073761341`, cliente `José Carlos Flausino`, placa `IJB-1J99`;
-  - veiculo `23799`, rastreador `31957`, IMEI `863767071680847`, cliente `Conectta INVESTIDORES`, placa `TGM-4J46`;
-  - veiculo `23918`, rastreador `21106`, IMEI `861768071902563`, cliente `Juliano Cezar Montelo da Silva`, placa `TFD-5G56`.
-- Arquivos locais auxiliares gerados em 2026-07-08 ficam em `/home/diel_/Conectta/tmp/`: `conflitos-veiculos-rastreadores-ativos.xlsx`, `chips-vinculados-a-mais-de-um-rastreador-ativo.txt` e `rastreadores-sem-chip-apos-migracao.txt`.
-- Alteracao local pendente apos o alerta GitGuardian: `scripts/backup-production-db.sh` foi ajustado para evitar `MYSQL_PWD` e usar arquivo temporario MySQL com permissao `600`; precisa commit/deploy se quiser atualizar a rotina versionada.
-- Este `AGENTS.md` foi atualizado no fim do dia 2026-07-07 para economizar contexto na proxima sessao.
-- As rotinas de cobranca e WhatsApp foram implementadas localmente.
-- Foi validado envio real de WhatsApp para o cliente de teste, envio `11`, com sucesso.
-- Foi validada geracao de boleto em homologacao Lytex.
-- Foi validada recuperacao de linha digitavel/PIX via `transactions` do `detalhesFatura`.
-- A producao ja esta em uso em `https://sistemaconectta.com.br`.
-- As rotinas de cobranca existem e o scheduler esta instalado na VPS, mas os agendamentos devem permanecer inativos ate autorizacao explicita.
-- Antes de ativar cobrancas em producao: configurar Z-API em `Integracoes`, rodar simulacoes/controladas e ativar os agendamentos desejados.
-- GitGuardian em 2026-07-07: alerta de `Generic Database Assignment` no commit `62644c6`; varredura local nao encontrou senha real, `.env` e backups estao ignorados, e o alerta pode ser tratado como falso positivo salvo se o GitGuardian mostrar valor real de segredo.
+- Favicon do Filament: `public/favicon.svg`, marcador de mapa cinza.
