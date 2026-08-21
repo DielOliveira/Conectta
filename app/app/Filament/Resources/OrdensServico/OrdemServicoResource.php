@@ -76,8 +76,22 @@ class OrdemServicoResource extends Resource
                             $cliente = $state ? Cliente::query()->find($state) : null;
                             $set('endereco', $cliente ? collect([$cliente->rua, $cliente->numero, $cliente->setor, $cliente->cidade])->filter()->implode(', ') : null);
                         })->disabled($bloquearIdentificacao)->columnSpan(4),
-                    Select::make('veiculo_id')->label('Veículo')->options(fn (Get $get) => Veiculo::query()->where('cliente_id', $get('cliente_id'))->orderBy('placa')->get()
-                        ->mapWithKeys(fn (Veiculo $v) => [$v->id => trim(($v->placa ?: 'Sem placa').' - '.($v->veiculo ?: 'Veículo'))])->all())
+                    Select::make('veiculo_id')->label('Veículo')->options(function (Get $get, ?OrdemServico $record): array {
+                        return Veiculo::query()
+                            ->withTrashed()
+                            ->where('cliente_id', $get('cliente_id'))
+                            ->where(function ($query) use ($record): void {
+                                $query->whereNull('data_exclusao');
+
+                                if ($record?->veiculo_id) {
+                                    $query->orWhere('id', $record->veiculo_id);
+                                }
+                            })
+                            ->orderBy('placa')
+                            ->get()
+                            ->mapWithKeys(fn (Veiculo $v) => [$v->id => trim(($v->placa ?: 'Sem placa').' - '.($v->veiculo ?: 'Veículo'))])
+                            ->all();
+                    })
                         ->searchable()->live()->disabled($bloquearIdentificacao)->required()
                         ->afterStateUpdated(function (Set $set, ?int $state): void {
                             $veiculo = $state ? Veiculo::query()->find($state) : null;
@@ -97,10 +111,10 @@ class OrdemServicoResource extends Resource
                         })
                         ->disabled($bloquearIdentificacao)->required()->columnSpan(2),
                     TextInput::make('veiculo_associado')->label('Associado do veículo')
-                        ->formatStateUsing(fn ($state, Get $get) => Veiculo::query()->find($get('veiculo_id'))?->associado)
+                        ->formatStateUsing(fn ($state, Get $get) => Veiculo::query()->withTrashed()->find($get('veiculo_id'))?->associado)
                         ->visible(fn (Get $get): bool => (bool) $get('associado'))->disabled()->dehydrated(false)->required()->columnSpan(6),
                     TextInput::make('veiculo_contato')->label('Contato do associado')
-                        ->formatStateUsing(fn ($state, Get $get) => Veiculo::query()->find($get('veiculo_id'))?->contato)
+                        ->formatStateUsing(fn ($state, Get $get) => Veiculo::query()->withTrashed()->find($get('veiculo_id'))?->contato)
                         ->visible(fn (Get $get): bool => (bool) $get('associado'))->disabled()->dehydrated(false)->required()->columnSpan(6),
                     TextInput::make('endereco')->label('Endereço do atendimento')->disabled($bloquearDadosAbertura)->required()->maxLength(500)->columnSpanFull(),
                     Textarea::make('descricao')->label('Motivo ou descrição do serviço')->disabled($bloquearDadosAbertura)->required()->rows(3)->columnSpanFull(),

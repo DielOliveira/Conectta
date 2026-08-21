@@ -11,6 +11,7 @@ use App\Models\Veiculo;
 use App\Services\Audit\AuditLogger;
 use App\Services\Estoque\EquipamentoStatusWorkflow;
 use App\Services\OrdemServico\OrdemServicoEquipamentoReserva;
+use App\Services\Veiculo\VeiculoExclusaoService;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Notifications\Notification;
@@ -44,6 +45,12 @@ class EditRastreador extends EditRecord
         return [
             DeleteAction::make()
                 ->label('Excluir')
+                ->using(function (Veiculo $record): bool {
+                    app(VeiculoExclusaoService::class)->excluir([$record], auth()->user());
+
+                    return true;
+                })
+                ->modalDescription('Deseja excluir este veículo? As ordens de serviço em andamento serão canceladas, o histórico será preservado e os avisos de cancelamento seguirão as regras da OS.')
                 ->visible(fn (): bool => auth()->user()?->hasPermission(Permission::CADASTRO_EXCLUSAO) ?? false),
         ];
     }

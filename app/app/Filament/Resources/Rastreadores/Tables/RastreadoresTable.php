@@ -6,6 +6,7 @@ use App\Filament\Resources\Rastreadores\Pages\ListRastreadores;
 use App\Filament\Resources\Rastreadores\RastreadorResource;
 use App\Models\Permission;
 use App\Models\Veiculo;
+use App\Services\Veiculo\VeiculoExclusaoService;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -64,20 +65,29 @@ class RastreadoresTable
                 DeleteAction::make()
                     ->label('Excluir')
                     ->visible(fn (): bool => auth()->user()?->hasPermission(Permission::CADASTRO_EXCLUSAO) ?? false)
+                    ->using(fn (Veiculo $record): bool => self::excluirVeiculos([$record]))
                     ->modalSubmitActionLabel('Excluir')
                     ->requiresConfirmation()
-                    ->modalDescription('Deseja excluir este rastreador?'),
+                    ->modalDescription('Deseja excluir este veículo? As ordens de serviço em andamento serão canceladas, o histórico será preservado e os avisos de cancelamento seguirão as regras da OS.'),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
                         ->visible(fn (): bool => auth()->user()?->hasPermission(Permission::CADASTRO_EXCLUSAO) ?? false)
+                        ->using(fn ($records): bool => self::excluirVeiculos($records))
                         ->label('Excluir selecionados')
                         ->modalSubmitActionLabel('Excluir')
                         ->requiresConfirmation()
-                        ->modalDescription('Deseja excluir os rastreadores selecionados?'),
+                        ->modalDescription('Deseja excluir os veículos selecionados? As ordens de serviço em andamento serão canceladas, o histórico será preservado e os avisos de cancelamento seguirão as regras da OS.'),
                 ]),
             ])
             ->defaultSort('updated_at', 'desc');
+    }
+
+    private static function excluirVeiculos(iterable $veiculos): bool
+    {
+        app(VeiculoExclusaoService::class)->excluir($veiculos, auth()->user());
+
+        return true;
     }
 }

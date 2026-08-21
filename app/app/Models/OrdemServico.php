@@ -43,7 +43,7 @@ class OrdemServico extends Model
 
     public function veiculo(): BelongsTo
     {
-        return $this->belongsTo(Veiculo::class);
+        return $this->belongsTo(Veiculo::class)->withTrashed();
     }
 
     public function tecnico(): BelongsTo
