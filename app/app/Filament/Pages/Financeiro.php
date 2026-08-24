@@ -1128,10 +1128,12 @@ class Financeiro extends Page
             return 'Email do cliente invalido.';
         }
 
-        $telefone = preg_replace('/\D+/', '', (string) $cliente->telefone1);
+        if ($this->telefoneBrasileiro($cliente)) {
+            $telefone = preg_replace('/\D+/', '', (string) $cliente->telefone1);
 
-        if (strlen($telefone) !== 11 || ! ctype_digit($telefone)) {
-            return 'Telefone celular do cliente invalido.';
+            if (strlen($telefone) !== 11 || ! ctype_digit($telefone)) {
+                return 'Telefone celular do cliente invalido.';
+            }
         }
 
         if (Validator::make(['cpf_cnpj' => $cliente->cpf_cnpj], ['cpf_cnpj' => ['required', new CpfCnpj]])->fails()) {
@@ -1222,15 +1224,20 @@ class Financeiro extends Page
         $cliente = Cliente::query()->findOrFail($this->modalClienteId);
         $cpfCnpj = preg_replace('/\D+/', '', (string) $cliente->cpf_cnpj);
 
+        $dadosCliente = [
+            'treatmentPronoun' => 'you',
+            'name' => trim((string) $cliente->nome),
+            'type' => strlen($cpfCnpj) === 11 ? 'pf' : 'pj',
+            'cpfCnpj' => $cpfCnpj,
+            'email' => trim((string) $cliente->email),
+        ];
+
+        if ($this->telefoneBrasileiro($cliente)) {
+            $dadosCliente['cellphone'] = preg_replace('/\D+/', '', (string) $cliente->telefone1);
+        }
+
         return [
-            'client' => [
-                'treatmentPronoun' => 'you',
-                'name' => trim((string) $cliente->nome),
-                'type' => strlen($cpfCnpj) === 11 ? 'pf' : 'pj',
-                'cpfCnpj' => $cpfCnpj,
-                'email' => trim((string) $cliente->email),
-                'cellphone' => preg_replace('/\D+/', '', (string) $cliente->telefone1),
-            ],
+            'client' => $dadosCliente,
             'items' => [
                 [
                     'name' => sprintf('Mensalidade %s/%s', $this->modalMes, $this->modalAno),
@@ -1262,6 +1269,11 @@ class Financeiro extends Page
             ],
             'dueDate' => $this->boletoVencimento,
         ];
+    }
+
+    private function telefoneBrasileiro(Cliente $cliente): bool
+    {
+        return strtoupper(trim((string) ($cliente->telefone1_pais ?: 'BR'))) === 'BR';
     }
 
     private function valorCentavos(float $valor): string

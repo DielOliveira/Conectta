@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\Cobranca\CobrancaAutomaticaService;
 use App\Services\Lytex\LytexInvoiceService;
 use Carbon\CarbonImmutable;
+use Database\Seeders\PaisSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use PHPUnit\Framework\Attributes\RequiresPhpExtension;
@@ -180,6 +181,11 @@ class FinanceiroLancamentoModalTest extends TestCase
         $lytex = $this->mock(LytexInvoiceService::class);
         $lytex->shouldReceive('criarFatura')
             ->once()
+            ->withArgs(function (array $payload): bool {
+                $this->assertSame('62999999999', $payload['client']['cellphone']);
+
+                return true;
+            })
             ->andReturn([
                 '_id' => 'invoice-popup-1',
                 '_clientId' => 'cliente-lytex-1',
@@ -205,6 +211,89 @@ class FinanceiroLancamentoModalTest extends TestCase
             'fatura_id' => 'invoice-popup-1',
             'lancamento_id' => $lancamento->id,
         ]);
+    }
+
+    public function test_generating_boleto_for_foreign_client_omits_cellphone_from_lytex_payload(): void
+    {
+        $this->travelTo('2026-08-24 10:00:00');
+        $this->seed(PaisSeeder::class);
+
+        $cliente = $this->cliente('Cliente Estrangeiro', '51455460000145');
+        $cliente->update([
+            'email' => 'cliente-estrangeiro@example.com',
+            'telefone1_pais' => 'CO',
+            'telefone1' => '3052659969',
+        ]);
+
+        $lancamento = Lancamento::query()->create([
+            'cliente_id' => $cliente->id,
+            'mes_referencia' => 8,
+            'ano_referencia' => 2026,
+            'valor_planejado' => 300,
+        ]);
+
+        $this->actingAs(User::query()->create([
+            'name' => 'Admin Boleto Estrangeiro',
+            'email' => 'admin-boleto-estrangeiro@example.com',
+            'password' => 'password',
+            'is_admin' => true,
+        ]));
+
+        $lytex = $this->mock(LytexInvoiceService::class);
+        $lytex->shouldReceive('criarFatura')
+            ->once()
+            ->withArgs(function (array $payload): bool {
+                $this->assertArrayNotHasKey('cellphone', $payload['client']);
+
+                return true;
+            })
+            ->andReturn([
+                '_id' => 'invoice-foreign-1',
+                '_clientId' => 'cliente-lytex-foreign-1',
+                '_hashId' => 'hash-foreign-1',
+                'totalValue' => 30000,
+                'status' => 'waiting_payment',
+                'dueDate' => '2026-08-28T23:59:59.000Z',
+            ]);
+
+        Livewire::test(Financeiro::class)
+            ->call('abrirLancamento', $cliente->id, 8, 2026)
+            ->assertSet('modalLancamentoId', $lancamento->id)
+            ->call('gerarBoleto')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('invoices', [
+            'fatura_id' => 'invoice-foreign-1',
+            'lancamento_id' => $lancamento->id,
+        ]);
+    }
+
+    public function test_automatic_billing_omits_foreign_cellphone_from_lytex_payload(): void
+    {
+        $this->seed(PaisSeeder::class);
+
+        $cliente = $this->cliente('Cliente Estrangeiro Automático', '51455460000145');
+        $cliente->update([
+            'email' => 'cliente-estrangeiro-automatico@example.com',
+            'telefone1_pais' => 'CO',
+            'telefone1' => '3052659969',
+        ]);
+        $lancamento = Lancamento::query()->create([
+            'cliente_id' => $cliente->id,
+            'mes_referencia' => 8,
+            'ano_referencia' => 2026,
+            'valor_planejado' => 300,
+        ]);
+
+        $service = app(CobrancaAutomaticaService::class);
+        $validar = new \ReflectionMethod($service, 'validarDadosBoleto');
+        $payload = new \ReflectionMethod($service, 'payloadLytex');
+
+        $this->assertNull($validar->invoke($service, $lancamento, $cliente));
+        $this->assertArrayNotHasKey(
+            'cellphone',
+            $payload->invoke($service, $lancamento, $cliente, CarbonImmutable::create(2026, 8, 28))['client'],
+        );
     }
 
     public function test_automatic_billing_blocks_duplicated_planned_lancamentos(): void
