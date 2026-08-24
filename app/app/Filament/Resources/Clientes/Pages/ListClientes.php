@@ -77,7 +77,10 @@ class ListClientes extends ListRecords
             ->when($this->clienteCadastroFinal, fn (Builder $query, string $date): Builder => $query->whereDate('data_adesao', '<=', $date))
             ->when($search !== '', function (Builder $query) use ($search, $digits): Builder {
                 return $query->where(function (Builder $query) use ($search, $digits): void {
-                    $query->where('nome', 'like', '%' . $search . '%');
+                    $query
+                        ->where('nome', 'like', '%' . $search . '%')
+                        ->orWhere('telefone1', 'like', '%' . $search . '%')
+                        ->orWhere('telefone2', 'like', '%' . $search . '%');
 
                     if ($digits !== '') {
                         $query->orWhere('cpf_cnpj', 'like', '%' . $digits . '%');

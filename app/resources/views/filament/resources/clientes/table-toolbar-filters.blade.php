@@ -102,7 +102,7 @@
         <input
             type="search"
             wire:model.live.debounce.500ms="clientePesquisa"
-            placeholder="Nome, CPF ou CNPJ"
+            placeholder="Nome, CPF, CNPJ ou telefone"
         />
     </label>
 
