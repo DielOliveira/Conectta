@@ -77,7 +77,7 @@ class ListOrdensServico extends ListRecords
     public function exportarCsv(): StreamedResponse
     {
         $query = $this->aplicarFiltrosOrdensServico(
-            OrdemServico::query()->with(['cliente', 'veiculo', 'tecnico'])
+            OrdemServico::query()->with(['cliente', 'veiculo.tipoVeiculo', 'tecnico'])
         );
 
         $this->applySortingToTableQuery($query);
@@ -96,7 +96,9 @@ class ListOrdensServico extends ListRecords
                 'OS',
                 'Cliente',
                 'Placa',
+                'Tipo do veículo',
                 'Tipo',
+                'Motivo ou descrição do serviço',
                 'Status',
                 'Técnico',
                 'Atendimento',
@@ -107,7 +109,9 @@ class ListOrdensServico extends ListRecords
                     $ordemServico->numero_formatado,
                     $ordemServico->nome_atendimento,
                     $ordemServico->veiculo?->placa,
+                    $ordemServico->veiculo?->tipoVeiculo?->label,
                     $ordemServico->tipo->label(),
+                    $ordemServico->descricao,
                     $ordemServico->status->label(),
                     $ordemServico->nome_tecnico_exibicao,
                     $ordemServico->agendado_em?->format('d/m/Y H:i'),
