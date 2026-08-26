@@ -27,9 +27,14 @@ class TracksolidDumpImportService
                 foreach ($chunk as $index => $row) {
                     $modelo = $this->text($row['Model'] ?? null);
                     $isTag = mb_strtoupper($modelo) === 'TAG';
+                    $tags += (int) $isTag;
+
+                    if ($isTag) {
+                        continue;
+                    }
+
                     $placaInformada = $this->plate($row['License Plate No.'] ?? null);
                     $placaExtraida = $this->extractPlate($row['Device Name'] ?? null);
-                    $tags += (int) $isTag;
 
                     $insert[] = [
                         'importacao_id' => $importacao->id,
@@ -55,7 +60,9 @@ class TracksolidDumpImportService
                     ];
                 }
 
-                DB::table('tracksolid_dispositivos_importados')->insert($insert);
+                if ($insert !== []) {
+                    DB::table('tracksolid_dispositivos_importados')->insert($insert);
+                }
             }
 
             $importacao->update([

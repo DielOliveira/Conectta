@@ -24,6 +24,7 @@
 - Nao reverter mudancas do usuario sem pedido explicito.
 - Nao commitar `.env`, tokens, senhas, payloads de API ou backups.
 - `payloads-whatsapp/`, `.env`, `storage/app/private` e dumps `.sql.gz` devem permanecer fora do Git.
+- Commits, pushes e deploys sao sempre executados pelo usuario. O Codex deve preparar e validar as alteracoes, mas nao deve executar `git commit`, `git push` nem publicar em producao.
 - Nao usar comandos destrutivos como `git reset --hard` ou `git checkout --` sem autorizacao clara.
 - Em producao, comecar por diagnostico. Antes de qualquer saneamento, confirmar alvos, impacto, backup e autorizacao.
 - Mudancas de dados em producao devem ser protegidas por pre-condicoes, preferencialmente transacionais, auditadas e validadas depois.
@@ -91,6 +92,8 @@ ssh -F /dev/null -i ~/.ssh/conectta_vps -o IdentitiesOnly=yes root@191.252.200.1
 - Tabelas: `invoices` e `lytex_webhook_logs`.
 - Campos importantes: `fatura_id`, `hash_id`, `link_checkout`, `link_boleto`, `linha_digitavel` e `pix_copia_cola`.
 - `detalhesFatura` pode trazer linha digitavel e PIX em `transactions`.
+- A API v2 da Lytex nao possui campo de pais/DDI em `client.cellphone`; o telefone e opcional na criacao de fatura.
+- Ao gerar boleto manualmente ou pela cobranca automatica, validar e enviar `cellphone` somente quando `clientes.telefone1_pais` for `BR` (ou estiver vazio por legado). Para telefone estrangeiro, omitir `cellphone` do payload Lytex sem alterar o telefone salvo no Conectta.
 
 ### WhatsApp
 
@@ -139,6 +142,7 @@ ssh -F /dev/null -i ~/.ssh/conectta_vps -o IdentitiesOnly=yes root@191.252.200.1
 - Tela: `App\Filament\Pages\Financeiro` e `resources/views/filament/pages/financeiro.blade.php`.
 - Leitura: `Financeiro_Leitura`; alteracoes: `Financeiro_Escrita`.
 - Busca principal usa `conectta.busca_cadastros` e sincroniza Financeiro, Clientes e Cadastro de Rastreadores.
+- Na tela Clientes, a busca consulta nome, CPF/CNPJ, telefone principal e telefone secundario; telefones usam diretamente o texto pesquisado, sem normalizacao adicional.
 - Status do cliente usa `conectta.status_cliente` e sincroniza somente Financeiro e Clientes.
 - Ordenacao do bloco de clientes: `qtd`, `vendedor`, `cliente` e `vencimento`; nao ordenar pelos meses.
 - Valores mensais `0,00` aparecem em branco.
@@ -168,6 +172,7 @@ Principio: conter, diagnosticar, preservar evidencias, corrigir de forma reversi
 
 ## Rastreadores E Estoque
 
+- Nas importacoes de relatorios da Tracksolid, ignorar registros cujo modelo seja `TAG`; eles nao devem ser gravados em `tracksolid_dispositivos_importados` nem participar dos relatorios de conciliacao.
 - `Cadastro > Rastreadores` lista `veiculos`; `Estoque > Rastreadores` lista a tabela `rastreadores`.
 - Chips pertencem ao rastreador por `rastreadores.chip_id`; nao usar o legado `veiculos.chip_id` em novas regras.
 - Um rastreador pode estar em no maximo um veiculo ativo. Um chip pode estar em no maximo um rastreador.
