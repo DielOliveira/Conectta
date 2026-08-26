@@ -17,6 +17,7 @@ use App\Services\Estoque\EquipamentoStatusWorkflow;
 use Database\Seeders\ClienteSupportSeeder;
 use Database\Seeders\PaisSeeder;
 use Database\Seeders\RastreadorSupportSeeder;
+use Filament\Forms\Components\Select;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use PHPUnit\Framework\Attributes\RequiresPhpExtension;
@@ -26,6 +27,34 @@ use Tests\TestCase;
 class EditRastreadorResourceTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_imei_dropdown_displays_only_the_imei(): void
+    {
+        $this->seed(ClienteSupportSeeder::class);
+        $this->seed(PaisSeeder::class);
+        $this->seed(RastreadorSupportSeeder::class);
+        $this->actingAs(User::query()->create([
+            'name' => 'Admin',
+            'email' => 'admin-imei-label@example.com',
+            'password' => 'password',
+            'is_admin' => true,
+        ]));
+
+        $rastreador = Rastreador::query()->whereNotNull('tecnico_id')->firstOrFail();
+        $veiculo = Veiculo::query()->create([
+            'cliente_id' => $this->cliente('Cliente dropdown IMEI', '52998224725')->id,
+            'tipo_veiculo_id' => TipoVeiculo::query()->where('label', 'Carro')->value('id'),
+            'veiculo' => 'Veiculo sem rastreador',
+            'placa' => 'IME-1A23',
+            'cor' => 'Prata',
+            'ano' => '2026',
+        ]);
+
+        Livewire::test(EditRastreador::class, ['record' => $veiculo->getRouteKey()])
+            ->assertFormFieldExists('rastreador_id', function (Select $field) use ($rastreador): bool {
+                return ($field->getOptions()[$rastreador->id] ?? null) === $rastreador->imei;
+            });
+    }
 
     public function test_creating_active_vehicle_moves_tracker_and_chip_out_of_technician_stock(): void
     {

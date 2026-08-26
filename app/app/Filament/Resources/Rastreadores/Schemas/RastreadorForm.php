@@ -209,7 +209,6 @@ class RastreadorForm
         $disponivelId = Veiculo::statusId('Disponivel');
 
         return Rastreador::query()
-            ->with('tecnico')
             ->where(function (Builder $query) use ($disponivelId, $record): void {
                 $query->where(function (Builder $disponiveis) use ($disponivelId): void {
                     if ($disponivelId !== null) {
@@ -227,7 +226,7 @@ class RastreadorForm
             ->orderBy('imei')
             ->get()
             ->mapWithKeys(fn (Rastreador $rastreador): array => [
-                $rastreador->id => $rastreador->imei.' ('.($rastreador->tecnico?->nome ?? 'Sem tecnico').')',
+                $rastreador->id => $rastreador->imei,
             ])
             ->all();
     }
