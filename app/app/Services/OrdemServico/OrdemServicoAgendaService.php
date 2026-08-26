@@ -128,7 +128,7 @@ class OrdemServicoAgendaService
     }
 
     /** @return Collection<int, CarbonImmutable> */
-    public function blocos(OrdemServicoDisponibilidade $disponibilidade, ?int $ignorarOrdemId = null): Collection
+    public function blocos(OrdemServicoDisponibilidade $disponibilidade): Collection
     {
         if ($disponibilidade->isBloqueio()) {
             return collect();
@@ -136,10 +136,6 @@ class OrdemServicoAgendaService
 
         $inicio = CarbonImmutable::parse($disponibilidade->data->format('Y-m-d').' '.$disponibilidade->hora_inicio);
         $fim = CarbonImmutable::parse($disponibilidade->data->format('Y-m-d').' '.$disponibilidade->hora_fim);
-        $ocupados = OrdemServico::query()->where('disponibilidade_id', $disponibilidade->id)
-            ->whereNotNull('agendado_em')->when($ignorarOrdemId, fn ($q) => $q->whereKeyNot($ignorarOrdemId))
-            ->whereNotIn('status', ['aberta', 'cancelada'])->pluck('agendado_em')
-            ->map(fn ($data) => CarbonImmutable::parse($data)->format('Y-m-d H:i:s'))->all();
         $bloqueios = OrdemServicoDisponibilidade::query()
             ->where('tecnico_id', $disponibilidade->tecnico_id)
             ->whereDate('data', $disponibilidade->data)
@@ -150,7 +146,7 @@ class OrdemServicoAgendaService
         while ($inicio->addMinutes(self::DURACAO_MINUTOS)->lessThanOrEqualTo($fim)) {
             $fimBloco = $inicio->addMinutes(self::DURACAO_MINUTOS);
             $bloqueado = $bloqueios->contains(fn (OrdemServicoDisponibilidade $bloqueio): bool => $inicio->format('H:i:s') < $bloqueio->hora_fim && $fimBloco->format('H:i:s') > $bloqueio->hora_inicio);
-            if (! $bloqueado && ! in_array($inicio->format('Y-m-d H:i:s'), $ocupados, true)) {
+            if (! $bloqueado) {
                 $blocos->push($inicio);
             }
             $inicio = $inicio->addMinutes(self::DURACAO_MINUTOS);
@@ -159,9 +155,9 @@ class OrdemServicoAgendaService
         return $blocos;
     }
 
-    public function validarBloco(OrdemServicoDisponibilidade $disponibilidade, CarbonImmutable $horario, ?int $ignorarOrdemId = null): void
+    public function validarBloco(OrdemServicoDisponibilidade $disponibilidade, CarbonImmutable $horario): void
     {
-        if (! $this->blocoPodeSerAgendado($horario) || ! $this->blocos($disponibilidade, $ignorarOrdemId)->contains(fn (CarbonImmutable $bloco) => $bloco->equalTo($horario))) {
+        if (! $this->blocoPodeSerAgendado($horario) || ! $this->blocos($disponibilidade)->contains(fn (CarbonImmutable $bloco) => $bloco->equalTo($horario))) {
             throw ValidationException::withMessages(['agendado_em' => 'O bloco escolhido não está disponível.']);
         }
     }
@@ -203,8 +199,8 @@ class OrdemServicoAgendaService
                 return $disponibilidade;
             }
 
-            if ($this->possuiIntervaloSobreposto($tecnicoId, $horario) || $this->possuiOrdemSobreposta($tecnicoId, $horario)) {
-                throw ValidationException::withMessages(['tecnico_id' => 'Este técnico não está mais livre no horário selecionado.']);
+            if ($this->possuiIntervaloSobreposto($tecnicoId, $horario)) {
+                throw ValidationException::withMessages(['tecnico_id' => 'Este técnico não está disponível no horário selecionado.']);
             }
 
             return $this->criarDisponibilidade(
@@ -222,8 +218,7 @@ class OrdemServicoAgendaService
             return true;
         }
 
-        return ! $this->possuiIntervaloSobreposto($tecnicoId, $horario)
-            && ! $this->possuiOrdemSobreposta($tecnicoId, $horario);
+        return ! $this->possuiIntervaloSobreposto($tecnicoId, $horario);
     }
 
     private function disponibilidadeLivreDoTecnico(int $tecnicoId, CarbonImmutable $horario, bool $bloquear = false): ?OrdemServicoDisponibilidade
@@ -252,23 +247,6 @@ class OrdemServicoAgendaService
             ->where('hora_inicio', '<', $horario->addMinutes(self::DURACAO_MINUTOS)->format('H:i:s'))
             ->where('hora_fim', '>', $horario->format('H:i:s'))
             ->exists();
-    }
-
-    private function possuiOrdemSobreposta(int $tecnicoId, CarbonImmutable $horario): bool
-    {
-        $fim = $horario->addMinutes(self::DURACAO_MINUTOS);
-
-        return OrdemServico::query()
-            ->where('tecnico_id', $tecnicoId)
-            ->whereDate('agendado_em', $horario->toDateString())
-            ->whereNotIn('status', ['aberta', 'cancelada'])
-            ->get(['agendado_em'])
-            ->contains(function (OrdemServico $ordem) use ($horario, $fim): bool {
-                $agendado = CarbonImmutable::parse($ordem->agendado_em);
-
-                return $agendado->lessThan($fim)
-                    && $agendado->addMinutes(self::DURACAO_MINUTOS)->greaterThan($horario);
-            });
     }
 
     private function telefoneValido(Tecnico $tecnico): bool

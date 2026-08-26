@@ -85,7 +85,7 @@ class OrdemServicoService
             if (mb_strlen($nomeTecnicoExterno) > 255) {
                 throw ValidationException::withMessages(['nome_tecnico_externo' => 'O nome do técnico deve ter no máximo 255 caracteres.']);
             }
-            $this->agenda->validarBloco($disponibilidade, $horario, $ordem->id);
+            $this->agenda->validarBloco($disponibilidade, $horario);
             $anterior = $ordem->status;
             $token = Str::random(64);
             $ordem->update([

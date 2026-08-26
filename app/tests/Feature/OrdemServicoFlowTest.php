@@ -164,24 +164,20 @@ class OrdemServicoFlowTest extends TestCase
     public function test_calendario_abre_horario_de_uma_hora_e_atribui_a_os_ao_tecnico_escolhido(): void
     {
         CarbonImmutable::setTestNow('2026-08-03 08:00:00');
-        [$operador, $cliente, $veiculo, $tecnicoComAgenda] = $this->cenarioBase();
+        [$operador, $cliente, $veiculo] = $this->cenarioBase();
         $tecnicoSemAgenda = Tecnico::query()->create([
             'nome' => 'Técnico sem agenda',
             'telefone' => '62977777777',
             'is_ativo' => true,
         ]);
-        app(OrdemServicoAgendaService::class)->criarDisponibilidade(
-            $tecnicoComAgenda->id,
-            '2026-08-04',
-            '08:00',
-            '10:00',
-        );
         $ordem = app(OrdemServicoService::class)->criar($this->dadosOrdem($cliente, $veiculo), $operador)['ordem'];
         $horario = '2026-08-04 09:00:00';
         $this->actingAs($operador);
 
         Livewire::test(AgendaOrdensServico::class)
             ->set('data', '2026-08-04')
+            ->assertSee('08:00')
+            ->assertSee('17:00')
             ->assertSee('Abrir horário')
             ->assertDontSee('Nenhum técnico disponível para atribuição.')
             ->callAction('atribuir', data: [
@@ -398,7 +394,7 @@ class OrdemServicoFlowTest extends TestCase
         $this->assertSame('2026-08-04 09:00:00', $ordem->fresh()->agendado_em?->format('Y-m-d H:i:s'));
     }
 
-    public function test_calendario_mostra_status_da_os_com_cor_propria_e_mantem_o_bloco_ocupado(): void
+    public function test_calendario_mostra_status_da_os_com_cor_propria_e_mantem_o_bloco_disponivel(): void
     {
         CarbonImmutable::setTestNow('2026-08-03 08:00:00');
         [$operador, $cliente, $veiculo, $tecnico] = $this->cenarioBase();
@@ -415,7 +411,50 @@ class OrdemServicoFlowTest extends TestCase
         $this->assertNotNull($item);
         $this->assertSame('Finalizada', $item['status_label']);
         $this->assertSame('status-finalizada', $item['status_classe']);
-        $this->assertFalse($agenda->blocos($disponibilidade)->contains(fn (CarbonImmutable $bloco): bool => $bloco->format('H:i') === '09:00'));
+        $this->assertTrue($agenda->blocos($disponibilidade)->contains(fn (CarbonImmutable $bloco): bool => $bloco->format('H:i') === '09:00'));
+    }
+
+    public function test_permite_varias_ordens_para_o_mesmo_tecnico_e_horario_e_exibe_todos_os_cards(): void
+    {
+        CarbonImmutable::setTestNow('2026-08-03 08:00:00');
+        [$operador, $cliente, $veiculo, $tecnico] = $this->cenarioBase();
+        $outroVeiculo = Veiculo::query()->create([
+            'cliente_id' => $cliente->id,
+            'veiculo' => 'Segundo automóvel',
+            'placa' => 'OSX-0002',
+        ]);
+        $service = app(OrdemServicoService::class);
+        $primeira = $service->criar($this->dadosOrdem($cliente, $veiculo), $operador)['ordem'];
+        $segunda = $service->criar($this->dadosOrdem($cliente, $outroVeiculo), $operador)['ordem'];
+        $disponibilidade = app(OrdemServicoAgendaService::class)
+            ->criarDisponibilidade($tecnico->id, '2026-08-04', '09:00', '10:00');
+        $horario = CarbonImmutable::parse('2026-08-04 09:00');
+
+        $service->agendar($primeira, $disponibilidade, $horario, $operador);
+        $this->actingAs($operador);
+        Livewire::test(AgendaOrdensServico::class)
+            ->callAction('atribuir', data: [
+                'horario' => $horario->format('Y-m-d H:i:s'),
+                'abrir_horario' => false,
+                'ordem_servico_id' => $segunda->id,
+                'tecnico_id' => $tecnico->id,
+            ], arguments: [
+                'horario' => $horario->format('Y-m-d H:i:s'),
+            ])
+            ->assertHasNoActionErrors();
+
+        $pagina = app(AgendaOrdensServico::class);
+        $pagina->data = '2026-08-04';
+        $itens = $pagina->agenda()->filter(fn (array $item): bool => $item['horario']->equalTo($horario));
+
+        $this->assertCount(2, $itens->whereNotNull('ordem'));
+        $this->assertCount(1, $itens->whereNull('ordem')->where('bloqueio', false));
+
+        Livewire::test(AgendaOrdensServico::class)
+            ->set('data', '2026-08-04')
+            ->assertSee($primeira->numero_formatado)
+            ->assertSee($segunda->numero_formatado)
+            ->assertSee('Disponível para outra O.S.');
     }
 
     public function test_calendario_define_uma_cor_para_todos_os_status_de_os(): void
@@ -600,7 +639,7 @@ class OrdemServicoFlowTest extends TestCase
         $this->assertDatabaseCount('ordens_servico', 0);
     }
 
-    public function test_rejeicao_libera_a_agenda_e_invalida_o_token(): void
+    public function test_rejeicao_remove_o_agendamento_e_invalida_o_token(): void
     {
         CarbonImmutable::setTestNow('2026-08-03 08:00:00');
         [$operador, $cliente, $veiculo, $tecnico] = $this->cenarioBase();

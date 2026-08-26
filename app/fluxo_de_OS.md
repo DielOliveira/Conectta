@@ -69,7 +69,7 @@ Em retiradas ou manutencoes com divergencia de IMEI ou chip, a OS sai de `Em ate
 - A central pode cadastrar mais de um intervalo para o mesmo tecnico no mesmo dia, por exemplo 08:00 a 12:00 e 14:00 a 18:00.
 - Intervalos do mesmo tecnico no mesmo dia nao podem se sobrepor.
 - O sistema divide cada intervalo em blocos consecutivos de 1 hora.
-- Cada OS ocupa um bloco de 1 hora na agenda.
+- Cada OS ocupa um bloco de 1 hora na agenda, mas o mesmo tecnico pode receber mais de uma OS no mesmo bloco.
 - Quando o intervalo terminar com uma sobra inferior a 1 hora, essa sobra e ignorada.
 - Exemplo: 08:00 a 09:00 gera um bloco, iniciado as 08:00.
 - Exemplo: uma disponibilidade de 08:00 a 12:00 gera quatro blocos, iniciados as 08:00, 09:00, 10:00 e 11:00.
@@ -77,15 +77,15 @@ Em retiradas ou manutencoes com divergencia de IMEI ou chip, a OS sai de `Em ate
 - A OS pode ser criada como `Aberta` sem tecnico atribuido.
 - Enquanto nao for atribuida, a OS permanece sem data e horario.
 - A OS somente passa para `Enviada` quando a central atribui um tecnico e a vincula a um bloco disponivel da agenda dele.
-- Ao atribuir o tecnico, o operador deve escolher obrigatoriamente um bloco livre de 1 hora da agenda.
+- Ao atribuir o tecnico, o operador deve escolher obrigatoriamente um bloco de 1 hora da agenda. O bloco pode ja possuir outras OS do mesmo tecnico.
 - Quando o tecnico cadastrado selecionado for `Outros`, o operador informa no popup o nome do prestador externo. Esse nome fica gravado e aparece como complemento na OS; agenda, telefone, mensagens e todo o restante do fluxo continuam usando o cadastro `Outros` normalmente.
 - A data e o horario do bloco escolhido passam a ser o horario efetivo da OS.
 - A atribuicao exige que o tecnico possua um telefone valido no cadastro para receber o link por WhatsApp.
-- Sem telefone valido, a atribuicao e recusada, nenhum bloco e ocupado e a OS permanece `Aberta`.
+- Sem telefone valido, a atribuicao e recusada, nenhum agendamento e criado e a OS permanece `Aberta`.
 - A tela orienta a central a corrigir o telefone no cadastro do tecnico.
 - Um tecnico sem telefone valido tambem nao pode receber uma faixa de disponibilidade; a criacao ou edicao da agenda orienta a central a corrigir o cadastro.
 - O telefone do tecnico e exibido no formulario com mascara brasileira e prefixo visual `+55`, mas somente os 11 digitos locais sao armazenados.
-- Quando a OS for rejeitada ou seu agendamento for cancelado pela central, o bloco anteriormente ocupado volta a ficar disponivel.
+- Quando a OS for rejeitada ou seu agendamento for cancelado pela central, somente essa OS deixa de ocupar o bloco; as demais permanecem agendadas.
 - Nao existe acao de `Reagendar` dentro da OS. Para trocar tecnico, data ou horario, a central cancela o agendamento no calendario e faz uma nova atribuicao.
 - Cancelar o agendamento remove tecnico, disponibilidade e horario efetivo, invalida o hash anterior e devolve a OS para `Aberta`, sem cancelar a OS.
 - O cancelamento do agendamento e permitido somente enquanto a OS estiver `Enviada` ou `Aceita`.
@@ -223,7 +223,7 @@ Regras da localizacao:
 Regras de edicao:
 
 - Tipo, cliente e veiculo ficam bloqueados assim que a OS e criada e nao podem ser alterados posteriormente.
-- O tecnico, a data e o horario sao definidos exclusivamente pela atribuicao de um bloco livre da agenda.
+- O tecnico, a data e o horario sao definidos exclusivamente pela atribuicao de um bloco da agenda.
 - A atribuicao de tecnico e horario e feita exclusivamente pelo popup do calendario; a tela individual da OS nao possui acao de atribuicao.
 - A partir de `Em atendimento`, permanecem disponiveis apenas observacoes, a correcao cadastral prevista para retirada, a conferencia e o cancelamento com motivo.
 - Cancelamento do agendamento e nova atribuicao devem ocorrer antes do inicio do atendimento.
@@ -240,14 +240,15 @@ Regras de edicao:
 - O operador pode alternar para ordenar pelo horario de atendimento mais proximo.
 - O modulo possui uma visualizacao de agenda ou calendario por tecnico.
 - A agenda oferece visoes por dia e por semana.
-- A agenda mostra os blocos livres de 1 hora e as OS agendadas.
+- A agenda mostra os blocos de 1 hora disponiveis para novos agendamentos e as OS ja agendadas.
+- Quando um dia nao possui nenhuma disponibilidade cadastrada, a visao diaria exibe uma grade padrao das 08:00 as 18:00 com a acao `Abrir horario` nos blocos que ainda podem receber OS.
 - Na visao diaria, cada hora ocupa uma linha, independentemente da quantidade de tecnicos.
-- Cada OS agendada aparece em um card vermelho com numero, tecnico, cliente e placa.
-- Cada horario possui no maximo um card verde `Livre`, com os nomes dos tecnicos aptos e disponiveis naquele bloco.
+- Cada OS agendada aparece em seu proprio card com numero, tecnico, cliente e placa; OS simultaneas aparecem lado a lado na visao diaria.
+- Cada horario possui no maximo um card verde de disponibilidade, com os nomes dos tecnicos aptos a receber outra OS naquele bloco.
 - Horarios passados aparecem como encerrados e nao permitem atribuicao.
 - Tecnicos sem telefone valido nao aparecem como aptos para atribuicao.
-- Ao clicar no card livre, a central escolhe em um modal uma OS `Aberta`, ainda sem tecnico, e um dos tecnicos livres no horario.
-- Ao clicar em um card ocupado, um modal oferece `Cancelar agendamento`, quando o status permitir, e `Ver ordem de servico`.
+- Ao clicar no card de disponibilidade, a central escolhe em um modal uma OS `Aberta`, ainda sem tecnico, e um dos tecnicos aptos a receber outro atendimento no horario.
+- Ao clicar em um card de OS, um modal oferece `Cancelar agendamento`, quando o status permitir, e `Ver ordem de servico`.
 - Nesta primeira versao, nao havera geracao de PDF nem layout especifico para impressao da OS.
 
 ## Historico e auditoria
@@ -555,7 +556,7 @@ Os itens substituidos sao transferidos para o estoque do tecnico que realizou o 
 - A abertura permite marcar a OS como atendimento de associado; nesse caso, exige nome, contato e DDI no veiculo e usa esses dados em toda comunicacao e apresentacao do cliente do atendimento.
 - Ao marcar associado, o endereco automatico do cliente e limpo; ao desmarcar, o endereco original e restaurado.
 - Depois da criacao, tipo, cliente e veiculo ficam bloqueados permanentemente para preservar a identidade e o historico da OS.
-- A OS nao possui data ou horario desejado; o horario efetivo nasce somente quando a ordem e vinculada a um bloco livre da agenda.
+- A OS nao possui data ou horario desejado; o horario efetivo nasce somente quando a ordem e vinculada a um bloco da agenda.
 - A localizacao e opcional; o sistema armazena o link recebido e extrai latitude e longitude quando possivel.
 - A agenda usa intervalos cadastrados pela central e gera blocos de atendimento com duracao fixa de 1 hora.
 - A agenda aceita multiplos intervalos nao sobrepostos no mesmo dia.
@@ -591,9 +592,9 @@ Os itens substituidos sao transferidos para o estoque do tecnico que realizou o 
 - Cada OS possui um numero sequencial visivel, separado do ID interno.
 - A numeracao da OS e global, continua e nao reinicia por ano.
 - Uma OS pode ser aberta sem tecnico; ela permanece `Aberta` ate ser vinculada a um bloco disponivel da agenda.
-- A atribuicao exige um bloco livre da agenda, e seu horario passa a ser o horario efetivo da OS.
+- A atribuicao exige um bloco disponivel na agenda, ainda que ele ja possua outra OS do mesmo tecnico, e seu horario passa a ser o horario efetivo da OS.
 - Na primeira versao, a agenda dos tecnicos e cadastrada pela central; usuarios proprios para os tecnicos ficam para uma evolucao futura.
-- Rejeicao e cancelamento do agendamento liberam automaticamente o bloco anterior; uma nova atribuicao ocupa outro bloco e gera novo aceite.
+- Rejeicao e cancelamento removem somente o agendamento daquela OS; uma nova atribuicao pode usar qualquer bloco disponivel e gera novo aceite.
 - Uma OS `Aceita` permanece nesse status quando o horario passa e pode ser iniciada posteriormente, sem penalidade ou transicao automatica.
 - Os anexos do tecnico aceitam somente imagens da camera ou galeria, sem PDF ou outros documentos.
 - Cada OS aceita no maximo quatro fotos de atendimento.
@@ -612,7 +613,7 @@ Os itens substituidos sao transferidos para o estoque do tecnico que realizou o 
 - Os atalhos de telefone, WhatsApp e rota sao apresentados como botoes de acao com icones, adequados para toque no celular.
 - A divergencia cadastral de IMEI ou chip e informada em uma modal responsiva, aberta por um botao separado do formulario principal do atendimento.
 - A lista da central possui um painel de filtros acima da tabela, seguindo o padrao das demais telas, para filtrar por status, tipo, tecnico e periodo e buscar por numero da OS, cliente ou placa.
-- A visao diaria da agenda usa uma linha por hora, cards vermelhos para OS agendadas e um unico card verde com os nomes dos tecnicos livres.
+- A visao diaria da agenda usa uma linha por hora, um card para cada OS agendada e um unico card verde com os nomes dos tecnicos disponiveis para outro atendimento.
 - A agenda pode ser alternada entre visao diaria e semanal.
 - Disponibilidades ja usadas por uma OS preservam data, tecnico e horarios compativeis com o bloco historico, inclusive depois da finalizacao, e nao podem ser excluidas.
 - Agenda e agendamento nao aceitam datas ou horarios passados, sem bloquear o inicio tardio de uma OS ja aceita.

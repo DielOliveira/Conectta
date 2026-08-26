@@ -27,6 +27,10 @@ use UnitEnum;
 
 class AgendaOrdensServico extends Page
 {
+    private const GRADE_VAZIA_HORA_INICIO = 8;
+
+    private const GRADE_VAZIA_HORA_FIM = 18;
+
     protected static ?string $slug = 'agenda-ordens-servico';
 
     protected static string|UnitEnum|null $navigationGroup = 'Ordens de Serviço';
@@ -130,16 +134,17 @@ class AgendaOrdensServico extends Page
                     return $blocosBloqueados;
                 }
 
-                $ocupados = $disponibilidade->ordens->reject(fn ($os) => in_array($os->status, [OrdemServicoStatus::ABERTA, OrdemServicoStatus::CANCELADA], true))->keyBy(fn ($os) => $os->agendado_em?->format('Y-m-d H:i:s'));
-                $livres = app(OrdemServicoAgendaService::class)->blocos($disponibilidade)
+                $ocupados = $disponibilidade->ordens
+                    ->reject(fn ($os) => in_array($os->status, [OrdemServicoStatus::ABERTA, OrdemServicoStatus::CANCELADA], true))
+                    ->groupBy(fn ($os) => $os->agendado_em?->format('Y-m-d H:i:s'));
+                $disponiveis = app(OrdemServicoAgendaService::class)->blocos($disponibilidade)
                     ->keyBy(fn (CarbonImmutable $horario): string => $horario->format('Y-m-d H:i:s'));
                 $inicio = CarbonImmutable::parse($disponibilidade->data->format('Y-m-d').' '.$disponibilidade->hora_inicio);
                 $fim = CarbonImmutable::parse($disponibilidade->data->format('Y-m-d').' '.$disponibilidade->hora_fim);
                 $blocos = collect();
                 while ($inicio->addMinutes(OrdemServicoAgendaService::DURACAO_MINUTOS)->lessThanOrEqualTo($fim)) {
                     $chave = $inicio->format('Y-m-d H:i:s');
-                    if ($ocupados->has($chave) || $livres->has($chave)) {
-                        $ordem = $ocupados->get($chave);
+                    foreach ($ocupados->get($chave, collect()) as $ordem) {
                         $blocos->push([
                             'horario' => $inicio,
                             'disponibilidade' => $disponibilidade,
@@ -147,6 +152,16 @@ class AgendaOrdensServico extends Page
                             'bloqueio' => false,
                             'status_classe' => $ordem ? $this->statusClasse($ordem->status) : null,
                             'status_label' => $ordem?->status->label(),
+                        ]);
+                    }
+                    if ($disponiveis->has($chave)) {
+                        $blocos->push([
+                            'horario' => $inicio,
+                            'disponibilidade' => $disponibilidade,
+                            'ordem' => null,
+                            'bloqueio' => false,
+                            'status_classe' => null,
+                            'status_label' => null,
                         ]);
                     }
                     $inicio = $inicio->addMinutes(OrdemServicoAgendaService::DURACAO_MINUTOS);
@@ -159,7 +174,10 @@ class AgendaOrdensServico extends Page
     public function horariosDia(Collection $agenda): Collection
     {
         if ($agenda->isEmpty()) {
-            return collect();
+            $data = CarbonImmutable::parse($this->data)->startOfDay();
+
+            return collect(range(self::GRADE_VAZIA_HORA_INICIO, self::GRADE_VAZIA_HORA_FIM - 1))
+                ->map(fn (int $hora): CarbonImmutable => $data->setTime($hora, 0));
         }
 
         $horarios = $agenda->pluck('horario')->sortBy(fn (CarbonImmutable $horario) => $horario->timestamp)->values();
@@ -223,7 +241,7 @@ class AgendaOrdensServico extends Page
                     ->noOptionsMessage('Não existem ordens abertas aguardando atribuição.')
                     ->required(),
                 Select::make('tecnico_id')
-                    ->label(fn (Get $get): string => $get('abrir_horario') ? 'Técnico' : 'Técnico livre')
+                    ->label(fn (Get $get): string => $get('abrir_horario') ? 'Técnico' : 'Técnico disponível')
                     ->options(function (Get $get): array {
                         if (! filled($get('horario'))) {
                             return [];
@@ -237,14 +255,14 @@ class AgendaOrdensServico extends Page
                                 ->all();
                         }
 
-                        return $this->disponibilidadesLivres($horario)
+                        return $this->disponibilidadesDisponiveis($horario)
                             ->mapWithKeys(fn (OrdemServicoDisponibilidade $disponibilidade): array => [
                                 $disponibilidade->tecnico_id => $disponibilidade->tecnico->nome,
                             ])->all();
                     })
                     ->noOptionsMessage(fn (Get $get): string => $get('abrir_horario')
-                        ? 'Nenhum técnico está livre para abrir este horário.'
-                        : 'O horário não possui mais técnicos livres.')
+                        ? 'Nenhum técnico está disponível para abrir este horário.'
+                        : 'O horário não possui técnicos disponíveis.')
                     ->live()
                     ->required(),
                 TextInput::make('nome_tecnico_externo')
@@ -276,11 +294,11 @@ class AgendaOrdensServico extends Page
                             $data['nome_tecnico_externo'] ?? null,
                         );
                     } else {
-                        $disponibilidade = $this->disponibilidadesLivres($horario)
+                        $disponibilidade = $this->disponibilidadesDisponiveis($horario)
                             ->firstWhere('tecnico_id', (int) $data['tecnico_id']);
 
                         if (! $disponibilidade) {
-                            throw ValidationException::withMessages(['tecnico_id' => 'Este técnico não está mais livre no horário selecionado.']);
+                            throw ValidationException::withMessages(['tecnico_id' => 'Este técnico não está mais disponível no horário selecionado.']);
                         }
 
                         app(OrdemServicoService::class)->agendar(
@@ -320,7 +338,7 @@ class AgendaOrdensServico extends Page
                 abort_unless($this->podeCancelarAgendamento((int) $arguments['ordem']), 403);
                 $ordem = OrdemServico::query()->findOrFail((int) $arguments['ordem']);
                 app(OrdemServicoService::class)->cancelarAgendamento($ordem, auth()->user());
-                Notification::make()->title('Agendamento cancelado; o horário foi liberado.')->success()->send();
+                Notification::make()->title('Agendamento cancelado.')->success()->send();
             });
     }
 
@@ -337,7 +355,7 @@ class AgendaOrdensServico extends Page
         return filled($tecnicoId) && Tecnico::query()->find((int) $tecnicoId)?->isOutros() === true;
     }
 
-    private function disponibilidadesLivres(CarbonImmutable $horario): Collection
+    private function disponibilidadesDisponiveis(CarbonImmutable $horario): Collection
     {
         if (! $this->horarioPodeReceberOs($horario)) {
             return collect();
