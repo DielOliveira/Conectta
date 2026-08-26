@@ -348,6 +348,7 @@ Validacao na abertura:
 
 O tecnico deve informar:
 
+- O local de instalacao do equipamento no veiculo.
 - O rastreador instalado.
 - O chip instalado, somente quando o rastreador escolhido ainda nao possuir chip vinculado.
 - Uma ou mais fotos do servico.
@@ -433,6 +434,7 @@ O tecnico deve registrar um dos seguintes resultados:
 
 Para qualquer resultado de manutencao, o tecnico tambem deve:
 
+- Informar o local de instalacao do equipamento no veiculo.
 - Preencher uma descricao do servico executado ou do diagnostico realizado.
 - Anexar uma ou mais fotos.
 - Preencher todos os dados obrigatorios antes de solicitar a conferencia.

@@ -136,6 +136,10 @@ ssh -F /dev/null -i ~/.ssh/conectta_vps -o IdentitiesOnly=yes root@191.252.200.1
 - Fluxo atraso: mensagem principal e PDF(s), sem linha digitavel, PIX ou finalizacao.
 - Os comandos `cobrancas:processar` e `cobrancas:enviar-whatsapp` simulam por padrao. Envio real exige `--executar`.
 - Os agendamentos de cobranca em producao devem permanecer inativos ate autorizacao explicita.
+- Agendamentos de cobranca podem ter varios registros do mesmo `tipo`, permitindo separar dias e horarios sem criar campos especiais por periodo.
+- A alteracao para remover a unicidade de `cobranca_agendamentos.tipo` esta preparada localmente em `database/migrations/2026_08_26_000001_allow_multiple_cobranca_agendamentos.php`, mas ainda nao foi publicada em producao.
+- No deploy dessa alteracao, preservar os horarios atuais de segunda a sexta e criar registros separados para sabado e domingo: atrasos de 2, 5, 7, 10, 12 e 15 dias as 09:00, 09:05, 09:10, 09:15, 09:20 e 09:25; lembrete no vencimento as 09:50; boleto 7 dias antes as 09:55.
+- Antes desse deploy, executar backup de producao. Commit, push e deploy continuam sob responsabilidade do usuario.
 
 ## Financeiro
 

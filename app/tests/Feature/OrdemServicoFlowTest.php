@@ -1096,6 +1096,75 @@ class OrdemServicoFlowTest extends TestCase
         );
     }
 
+    public function test_local_de_instalacao_e_obrigatorio_para_tecnico_solicitar_conferencia(): void
+    {
+        [$operador, $cliente, $veiculo, $tecnico] = $this->cenarioBase();
+        $chip = Chip::query()->create(['numero_chip' => '5562999990060']);
+        $rastreador = Rastreador::query()->create([
+            'imei' => '860000000000060',
+            'chip_id' => $chip->id,
+        ]);
+        $ordem = app(OrdemServicoService::class)->criar($this->dadosOrdem($cliente, $veiculo), $operador)['ordem'];
+        $ordem->update([
+            'tecnico_id' => $tecnico->id,
+            'rastreador_novo_id' => $rastreador->id,
+            'chip_novo_id' => $chip->id,
+            'status' => OrdemServicoStatus::EM_ATENDIMENTO,
+        ]);
+        $ordem->fotos()->create([
+            'caminho' => 'ordens-servico/teste/local-instalacao.jpg',
+            'nome_original' => 'local-instalacao.jpg',
+            'mime_type' => 'image/jpeg',
+            'tamanho' => 100,
+        ]);
+
+        try {
+            app(OrdemServicoService::class)->solicitarConferencia($ordem->fresh());
+            $this->fail('O local de instalação deveria ser obrigatório.');
+        } catch (ValidationException $exception) {
+            $this->assertSame('Informe o local de instalação.', $exception->errors()['local_instalacao'][0]);
+        }
+
+        $ordem->update(['local_instalacao' => 'Abaixo do painel, lado do motorista']);
+        app(OrdemServicoService::class)->solicitarConferencia($ordem->fresh());
+
+        $this->assertSame(OrdemServicoStatus::EM_CONFERENCIA, $ordem->fresh()->status);
+        $this->assertSame('Abaixo do painel, lado do motorista', $ordem->fresh()->local_instalacao);
+    }
+
+    public function test_local_de_instalacao_tambem_e_obrigatorio_na_manutencao(): void
+    {
+        [$operador, $cliente, $veiculo, $tecnico] = $this->cenarioBase();
+        $chip = Chip::query()->create(['numero_chip' => '5562999990061']);
+        $rastreador = Rastreador::query()->create([
+            'imei' => '860000000000061',
+            'chip_id' => $chip->id,
+        ]);
+        $veiculo->update(['rastreador_id' => $rastreador->id]);
+        $dados = $this->dadosOrdem($cliente, $veiculo);
+        $dados['tipo'] = 'manutencao';
+        $ordem = app(OrdemServicoService::class)->criar($dados, $operador)['ordem'];
+        $ordem->update([
+            'tecnico_id' => $tecnico->id,
+            'status' => OrdemServicoStatus::EM_ATENDIMENTO,
+        ]);
+        $ordem->fotos()->create([
+            'caminho' => 'ordens-servico/teste/local-manutencao.jpg',
+            'nome_original' => 'local-manutencao.jpg',
+            'mime_type' => 'image/jpeg',
+            'tamanho' => 100,
+        ]);
+
+        try {
+            app(OrdemServicoService::class)->solicitarConferencia($ordem->fresh());
+            $this->fail('O local de instalação deveria ser obrigatório na manutenção.');
+        } catch (ValidationException $exception) {
+            $this->assertSame('Informe o local de instalação.', $exception->errors()['local_instalacao'][0]);
+        }
+
+        $this->assertSame(OrdemServicoStatus::EM_ATENDIMENTO, $ordem->fresh()->status);
+    }
+
     public function test_painel_exibe_equipamentos_que_ficarao_no_veiculo_em_conferencia_e_apos_finalizar(): void
     {
         [$operador, $cliente, $veiculo] = $this->cenarioBase();
@@ -1341,12 +1410,14 @@ class OrdemServicoFlowTest extends TestCase
 
         $this->post(route('ordens-servico.tecnico.action', $tokenConcorrente), [
             'acao' => 'conferencia',
+            'local_instalacao' => 'Abaixo do painel',
             'rastreador_novo_id' => $rastreador->id,
             'chip_novo_id' => $chip->id,
         ])->assertSessionHasErrors('rastreador_novo_id');
 
         $this->post(route('ordens-servico.tecnico.action', $tokenConcorrente), [
             'acao' => 'conferencia',
+            'local_instalacao' => 'Abaixo do painel',
             'rastreador_novo_id' => $rastreadorLivre->id,
             'chip_novo_id' => $chip->id,
         ])->assertSessionHasErrors('chip_novo_id');

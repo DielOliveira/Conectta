@@ -152,6 +152,9 @@ class OrdemServicoService
         if ($ordem->fotos()->count() < 1) {
             throw ValidationException::withMessages(['fotos' => 'Envie pelo menos uma foto do atendimento.']);
         }
+        if (in_array($ordem->tipo, [OrdemServicoTipo::INSTALACAO, OrdemServicoTipo::MANUTENCAO], true) && blank(trim((string) $ordem->local_instalacao))) {
+            throw ValidationException::withMessages(['local_instalacao' => 'Informe o local de instalação.']);
+        }
         if ($ordem->tipo === OrdemServicoTipo::INSTALACAO && $ordem->rastreador_novo_id === null) {
             throw ValidationException::withMessages(['rastreador_novo_id' => 'Informe o rastreador instalado.']);
         }

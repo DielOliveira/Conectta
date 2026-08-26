@@ -74,12 +74,19 @@ class OrdemServicoTecnicoController extends Controller
             $ordem->update(['status' => OrdemServicoStatus::AGUARDANDO_CORRECAO_CADASTRAL]);
             $ordem->historicos()->create(['evento' => 'divergencia_cadastral', 'status_anterior' => $anterior->value, 'status_novo' => OrdemServicoStatus::AGUARDANDO_CORRECAO_CADASTRAL->value, 'tecnico_id' => $ordem->tecnico_id, 'observacao' => $request->string('observacao')]);
         } elseif ($acao === 'conferencia') {
+            if (is_string($request->input('local_instalacao'))) {
+                $request->merge(['local_instalacao' => trim($request->input('local_instalacao'))]);
+            }
             $request->validate(
                 [
                     'fotos' => ['array', 'max:4'], 'fotos.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
                     'rastreador_novo_id' => ['nullable', 'integer'], 'chip_novo_id' => ['nullable', 'integer'],
                     'resultado_manutencao' => ['nullable', Rule::in(['reparo_sem_troca', 'troca_rastreador', 'troca_chip', 'troca_rastreador_chip', 'sem_defeito'])],
                     'descricao_atendimento' => ['nullable', 'string', 'max:5000'], 'equipamentos_confirmados' => ['nullable', 'boolean'],
+                    'local_instalacao' => [
+                        Rule::requiredIf(in_array($ordem->tipo, [OrdemServicoTipo::INSTALACAO, OrdemServicoTipo::MANUTENCAO], true)),
+                        'nullable', 'string', 'max:500',
+                    ],
                 ],
                 $this->mensagensValidacaoFotos(),
             );
@@ -133,6 +140,7 @@ class OrdemServicoTecnicoController extends Controller
                     'chip_novo_id' => $chipId,
                     'resultado_manutencao' => $request->input('resultado_manutencao'),
                     'descricao_atendimento' => $request->input('descricao_atendimento'),
+                    'local_instalacao' => $request->input('local_instalacao'),
                     'equipamentos_confirmados' => $request->boolean('equipamentos_confirmados'),
                 ]);
                 $service->solicitarConferencia($ordem->fresh());
@@ -173,6 +181,8 @@ class OrdemServicoTecnicoController extends Controller
     private function mensagensValidacaoFotos(): array
     {
         return [
+            'local_instalacao.required' => 'Informe o local de instalação.',
+            'local_instalacao.max' => 'O local de instalação deve ter no máximo 500 caracteres.',
             'fotos.max' => 'A OS aceita no máximo quatro fotos.',
             'fotos.*.uploaded' => 'Não foi possível enviar uma das fotos. Use um arquivo de até 5 MB.',
             'fotos.*.image' => 'Envie somente arquivos de imagem.',

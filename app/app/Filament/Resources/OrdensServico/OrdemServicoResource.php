@@ -128,6 +128,14 @@ class OrdemServicoResource extends Resource
                         ->columnSpan(4),
                 ]),
             ])->columnSpanFull(),
+            Section::make('Dados do atendimento')->schema([
+                Placeholder::make('local_instalacao_consulta')
+                    ->label('Local de instalação')
+                    ->content(fn (?OrdemServico $record): string => $record?->local_instalacao ?: 'Ainda não informado'),
+            ])->visible(fn (?OrdemServico $record): bool => $record !== null && in_array($record->tipo, [
+                OrdemServicoTipo::INSTALACAO,
+                OrdemServicoTipo::MANUTENCAO,
+            ], true))->columnSpanFull(),
             Section::make('Equipamentos vinculados ao veículo')
                 ->description(fn (?OrdemServico $record): string => $record?->status === OrdemServicoStatus::EM_CONFERENCIA
                     ? 'Confira os equipamentos que ficarão vinculados ao veículo após a aprovação da OS.'
