@@ -69,6 +69,7 @@ class OrdemServicoExportTest extends TestCase
             'Cliente',
             'Placa',
             'Tipo do veículo',
+            'Veículo',
             'Tipo',
             'Motivo ou descrição do serviço',
             'Status',
@@ -76,7 +77,8 @@ class OrdemServicoExportTest extends TestCase
             'Atendimento',
         ], $headers);
         $this->assertSame('Caminhonete', $row[3]);
-        $this->assertSame('Instalação', $row[4]);
-        $this->assertSame('Instalar rastreador no veículo', $row[5]);
+        $this->assertSame('Toyota / Hilux', $row[4]);
+        $this->assertSame('Instalação', $row[5]);
+        $this->assertSame('Instalar rastreador no veículo', $row[6]);
     }
 }
