@@ -24,7 +24,6 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-use Illuminate\Validation\Rule;
 use UnitEnum;
 
 class CobrancaAgendamentoResource extends Resource
@@ -56,9 +55,6 @@ class CobrancaAgendamentoResource extends Resource
                             ->options(CobrancaAgendamento::TIPOS)
                             ->required()
                             ->searchable()
-                            ->rules(fn (?CobrancaAgendamento $record): array => [
-                                Rule::unique('cobranca_agendamentos', 'tipo')->ignore($record?->id),
-                            ])
                             ->columnSpan(5),
                         TextInput::make('horario')
                             ->label('Horario')
