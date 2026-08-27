@@ -223,6 +223,8 @@ Principio: conter, diagnosticar, preservar evidencias, corrigir de forma reversi
 - Disponibilidades usam blocos de uma hora; atribuicao ocorre exclusivamente pelo calendario e gera link publico protegido por token.
 - Tecnico `Outros` exige `nome_tecnico_externo`; o vinculo operacional continua no cadastro `Outros`.
 - Campos de workflow nao podem ser sobrescritos pelo salvamento comum do formulario.
+- O tecnico deve informar obrigatoriamente `local_instalacao` ao solicitar conferencia em OS de instalacao e manutencao; retiradas nao usam esse campo. A central visualiza o local durante a conferencia e depois da finalizacao.
+- A coluna `ordens_servico.local_instalacao` esta preparada localmente em `app/database/migrations/2026_08_26_000002_add_local_instalacao_to_ordens_servico_table.php`; confirmar migration e deploy antes de considerar a mudanca publicada em producao.
 - Instalacao: equipamentos novos ficam `Ativo`, sem tecnico; rastreador fora do estoque; tecnico registrado no veiculo.
 - Retirada: rastreador e chip ficam `Disponivel` com o tecnico; rastreador em estoque.
 - Manutencao sem troca nao movimenta equipamentos.

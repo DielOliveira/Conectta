@@ -357,7 +357,8 @@ class OrdemServicoService
                 'rastreador_id' => $ordem->rastreador_novo_id,
                 'status_rastreador_id' => $ativo,
                 'tecnico_instala_id' => $ordem->tecnico_id,
-                'data_instalacao' => today(),
+                'data_instalacao' => $ordem->veiculo->data_instalacao
+                    ?? ($ordem->tipo === OrdemServicoTipo::INSTALACAO ? today() : null),
                 'tecnico_remocao_id' => null,
                 'data_retirada' => null,
             ]);

@@ -869,7 +869,11 @@ class OrdemServicoFlowTest extends TestCase
             'status_rastreador_id' => $disponivel->id,
             'is_estoque' => true,
         ]);
-        $veiculo->update(['rastreador_id' => $rastreadorAnterior->id, 'status_rastreador_id' => $ativo->id]);
+        $veiculo->update([
+            'rastreador_id' => $rastreadorAnterior->id,
+            'status_rastreador_id' => $ativo->id,
+            'data_instalacao' => '2025-04-24',
+        ]);
 
         $dados = $this->dadosOrdem($cliente, $veiculo);
         $dados['tipo'] = 'manutencao';
@@ -889,6 +893,7 @@ class OrdemServicoFlowTest extends TestCase
 
         $this->assertSame($rastreadorNovo->id, $veiculo->fresh()->rastreador_id);
         $this->assertSame($tecnico->id, $veiculo->fresh()->tecnico_instala_id);
+        $this->assertSame('2025-04-24', $veiculo->fresh()->data_instalacao?->format('Y-m-d'));
         $this->assertNull($rastreadorNovo->fresh()->tecnico_id);
         $this->assertSame($ativo->id, $rastreadorNovo->fresh()->status_rastreador_id);
         $this->assertFalse($rastreadorNovo->fresh()->is_estoque);
