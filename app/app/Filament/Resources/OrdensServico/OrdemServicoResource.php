@@ -129,9 +129,18 @@ class OrdemServicoResource extends Resource
                 ]),
             ])->columnSpanFull(),
             Section::make('Dados do atendimento')->schema([
-                Placeholder::make('local_instalacao_consulta')
-                    ->label('Local de instalação')
-                    ->content(fn (?OrdemServico $record): string => $record?->local_instalacao ?: 'Ainda não informado'),
+                Grid::make(2)->schema([
+                    Placeholder::make('local_instalacao_consulta')
+                        ->label('Local de instalação')
+                        ->content(fn (?OrdemServico $record): string => $record?->local_instalacao ?: 'Ainda não informado')
+                        ->visible(fn (?OrdemServico $record): bool => $record !== null && in_array($record->tipo, [
+                            OrdemServicoTipo::INSTALACAO,
+                            OrdemServicoTipo::MANUTENCAO,
+                        ], true)),
+                    Placeholder::make('bloqueio_consulta')
+                        ->label('Bloqueio informado pelo técnico')
+                        ->content(fn (?OrdemServico $record): string => $record?->bloqueio === null ? 'Ainda não informado' : ($record->bloqueio ? 'Sim' : 'Não')),
+                ]),
             ])->visible(fn (?OrdemServico $record): bool => $record !== null && in_array($record->tipo, [
                 OrdemServicoTipo::INSTALACAO,
                 OrdemServicoTipo::MANUTENCAO,
@@ -162,7 +171,7 @@ class OrdemServicoResource extends Resource
                 Grid::make(3)->schema([
                     ToggleButtons::make('check_funcionamento')->label('Funcionamento do equipamento')->options([1 => 'Conferido', 0 => 'Não conferido'])->inline()->grouped()->disabled(),
                     ToggleButtons::make('check_pos_chave')->label('Pós-chave')->options([1 => 'Conferido', 0 => 'Não conferido'])->inline()->grouped()->disabled(),
-                    ToggleButtons::make('check_bloqueio')->label('Bloqueio do veículo')->options(['conferido' => 'Conferido', 'nao_se_aplica' => 'Não se aplica'])->inline()->grouped()->disabled(),
+                    ToggleButtons::make('check_bloqueio')->label('Conferência do bloqueio')->options(['conferido' => 'Conferido', 'nao_se_aplica' => 'Não se aplica'])->inline()->grouped()->disabled(),
                 ]),
                 Textarea::make('motivo_pendencia')->label('Última pendência')->disabled()->dehydrated(false),
             ])->visibleOn('edit')->columnSpanFull(),

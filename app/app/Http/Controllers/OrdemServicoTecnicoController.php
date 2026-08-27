@@ -83,6 +83,10 @@ class OrdemServicoTecnicoController extends Controller
                     'rastreador_novo_id' => ['nullable', 'integer'], 'chip_novo_id' => ['nullable', 'integer'],
                     'resultado_manutencao' => ['nullable', Rule::in(['reparo_sem_troca', 'troca_rastreador', 'troca_chip', 'troca_rastreador_chip', 'sem_defeito'])],
                     'descricao_atendimento' => ['nullable', 'string', 'max:5000'], 'equipamentos_confirmados' => ['nullable', 'boolean'],
+                    'bloqueio' => [
+                        Rule::requiredIf(in_array($ordem->tipo, [OrdemServicoTipo::INSTALACAO, OrdemServicoTipo::MANUTENCAO], true)),
+                        'nullable', 'boolean',
+                    ],
                     'local_instalacao' => [
                         Rule::requiredIf(in_array($ordem->tipo, [OrdemServicoTipo::INSTALACAO, OrdemServicoTipo::MANUTENCAO], true)),
                         'nullable', 'string', 'max:500',
@@ -141,6 +145,9 @@ class OrdemServicoTecnicoController extends Controller
                     'resultado_manutencao' => $request->input('resultado_manutencao'),
                     'descricao_atendimento' => $request->input('descricao_atendimento'),
                     'local_instalacao' => $request->input('local_instalacao'),
+                    'bloqueio' => in_array($ordem->tipo, [OrdemServicoTipo::INSTALACAO, OrdemServicoTipo::MANUTENCAO], true)
+                        ? $request->boolean('bloqueio')
+                        : null,
                     'equipamentos_confirmados' => $request->boolean('equipamentos_confirmados'),
                 ]);
                 $service->solicitarConferencia($ordem->fresh());
@@ -183,6 +190,8 @@ class OrdemServicoTecnicoController extends Controller
         return [
             'local_instalacao.required' => 'Informe o local de instalação.',
             'local_instalacao.max' => 'O local de instalação deve ter no máximo 500 caracteres.',
+            'bloqueio.required' => 'Informe se há bloqueio.',
+            'bloqueio.boolean' => 'Selecione Sim ou Não no campo Bloqueio.',
             'fotos.max' => 'A OS aceita no máximo quatro fotos.',
             'fotos.*.uploaded' => 'Não foi possível enviar uma das fotos. Use um arquivo de até 5 MB.',
             'fotos.*.image' => 'Envie somente arquivos de imagem.',

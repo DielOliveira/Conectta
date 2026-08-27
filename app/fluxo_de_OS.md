@@ -187,6 +187,8 @@ Regras da localizacao:
 - O hash deve ser imprevisivel e nao deve expor o ID sequencial da OS.
 - O formulario do atendimento nao precisa salvar rascunho automaticamente.
 - Os dados e fotos sao enviados de uma vez na acao `Solicitar conferencia`.
+- Durante atendimentos de instalacao e manutencao, o tecnico informa obrigatoriamente `Bloqueio` como `Sim` ou `Nao` por uma escolha simples, priorizada para uso no celular. O campo nao se aplica a retiradas.
+- O valor de bloqueio informado pelo tecnico permanece visivel na OS durante a conferencia e depois da finalizacao, separado do checklist administrativo da central.
 - Se o tecnico sair antes de submeter, o preenchimento ainda nao enviado nao e preservado.
 
 ## Fotos do atendimento

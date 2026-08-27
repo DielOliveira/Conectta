@@ -1131,10 +1131,20 @@ class OrdemServicoFlowTest extends TestCase
         }
 
         $ordem->update(['local_instalacao' => 'Abaixo do painel, lado do motorista']);
+
+        try {
+            app(OrdemServicoService::class)->solicitarConferencia($ordem->fresh());
+            $this->fail('A informação de bloqueio deveria ser obrigatória.');
+        } catch (ValidationException $exception) {
+            $this->assertSame('Informe se há bloqueio.', $exception->errors()['bloqueio'][0]);
+        }
+
+        $ordem->update(['bloqueio' => false]);
         app(OrdemServicoService::class)->solicitarConferencia($ordem->fresh());
 
         $this->assertSame(OrdemServicoStatus::EM_CONFERENCIA, $ordem->fresh()->status);
         $this->assertSame('Abaixo do painel, lado do motorista', $ordem->fresh()->local_instalacao);
+        $this->assertFalse($ordem->fresh()->bloqueio);
     }
 
     public function test_local_de_instalacao_tambem_e_obrigatorio_na_manutencao(): void
@@ -1168,6 +1178,46 @@ class OrdemServicoFlowTest extends TestCase
         }
 
         $this->assertSame(OrdemServicoStatus::EM_ATENDIMENTO, $ordem->fresh()->status);
+    }
+
+    public function test_bloqueio_nao_aparece_nem_e_exigido_em_retirada(): void
+    {
+        [$operador, $cliente, $veiculo, $tecnico] = $this->cenarioBase();
+        $chip = Chip::query()->create(['numero_chip' => '5562999990062']);
+        $rastreador = Rastreador::query()->create([
+            'imei' => '860000000000062',
+            'chip_id' => $chip->id,
+        ]);
+        $veiculo->update(['rastreador_id' => $rastreador->id]);
+        $dados = $this->dadosOrdem($cliente, $veiculo);
+        $dados['tipo'] = 'retirada';
+        $token = str_repeat('f', 64);
+        $ordem = app(OrdemServicoService::class)->criar($dados, $operador)['ordem'];
+        $ordem->update([
+            'tecnico_id' => $tecnico->id,
+            'status' => OrdemServicoStatus::EM_ATENDIMENTO,
+            'token_hash' => hash('sha256', $token),
+            'token_credencial' => $token,
+            'equipamentos_confirmados' => true,
+        ]);
+        $ordem->fotos()->create([
+            'caminho' => 'ordens-servico/teste/retirada.jpg',
+            'nome_original' => 'retirada.jpg',
+            'mime_type' => 'image/jpeg',
+            'tamanho' => 100,
+        ]);
+
+        $this->get(route('ordens-servico.tecnico', $token))
+            ->assertOk()
+            ->assertDontSee('name="bloqueio"', false);
+
+        app(OrdemServicoService::class)->solicitarConferencia($ordem->fresh());
+
+        $this->assertSame(OrdemServicoStatus::EM_CONFERENCIA, $ordem->fresh()->status);
+        $this->assertNull($ordem->fresh()->bloqueio);
+        $this->get(route('ordens-servico.tecnico', $token))
+            ->assertOk()
+            ->assertDontSee('Bloqueio');
     }
 
     public function test_painel_exibe_equipamentos_que_ficarao_no_veiculo_em_conferencia_e_apos_finalizar(): void
@@ -1345,6 +1395,9 @@ class OrdemServicoFlowTest extends TestCase
 
         $this->get(route('ordens-servico.tecnico', $token))
             ->assertOk()
+            ->assertSee('Bloqueio')
+            ->assertSee('name="bloqueio" value="1" required', false)
+            ->assertSee('name="bloqueio" value="0" required', false)
             ->assertSee('Tirar foto')
             ->assertSee('Escolher da galeria')
             ->assertSee("adicionarFoto('camera-atendimento','camera')", false)
@@ -1416,6 +1469,7 @@ class OrdemServicoFlowTest extends TestCase
         $this->post(route('ordens-servico.tecnico.action', $tokenConcorrente), [
             'acao' => 'conferencia',
             'local_instalacao' => 'Abaixo do painel',
+            'bloqueio' => '0',
             'rastreador_novo_id' => $rastreador->id,
             'chip_novo_id' => $chip->id,
         ])->assertSessionHasErrors('rastreador_novo_id');
@@ -1423,6 +1477,7 @@ class OrdemServicoFlowTest extends TestCase
         $this->post(route('ordens-servico.tecnico.action', $tokenConcorrente), [
             'acao' => 'conferencia',
             'local_instalacao' => 'Abaixo do painel',
+            'bloqueio' => '0',
             'rastreador_novo_id' => $rastreadorLivre->id,
             'chip_novo_id' => $chip->id,
         ])->assertSessionHasErrors('chip_novo_id');

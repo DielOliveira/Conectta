@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'localizacao_latitude', 'localizacao_longitude', 'notificar_cliente', 'token_hash', 'token_credencial', 'token_invalidado_em',
     'aceita_em', 'iniciada_em', 'inicio_latitude', 'inicio_longitude', 'termino_tecnico_em', 'finalizada_em',
     'finalizada_por', 'cancelada_em', 'cancelada_por', 'motivo_cancelamento', 'motivo_pendencia',
-    'resultado_manutencao', 'descricao_atendimento', 'local_instalacao', 'equipamentos_confirmados', 'rastreador_anterior_id',
+    'resultado_manutencao', 'descricao_atendimento', 'local_instalacao', 'bloqueio', 'equipamentos_confirmados', 'rastreador_anterior_id',
     'chip_anterior_id', 'rastreador_novo_id', 'chip_novo_id', 'check_funcionamento', 'check_pos_chave', 'check_bloqueio'])]
 class OrdemServico extends Model
 {
@@ -30,7 +30,7 @@ class OrdemServico extends Model
             'agendado_em' => 'datetime', 'token_invalidado_em' => 'datetime',
             'aceita_em' => 'datetime', 'iniciada_em' => 'datetime', 'termino_tecnico_em' => 'datetime',
             'finalizada_em' => 'datetime', 'cancelada_em' => 'datetime', 'notificar_cliente' => 'boolean',
-            'equipamentos_confirmados' => 'boolean', 'check_funcionamento' => 'boolean', 'check_pos_chave' => 'boolean',
+            'bloqueio' => 'boolean', 'equipamentos_confirmados' => 'boolean', 'check_funcionamento' => 'boolean', 'check_pos_chave' => 'boolean',
             'localizacao_latitude' => 'decimal:7', 'localizacao_longitude' => 'decimal:7',
             'inicio_latitude' => 'decimal:7', 'inicio_longitude' => 'decimal:7',
         ];
