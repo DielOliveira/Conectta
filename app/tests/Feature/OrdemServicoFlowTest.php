@@ -1402,6 +1402,8 @@ class OrdemServicoFlowTest extends TestCase
             ->assertSee('Escolher da galeria')
             ->assertSee("adicionarFoto('camera-atendimento','camera')", false)
             ->assertSee("adicionarFoto('camera-atendimento','galeria')", false)
+            ->assertSee("input.multiple=origem==='galeria'&&vagas>1", false)
+            ->assertSee('totalFotosSelecionadas(area)', false)
             ->assertSee('860000000000020')
             ->assertSee($chipDisponivelVinculado->numero_chip)
             ->assertSee($chipDisponivelLivre->numero_chip)

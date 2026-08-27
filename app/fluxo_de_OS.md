@@ -202,6 +202,7 @@ Regras da localizacao:
 - Formatos de imagem web compativeis, como JPG, PNG e WEBP, podem ser aceitos.
 - PDF e outros tipos de documento nao sao permitidos.
 - A interface mobile deve permitir fotografar no momento ou escolher imagens existentes na galeria.
+- Na galeria, o tecnico pode selecionar varias fotos de uma vez e continuar adicionando em novas selecoes sem perder as anteriores, sempre ate o limite total de quatro. A camera continua adicionando uma foto por vez.
 - Cada atendimento aceita no maximo quatro fotos.
 - O sistema deve compactar automaticamente as fotos para aproximadamente 2 MB quando isso puder ser implementado de forma simples e confiavel com a stack adotada.
 - Se a compactacao automatica nao for adequada, cada arquivo pode ter no maximo 5 MB.
