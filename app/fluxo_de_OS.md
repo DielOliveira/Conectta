@@ -358,11 +358,12 @@ O tecnico deve informar:
 
 Regras:
 
-- Somente chips e rastreadores existentes no estoque do tecnico podem ser selecionados.
+- A posse fisica dos equipamentos e determinada exclusivamente por `tecnico_id`: preenchido significa que o item esta com o tecnico; vazio significa que esta com a central.
+- Somente chips e rastreadores com status `Disponivel` e atribuidos ao tecnico da OS podem ser selecionados.
 - Ao selecionar um rastreador que ja possui chip vinculado, o sistema preenche automaticamente o chip e nao exige uma segunda selecao.
-- Se o rastreador nao possuir chip vinculado, o tecnico deve selecionar um chip disponivel no estoque dele.
-- Mesmo quando houver um chip preenchido automaticamente, o tecnico pode substitui-lo por outro chip do proprio estoque.
-- Na finalizacao, o novo chip passa a ficar vinculado ao rastreador, e o chip substituido permanece no estoque do tecnico.
+- Se o rastreador nao possuir chip vinculado, o tecnico deve selecionar um chip `Disponivel` atribuido a ele.
+- Mesmo quando houver um chip preenchido automaticamente, o tecnico pode substitui-lo por outro chip `Disponivel` atribuido a ele.
+- Na finalizacao, o novo chip passa a ficar vinculado ao rastreador, e o chip substituido passa a ficar `Disponivel` e atribuido ao tecnico.
 - A instalacao nao exige descricao do servico executado.
 - O tecnico nao pode solicitar a conferencia enquanto os campos obrigatorios nao estiverem preenchidos.
 - A acao final do tecnico e `Solicitar conferencia`.
@@ -402,7 +403,7 @@ Se o IMEI ou o chip encontrado nao corresponder aos dados da OS:
 Depois que a OS for conferida e finalizada:
 
 - O rastreador e o chip deixam de estar instalados no veiculo.
-- O equipamento retirado passa a constar no estoque do tecnico que executou a OS.
+- O equipamento retirado passa para `Disponivel` e fica atribuido ao tecnico que executou a OS.
 
 ## Atendimento de manutencao
 
@@ -445,18 +446,18 @@ Para qualquer resultado de manutencao, o tecnico tambem deve:
 Nos resultados `Reparo realizado sem troca de equipamento` e `Equipamento testado e identificado sem defeito`:
 
 - Os vinculos atuais de rastreador e chip permanecem inalterados.
-- Nenhum item entra ou sai do estoque do tecnico.
+- A posse dos equipamentos permanece inalterada.
 
 Quando houver troca:
 
-- O tecnico somente pode selecionar rastreadores e chips disponiveis no estoque dele.
+- O tecnico somente pode selecionar rastreadores e chips com status `Disponivel` atribuidos a ele.
 - Ao escolher um novo rastreador que ja tenha chip vinculado, o sistema preenche esse chip automaticamente.
 - O tecnico pode manter o chip preenchido ou substitui-lo por outro chip do proprio estoque.
 - No resultado `Troca somente do rastreador`, o conjunto final respeita a relacao do novo rastreador escolhido.
-- Se o novo rastreador ja possuir chip, esse chip passa a compor o conjunto instalado; o chip antigo retorna ao estoque do tecnico junto com o rastreador removido.
+- Se o novo rastreador ja possuir chip, esse chip passa a compor o conjunto instalado; o chip antigo fica `Disponivel` e atribuido ao tecnico junto com o rastreador removido.
 - A classificacao do resultado descreve a intervencao principal, mas os vinculos finais sempre devem permanecer coerentes com a relacao rastreador-chip selecionada.
 - No resultado `Troca somente do chip`, o rastreador atual permanece instalado e apenas seu vinculo `chip_id` e atualizado para o novo chip selecionado.
-- O chip anterior retorna ao estoque do tecnico quando a OS e finalizada.
+- O chip anterior fica `Disponivel` e atribuido ao tecnico quando a OS e finalizada.
 - Na finalizacao da OS, o vinculo do veiculo deve ser atualizado para refletir o novo rastreador e/ou chip informado no atendimento.
 - O rastreador e/ou chip antigo removido do veiculo passa automaticamente para o estoque do tecnico que executou a manutencao.
 - O novo item deixa o estoque do tecnico ao ser vinculado ao veiculo.
@@ -518,13 +519,13 @@ Enquanto a OS estiver `Em conferencia`:
 
 Na finalizacao de uma instalacao, o IMEI do rastreador e o chip informados no atendimento sao vinculados automaticamente ao veiculo do cliente dono da OS.
 
-Na finalizacao de uma retirada, o veiculo passa para `Cancelado` e preserva o vinculo com o rastreador como historico. O rastreador e o chip passam para `Disponivel` no estoque do tecnico que executou a OS.
+Na finalizacao de uma retirada, o veiculo passa para `Cancelado` e preserva o vinculo com o rastreador como historico. O rastreador e o chip passam para `Disponivel` e ficam atribuidos ao tecnico que executou a OS.
 
 Observacao tecnica ja conhecida no sistema: o chip e vinculado ao rastreador por `rastreadores.chip_id`; novas regras nao devem usar o campo legado `veiculos.chip_id`.
 
-Na finalizacao de uma manutencao com troca, o vinculo do veiculo e atualizado com o novo rastreador e/ou chip selecionado no estoque do tecnico.
+Na finalizacao de uma manutencao com troca, o vinculo do veiculo e atualizado com o novo rastreador e/ou chip `Disponivel` atribuido ao tecnico.
 
-Os itens substituidos sao transferidos para o estoque do tecnico que realizou o atendimento, enquanto os novos itens deixam esse estoque e passam a compor o conjunto instalado no veiculo.
+Os itens substituidos ficam `Disponivel` e sao atribuidos ao tecnico que realizou o atendimento. Os itens instalados passam para `Ativo` e ficam sem `tecnico_id`, preservando o tecnico da instalacao no veiculo.
 
 ## Armazenamento e arquivamento das fotos
 
@@ -549,13 +550,13 @@ Os itens substituidos sao transferidos para o estoque do tecnico que realizou o 
 ## Decisoes registradas durante o levantamento
 
 - Na retirada, o tecnico visualiza e confirma o IMEI e o chip atualmente associados ao veiculo.
-- Ao finalizar a retirada, o veiculo passa para `Cancelado` e preserva o vinculo historico com o rastreador; o rastreador e o chip ficam `Disponivel` no estoque do tecnico que realizou o atendimento.
+- Ao finalizar a retirada, o veiculo passa para `Cancelado` e preserva o vinculo historico com o rastreador; o rastreador e o chip ficam `Disponivel` e atribuidos ao tecnico que realizou o atendimento.
 - Toda retirada exige pelo menos uma foto do equipamento retirado.
 - Se houver divergencia de IMEI ou chip na retirada, o tecnico nao pode fechar a OS. Ele registra fotos e observacao, o operador corrige o cadastro e somente depois o tecnico pode confirmar e prosseguir.
 - Durante a divergencia da retirada, a OS fica como `Aguardando correcao cadastral` e retorna para `Em atendimento` depois da correcao pelo operador.
 - A manutencao pode resultar em reparo sem troca, troca do rastreador, troca do chip, troca dos dois ou equipamento sem defeito.
-- Itens de substituicao devem pertencer ao estoque do tecnico, e o vinculo do veiculo deve refletir os novos itens depois da finalizacao.
-- Na manutencao com troca, os itens antigos entram automaticamente no estoque do tecnico que executou a OS.
+- Itens de substituicao devem estar `Disponivel` e atribuidos ao tecnico, e o vinculo do veiculo deve refletir os novos itens depois da finalizacao.
+- Na manutencao com troca, os itens antigos ficam `Disponivel` e sao atribuidos automaticamente ao tecnico que executou a OS.
 - Toda manutencao exige descricao do servico ou diagnostico e pelo menos uma foto antes da solicitacao de conferencia.
 - Na abertura da OS sao informados tipo, cliente, veiculo, endereco, motivo ou descricao, observacoes e localizacao recebida pelo WhatsApp.
 - A abertura permite marcar a OS como atendimento de associado; nesse caso, exige nome, contato e DDI no veiculo e usa esses dados em toda comunicacao e apresentacao do cliente do atendimento.

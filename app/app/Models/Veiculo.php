@@ -303,7 +303,6 @@ class Veiculo extends Model
                 $rastreador->update(array_filter([
                     'status_rastreador_id' => $disponivelId,
                     'tecnico_id' => $this->tecnico_remocao_id,
-                    'is_estoque' => true,
                 ], fn ($value): bool => $value !== null));
 
                 if ($rastreador->chip_id !== null) {

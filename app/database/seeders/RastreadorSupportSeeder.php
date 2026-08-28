@@ -54,12 +54,12 @@ class RastreadorSupportSeeder extends Seeder
 
         Rastreador::query()->firstOrCreate(
             ['imei' => '862292050969070'],
-            ['modelo' => 'Outros', 'tecnico_id' => $outros->id, 'status_rastreador_id' => $disponivelId, 'is_estoque' => true],
+            ['modelo' => 'Outros', 'tecnico_id' => $outros->id, 'status_rastreador_id' => $disponivelId],
         );
 
         Rastreador::query()->firstOrCreate(
             ['imei' => '352503092763322'],
-            ['modelo' => 'Outros', 'tecnico_id' => $romeu->id, 'status_rastreador_id' => $disponivelId, 'is_estoque' => true],
+            ['modelo' => 'Outros', 'tecnico_id' => $romeu->id, 'status_rastreador_id' => $disponivelId],
         );
     }
 

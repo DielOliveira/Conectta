@@ -854,7 +854,6 @@ class OrdemServicoFlowTest extends TestCase
             'imei' => '860000000000031',
             'chip_id' => $chipAnterior->id,
             'status_rastreador_id' => $ativo->id,
-            'is_estoque' => false,
         ]);
         $chipNovo = Chip::query()->create([
             'numero_chip' => '5562999990032',
@@ -867,7 +866,6 @@ class OrdemServicoFlowTest extends TestCase
             'chip_id' => $chipNovo->id,
             'tecnico_id' => $tecnico->id,
             'status_rastreador_id' => $disponivel->id,
-            'is_estoque' => true,
         ]);
         $veiculo->update([
             'rastreador_id' => $rastreadorAnterior->id,
@@ -896,12 +894,10 @@ class OrdemServicoFlowTest extends TestCase
         $this->assertSame('2025-04-24', $veiculo->fresh()->data_instalacao?->format('Y-m-d'));
         $this->assertNull($rastreadorNovo->fresh()->tecnico_id);
         $this->assertSame($ativo->id, $rastreadorNovo->fresh()->status_rastreador_id);
-        $this->assertFalse($rastreadorNovo->fresh()->is_estoque);
         $this->assertNull($chipNovo->fresh()->tecnico_id);
         $this->assertSame($ativo->id, $chipNovo->fresh()->status_rastreador_id);
         $this->assertSame($tecnico->id, $rastreadorAnterior->fresh()->tecnico_id);
         $this->assertSame($disponivel->id, $rastreadorAnterior->fresh()->status_rastreador_id);
-        $this->assertTrue($rastreadorAnterior->fresh()->is_estoque);
         $this->assertSame($tecnico->id, $chipAnterior->fresh()->tecnico_id);
         $this->assertSame($disponivel->id, $chipAnterior->fresh()->status_rastreador_id);
     }
@@ -920,13 +916,11 @@ class OrdemServicoFlowTest extends TestCase
             'imei' => '860000000000033',
             'chip_id' => $chipAtual->id,
             'status_rastreador_id' => $ativo->id,
-            'is_estoque' => false,
         ]);
         $rastreadorNovo = Rastreador::query()->create([
             'imei' => '860000000000034',
             'tecnico_id' => $tecnico->id,
             'status_rastreador_id' => $disponivel->id,
-            'is_estoque' => true,
         ]);
         $veiculo->update(['rastreador_id' => $rastreadorAnterior->id, 'status_rastreador_id' => $ativo->id]);
 
@@ -956,7 +950,6 @@ class OrdemServicoFlowTest extends TestCase
         $this->assertNull($rastreadorAnterior->fresh()->chip_id);
         $this->assertSame($tecnico->id, $rastreadorAnterior->fresh()->tecnico_id);
         $this->assertSame($disponivel->id, $rastreadorAnterior->fresh()->status_rastreador_id);
-        $this->assertTrue($rastreadorAnterior->fresh()->is_estoque);
     }
 
     public function test_retirada_devolve_rastreador_e_chip_disponiveis_ao_estoque_do_tecnico(): void
@@ -974,7 +967,6 @@ class OrdemServicoFlowTest extends TestCase
             'imei' => '860000000000009',
             'chip_id' => $chip->id,
             'status_rastreador_id' => $statusAtivo->id,
-            'is_estoque' => false,
         ]);
         $veiculo->update(['rastreador_id' => $rastreador->id, 'status_rastreador_id' => $statusAtivo->id]);
 
@@ -999,7 +991,6 @@ class OrdemServicoFlowTest extends TestCase
         $this->assertSame('2026-08-14', $veiculo->data_retirada?->format('Y-m-d'));
         $this->assertSame($tecnico->id, $rastreador->fresh()->tecnico_id);
         $this->assertSame($statusDisponivel->id, $rastreador->fresh()->status_rastreador_id);
-        $this->assertTrue($rastreador->fresh()->is_estoque);
         $this->assertSame($chip->id, $rastreador->fresh()->chip_id);
         $this->assertSame($tecnico->id, $chip->fresh()->tecnico_id);
         $this->assertSame($statusDisponivel->id, $chip->fresh()->status_rastreador_id);
@@ -1093,7 +1084,6 @@ class OrdemServicoFlowTest extends TestCase
             StatusRastreador::query()->where('label', 'Ativo')->value('id'),
             $rastreador->fresh()->status_rastreador_id,
         );
-        $this->assertFalse($rastreador->fresh()->is_estoque);
         $this->assertNull($chip->fresh()->tecnico_id);
         $this->assertSame(
             StatusRastreador::query()->where('label', 'Ativo')->value('id'),
@@ -1348,6 +1338,7 @@ class OrdemServicoFlowTest extends TestCase
         [$operador, $cliente, $veiculo, $tecnico] = $this->cenarioBase();
         $statusDisponivel = StatusRastreador::query()->where('label', 'Disponivel')->firstOrFail();
         $statusAtivo = StatusRastreador::query()->where('label', 'Ativo')->firstOrFail();
+        $outroTecnico = Tecnico::query()->create(['nome' => 'Outro técnico']);
         $chipDisponivelVinculado = Chip::query()->create([
             'numero_chip' => '5562999990020',
             'iccid' => '89550000000000000020',
@@ -1366,18 +1357,36 @@ class OrdemServicoFlowTest extends TestCase
             'tecnico_id' => $tecnico->id,
             'status_rastreador_id' => $statusAtivo->id,
         ]);
+        $chipOutroTecnico = Chip::query()->create([
+            'numero_chip' => '5562999990023',
+            'iccid' => '89550000000000000023',
+            'tecnico_id' => $outroTecnico->id,
+            'status_rastreador_id' => $statusDisponivel->id,
+        ]);
+        $chipCentral = Chip::query()->create([
+            'numero_chip' => '5562999990024',
+            'iccid' => '89550000000000000024',
+            'status_rastreador_id' => $statusDisponivel->id,
+        ]);
         Rastreador::query()->create([
             'imei' => '860000000000020',
             'chip_id' => $chipDisponivelVinculado->id,
             'tecnico_id' => $tecnico->id,
-            'is_estoque' => true,
             'status_rastreador_id' => $statusDisponivel->id,
         ]);
         Rastreador::query()->create([
             'imei' => '860000000000022',
             'tecnico_id' => $tecnico->id,
-            'is_estoque' => true,
             'status_rastreador_id' => $statusAtivo->id,
+        ]);
+        Rastreador::query()->create([
+            'imei' => '860000000000023',
+            'tecnico_id' => $outroTecnico->id,
+            'status_rastreador_id' => $statusDisponivel->id,
+        ]);
+        Rastreador::query()->create([
+            'imei' => '860000000000024',
+            'status_rastreador_id' => $statusDisponivel->id,
         ]);
         EquipamentoStatusWorkflow::executar(function () use ($chipAtivo, $statusAtivo): void {
             $chipAtivo->update(['status_rastreador_id' => $statusAtivo->id]);
@@ -1408,7 +1417,11 @@ class OrdemServicoFlowTest extends TestCase
             ->assertSee($chipDisponivelVinculado->numero_chip)
             ->assertSee($chipDisponivelLivre->numero_chip)
             ->assertDontSee('860000000000022')
-            ->assertDontSee($chipAtivo->numero_chip);
+            ->assertDontSee($chipAtivo->numero_chip)
+            ->assertDontSee('860000000000023')
+            ->assertDontSee($chipOutroTecnico->numero_chip)
+            ->assertDontSee('860000000000024')
+            ->assertDontSee($chipCentral->numero_chip);
     }
 
     public function test_equipamento_reservado_some_de_outra_os_mas_continua_visivel_na_propria(): void
@@ -1424,13 +1437,11 @@ class OrdemServicoFlowTest extends TestCase
         $rastreador = Rastreador::query()->create([
             'imei' => '860000000000051',
             'tecnico_id' => $tecnico->id,
-            'is_estoque' => true,
             'status_rastreador_id' => $disponivel->id,
         ]);
         $rastreadorLivre = Rastreador::query()->create([
             'imei' => '860000000000053',
             'tecnico_id' => $tecnico->id,
-            'is_estoque' => true,
             'status_rastreador_id' => $disponivel->id,
         ]);
         $tokenReservante = str_repeat('b', 64);
@@ -1506,7 +1517,6 @@ class OrdemServicoFlowTest extends TestCase
             'imei' => '860000000000052',
             'chip_id' => $chip->id,
             'tecnico_id' => $tecnico->id,
-            'is_estoque' => true,
             'status_rastreador_id' => $disponivel->id,
         ]);
         $ordem = app(OrdemServicoService::class)->criar($this->dadosOrdem($cliente, $veiculo), $operador)['ordem'];

@@ -143,7 +143,6 @@ class CreateRastreador extends CreateRecord
             contexto: [
                 'tecnico_id' => $this->record->tecnico_id,
                 'status_rastreador_id' => $this->record->status_rastreador_id,
-                'is_estoque' => $this->record->is_estoque,
             ],
         );
     }
@@ -175,7 +174,6 @@ class CreateRastreador extends CreateRecord
                 'chip_id' => $this->chipIdSelecionado,
                 'tecnico_id' => null,
                 'status_rastreador_id' => $ativoId,
-                'is_estoque' => false,
             ]);
 
         if ($this->chipIdSelecionado === null) {

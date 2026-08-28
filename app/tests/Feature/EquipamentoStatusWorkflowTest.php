@@ -27,12 +27,10 @@ class EquipamentoStatusWorkflowTest extends TestCase
         $rastreador = Rastreador::query()->create([
             'imei' => '900000000000001',
             'status_rastreador_id' => $ativo->id,
-            'is_estoque' => false,
         ]);
 
         $this->assertSame($disponivel->id, $chip->status_rastreador_id);
         $this->assertSame($disponivel->id, $rastreador->status_rastreador_id);
-        $this->assertTrue($rastreador->is_estoque);
     }
 
     public function test_chip_status_cannot_be_changed_outside_a_system_workflow(): void
@@ -65,13 +63,11 @@ class EquipamentoStatusWorkflowTest extends TestCase
             $chip->update(['status_rastreador_id' => $ativo->id]);
             $rastreador->update([
                 'status_rastreador_id' => $ativo->id,
-                'is_estoque' => false,
             ]);
         });
 
         $this->assertSame($ativo->id, $chip->refresh()->status_rastreador_id);
         $this->assertSame($ativo->id, $rastreador->refresh()->status_rastreador_id);
-        $this->assertFalse($rastreador->is_estoque);
     }
 
     /**

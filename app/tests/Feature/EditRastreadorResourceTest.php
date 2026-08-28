@@ -82,7 +82,6 @@ class EditRastreadorResourceTest extends TestCase
             'chip_id' => $chip->id,
             'tecnico_id' => $tecnico->id,
             'status_rastreador_id' => $disponivelId,
-            'is_estoque' => true,
         ]);
         $cliente = $this->cliente('Cliente instalação', '39053344705');
 
@@ -108,7 +107,6 @@ class EditRastreadorResourceTest extends TestCase
         $this->assertSame($rastreador->id, $veiculo->rastreador_id);
         $this->assertNull($rastreador->fresh()->tecnico_id);
         $this->assertSame($ativoId, $rastreador->fresh()->status_rastreador_id);
-        $this->assertFalse($rastreador->fresh()->is_estoque);
         $this->assertSame($chip->id, $rastreador->fresh()->chip_id);
         $this->assertNull($chip->fresh()->tecnico_id);
         $this->assertSame($ativoId, $chip->fresh()->status_rastreador_id);
@@ -122,7 +120,7 @@ class EditRastreadorResourceTest extends TestCase
         $ativoId = StatusRastreador::query()->where('label', 'Ativo')->value('id');
         $rastreador = Rastreador::query()->firstOrFail();
         EquipamentoStatusWorkflow::executar(
-            fn () => $rastreador->update(['tecnico_id' => null, 'status_rastreador_id' => $ativoId, 'is_estoque' => false]),
+            fn () => $rastreador->update(['tecnico_id' => null, 'status_rastreador_id' => $ativoId]),
         );
         $veiculo = $this->veiculo(
             $this->cliente('Cliente preservado', '11144477735'),
@@ -168,7 +166,6 @@ class EditRastreadorResourceTest extends TestCase
                 'chip_id' => $chip->id,
                 'tecnico_id' => null,
                 'status_rastreador_id' => $ativoId,
-                'is_estoque' => false,
             ]);
         });
 
@@ -196,7 +193,6 @@ class EditRastreadorResourceTest extends TestCase
         $this->assertSame($canceladoId, $veiculo->fresh()->status_rastreador_id);
         $this->assertSame($disponivelId, $rastreador->status_rastreador_id);
         $this->assertSame($tecnicoRemocao->id, $rastreador->tecnico_id);
-        $this->assertTrue($rastreador->is_estoque);
         $this->assertSame($chip->id, $rastreador->chip_id);
         $this->assertSame($disponivelId, $chip->status_rastreador_id);
         $this->assertSame($tecnicoRemocao->id, $chip->tecnico_id);

@@ -163,7 +163,6 @@ class RastreadorFlowTest extends TestCase
 
         EquipamentoStatusWorkflow::executar(fn () => $rastreador->update([
             'chip_id' => $chip->id,
-            'is_estoque' => false,
         ]));
 
         $veiculo = Veiculo::query()->create([
@@ -192,7 +191,6 @@ class RastreadorFlowTest extends TestCase
             $this->assertSame('Inativo', $cliente->refresh()->statusCliente->label);
             $this->assertSame('Disponivel', $rastreador->refresh()->statusRastreador->label);
             $this->assertSame($tecnicoRemocao->id, $rastreador->tecnico_id);
-            $this->assertTrue($rastreador->is_estoque);
             $this->assertSame('Disponivel', $chip->refresh()->statusRastreador->label);
             $this->assertSame($tecnicoRemocao->id, $chip->tecnico_id);
         }

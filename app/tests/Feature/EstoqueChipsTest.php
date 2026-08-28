@@ -98,7 +98,6 @@ class EstoqueChipsTest extends TestCase
             'chip_id' => $chip->id,
             'tecnico_id' => $tecnico->id,
             'status_rastreador_id' => $status->id,
-            'is_estoque' => true,
         ]);
         Livewire::test(EstoqueChips::class)
             ->call('editar', $chip->id)
@@ -144,11 +143,10 @@ class EstoqueChipsTest extends TestCase
             'chip_id' => $chip->id,
             'tecnico_id' => $tecnicoAtual->id,
             'status_rastreador_id' => $statusAtivo->id,
-            'is_estoque' => true,
         ]);
         EquipamentoStatusWorkflow::executar(function () use ($chip, $rastreador, $statusAtivo): void {
             $chip->update(['status_rastreador_id' => $statusAtivo->id]);
-            $rastreador->update(['status_rastreador_id' => $statusAtivo->id, 'is_estoque' => false]);
+            $rastreador->update(['status_rastreador_id' => $statusAtivo->id]);
         });
         $cliente = Cliente::query()->create([
             'nome' => 'Cliente Chip Ativo',

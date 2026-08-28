@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['modelo', 'ativacao', 'imei', 'tecnico_id', 'chip_id', 'is_estoque', 'status_rastreador_id', 'criado_em'])]
+#[Fillable(['modelo', 'ativacao', 'imei', 'tecnico_id', 'chip_id', 'status_rastreador_id', 'criado_em'])]
 class Rastreador extends Model
 {
     protected $table = 'rastreadores';
@@ -16,7 +16,6 @@ class Rastreador extends Model
     protected function casts(): array
     {
         return [
-            'is_estoque' => 'boolean',
             'criado_em' => 'datetime',
         ];
     }
@@ -28,7 +27,7 @@ class Rastreador extends Model
         static::updating(fn (Rastreador $rastreador) => EquipamentoStatusWorkflow::validarAlteracao($rastreador));
 
         static::saving(function (Rastreador $rastreador): void {
-            if ($rastreador->exists && $rastreador->isDirty(['tecnico_id', 'chip_id', 'is_estoque', 'status_rastreador_id'])) {
+            if ($rastreador->exists && $rastreador->isDirty(['tecnico_id', 'chip_id', 'status_rastreador_id'])) {
                 OrdemServicoEquipamentoReserva::validarRastreador((int) $rastreador->getKey());
             }
 

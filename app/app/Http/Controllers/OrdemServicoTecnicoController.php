@@ -27,7 +27,6 @@ class OrdemServicoTecnicoController extends Controller
             $rastreadores = Rastreador::query()
                 ->with('chip')
                 ->where('tecnico_id', $ordem->tecnico_id)
-                ->where('is_estoque', true)
                 ->whereHas('statusRastreador', fn ($query) => $query->where('label', 'Disponivel'))
                 ->where(fn ($query) => $query
                     ->whereNull('chip_id')
@@ -107,12 +106,11 @@ class OrdemServicoTecnicoController extends Controller
                 $rastreador = $rastreadorId ? Rastreador::query()
                     ->whereKey($rastreadorId)
                     ->where('tecnico_id', $ordem->tecnico_id)
-                    ->where('is_estoque', true)
                     ->whereHas('statusRastreador', fn ($query) => $query->where('label', 'Disponivel'))
                     ->lockForUpdate()
                     ->first() : null;
                 if ($rastreadorId && ! $rastreador) {
-                    abort(422, 'Rastreador fora do estoque do técnico.');
+                    abort(422, 'Rastreador indisponível para este técnico.');
                 }
                 if ($rastreadorId && $mensagem = OrdemServicoEquipamentoReserva::mensagemRastreador($rastreadorId, $ordem->id)) {
                     throw ValidationException::withMessages(['rastreador_novo_id' => $mensagem]);
@@ -131,7 +129,7 @@ class OrdemServicoTecnicoController extends Controller
                         && $chip->statusRastreador?->label === 'Disponivel'
                         && $chip->rastreador()->doesntExist());
                 if (! $chipValido) {
-                    abort(422, 'Chip fora do estoque do técnico.');
+                    abort(422, 'Chip indisponível para este técnico.');
                 }
                 if ($chipId && $mensagem = OrdemServicoEquipamentoReserva::mensagemChip($chipId, $ordem->id)) {
                     throw ValidationException::withMessages(['chip_novo_id' => $mensagem]);

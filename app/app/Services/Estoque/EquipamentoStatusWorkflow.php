@@ -34,10 +34,6 @@ class EquipamentoStatusWorkflow
         }
 
         $equipamento->status_rastreador_id = $disponivelId;
-
-        if ($equipamento instanceof Rastreador) {
-            $equipamento->is_estoque = true;
-        }
     }
 
     public static function validarAlteracao(Chip|Rastreador $equipamento): void

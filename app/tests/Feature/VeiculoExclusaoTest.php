@@ -169,7 +169,6 @@ class VeiculoExclusaoTest extends TestCase
                 'chip_id' => $chip->id,
                 'status_rastreador_id' => $ativoId,
                 'tecnico_id' => null,
-                'is_estoque' => false,
             ]);
         });
 
@@ -198,7 +197,6 @@ class VeiculoExclusaoTest extends TestCase
         $this->assertSame($rastreador->id, Veiculo::query()->findOrFail($outroVeiculoId)->rastreador_id);
         $this->assertSame((int) $ativoId, (int) $rastreador->refresh()->status_rastreador_id);
         $this->assertNull($rastreador->tecnico_id);
-        $this->assertFalse($rastreador->is_estoque);
         $this->assertSame((int) $ativoId, (int) $chip->refresh()->status_rastreador_id);
         $this->assertNull($chip->tecnico_id);
     }

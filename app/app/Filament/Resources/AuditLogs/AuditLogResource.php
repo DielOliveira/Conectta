@@ -306,7 +306,6 @@ class AuditLogResource extends Resource
             'hash_id' => 'Hash ID',
             'is_admin' => 'Administrador',
             'is_baixado' => 'Baixado',
-            'is_estoque' => 'Estoque',
             'is_spc' => 'SPC',
             'lancamento_id' => 'Lancamento ID',
             'linha_digitavel' => 'Linha digitavel',

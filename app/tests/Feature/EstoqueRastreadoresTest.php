@@ -62,16 +62,13 @@ class EstoqueRastreadoresTest extends TestCase
         $this->assertSame('HINOVA', $chip->fornecedor);
     }
 
-    public function test_available_existing_chip_can_be_linked_when_tracker_is_not_marked_as_stock(): void
+    public function test_available_existing_chip_can_be_linked_and_follows_tracker_technician(): void
     {
         $this->actingAs($this->admin());
 
         $status = $this->statusDisponivel();
-        $tecnico = Tecnico::query()->create(['nome' => 'Tecnico Fora Estoque']);
+        $tecnico = Tecnico::query()->create(['nome' => 'Tecnico Responsavel']);
         $rastreador = $this->rastreador('123456789012349', $tecnico, $status);
-        EquipamentoStatusWorkflow::executar(
-            fn () => $rastreador->update(['is_estoque' => false]),
-        );
         $chip = Chip::query()->create([
             'numero_chip' => '5562999990003',
             'iccid' => '89550000000000000013',
@@ -88,8 +85,7 @@ class EstoqueRastreadoresTest extends TestCase
             ])
             ->assertHasNoActionErrors();
 
-        $this->assertFalse($rastreador->refresh()->is_estoque);
-        $this->assertSame($chip->id, $rastreador->chip_id);
+        $this->assertSame($chip->id, $rastreador->refresh()->chip_id);
         $this->assertSame($tecnico->id, $chip->refresh()->tecnico_id);
     }
 
@@ -232,11 +228,10 @@ class EstoqueRastreadoresTest extends TestCase
             'chip_id' => $chip->id,
             'tecnico_id' => $tecnicoAtual->id,
             'status_rastreador_id' => $statusAtivo->id,
-            'is_estoque' => true,
         ]);
         EquipamentoStatusWorkflow::executar(function () use ($chip, $rastreador, $statusAtivo): void {
             $chip->update(['status_rastreador_id' => $statusAtivo->id]);
-            $rastreador->update(['status_rastreador_id' => $statusAtivo->id, 'is_estoque' => false]);
+            $rastreador->update(['status_rastreador_id' => $statusAtivo->id]);
         });
         $cliente = Cliente::query()->create([
             'nome' => 'Cliente Rastreador Ativo',
@@ -273,7 +268,6 @@ class EstoqueRastreadoresTest extends TestCase
         $this->assertSame($novoTecnico->id, $rastreador->refresh()->tecnico_id);
         $this->assertSame($novoTecnico->id, $chip->refresh()->tecnico_id);
         $this->assertSame($statusAtivo->id, $rastreador->status_rastreador_id);
-        $this->assertFalse($rastreador->is_estoque);
         $this->assertSame($novoTecnico->id, $veiculo->refresh()->tecnico_instala_id);
         $this->assertSame('Tecnico Novo', $veiculo->instalador);
     }
@@ -355,7 +349,6 @@ class EstoqueRastreadoresTest extends TestCase
             'imei' => $imei,
             'tecnico_id' => $tecnico->id,
             'status_rastreador_id' => $status->id,
-            'is_estoque' => true,
         ]);
     }
 }

@@ -542,7 +542,6 @@ class EstoqueRastreadores extends Page
             $rastreador = Rastreador::query()->create([
                 ...$data,
                 'status_rastreador_id' => StatusRastreador::query()->where('label', 'Disponivel')->value('id'),
-                'is_estoque' => true,
                 'criado_em' => now(),
             ]);
 
