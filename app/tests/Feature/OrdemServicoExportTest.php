@@ -17,7 +17,7 @@ class OrdemServicoExportTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_export_includes_vehicle_type_and_service_description(): void
+    public function test_export_includes_vehicle_type_service_description_and_bloqueio(): void
     {
         $this->actingAs(User::factory()->create(['is_admin' => true]));
 
@@ -49,6 +49,7 @@ class OrdemServicoExportTest extends TestCase
             'veiculo_id' => $veiculo->id,
             'endereco' => 'Rua de Teste, 1',
             'descricao' => 'Instalar rastreador no veículo',
+            'bloqueio' => false,
             'notificar_cliente' => false,
         ]);
 
@@ -72,6 +73,7 @@ class OrdemServicoExportTest extends TestCase
             'Veículo',
             'Tipo',
             'Motivo ou descrição do serviço',
+            'Bloqueio',
             'Status',
             'Técnico',
             'Atendimento',
@@ -80,5 +82,6 @@ class OrdemServicoExportTest extends TestCase
         $this->assertSame('Toyota / Hilux', $row[4]);
         $this->assertSame('Instalação', $row[5]);
         $this->assertSame('Instalar rastreador no veículo', $row[6]);
+        $this->assertSame('Não', $row[7]);
     }
 }

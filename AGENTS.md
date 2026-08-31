@@ -135,11 +135,10 @@ ssh -F /dev/null -i ~/.ssh/conectta_vps -o IdentitiesOnly=yes root@191.252.200.1
 - Fluxo boleto: mensagem, PDF, linha digitavel, instrucao PIX, botao PIX e finalizacao.
 - Fluxo atraso: mensagem principal e PDF(s), sem linha digitavel, PIX ou finalizacao.
 - Os comandos `cobrancas:processar` e `cobrancas:enviar-whatsapp` simulam por padrao. Envio real exige `--executar`.
-- Os agendamentos de cobranca em producao devem permanecer inativos ate autorizacao explicita.
 - Agendamentos de cobranca podem ter varios registros do mesmo `tipo`, permitindo separar dias e horarios sem criar campos especiais por periodo.
-- A alteracao para remover a unicidade de `cobranca_agendamentos.tipo` esta preparada localmente em `database/migrations/2026_08_26_000001_allow_multiple_cobranca_agendamentos.php`, mas ainda nao foi publicada em producao.
-- No deploy dessa alteracao, preservar os horarios atuais de segunda a sexta e criar registros separados para sabado e domingo: atrasos de 2, 5, 7, 10, 12 e 15 dias as 09:00, 09:05, 09:10, 09:15, 09:20 e 09:25; lembrete no vencimento as 09:50; boleto 7 dias antes as 09:55.
-- Antes desse deploy, executar backup de producao. Commit, push e deploy continuam sob responsabilidade do usuario.
+- A migration que removeu a unicidade de `cobranca_agendamentos.tipo` esta aplicada em producao.
+- Em 31/08/2026, os 16 agendamentos de producao estavam ativos. De segunda a sexta: atrasos de 2, 5, 7, 10, 12 e 15 dias as 13:10, 13:15, 13:20, 13:25, 13:30 e 13:35; lembrete no vencimento as 14:00; boleto 7 dias antes as 14:05. Aos sabados e domingos: atrasos as 09:00, 09:05, 09:10, 09:15, 09:20 e 09:25; lembrete as 09:50; boleto as 09:55.
+- Nao desativar nem alterar dias e horarios dos agendamentos de producao sem autorizacao explicita.
 
 ## Financeiro
 
@@ -183,13 +182,14 @@ Principio: conter, diagnosticar, preservar evidencias, corrigir de forma reversi
 - Clientes com frota podem ter varios rastreadores; nao bloquear por cliente.
 - A exclusao de veiculo e logica (`veiculos.data_exclusao`), libera placa e preserva historicos. Cancela transacionalmente OS ativas; OS finalizadas/canceladas nao mudam.
 - Ao excluir ou cancelar veiculo, liberar rastreador/chip somente se nenhum outro veiculo ativo usar o rastreador.
-- Ao cancelar diretamente, rastreador e chip ficam `Disponivel` com o tecnico da remocao; rastreador recebe `is_estoque = true`.
-- Equipamento instalado fica `Ativo`, sem tecnico; rastreador fica fora do estoque. Preservar o tecnico de instalacao no veiculo antes de limpar a posse.
+- Ao cancelar diretamente, rastreador e chip ficam `Disponivel` com o tecnico da remocao.
+- Equipamento instalado fica `Ativo`, sem tecnico. Preservar o tecnico de instalacao no veiculo antes de limpar a posse.
 - Novos chips e rastreadores entram sempre `Disponivel`, ignorando status manual na criacao.
 - Temporariamente, `Estoque_Escrita` pode alterar status de equipamentos existentes nas duas telas de estoque.
-- Ao editar rastreador no estoque, preservar `is_estoque`; mudar status somente quando escolhido pelo usuario.
+- A posse fisica de chips e rastreadores usa somente `tecnico_id`: preenchido significa que o item esta com o tecnico; vazio significa que esta com a central. A coluna legada `rastreadores.is_estoque` permanece na tabela, mas nao e lida nem gravada pelo codigo e nao deve voltar a participar de filtros ou validacoes.
+- Ao editar rastreador no estoque, mudar status somente quando escolhido pelo usuario.
 - A protecao central de status esta em `App\Services\Estoque\EquipamentoStatusWorkflow` e nos eventos de `Chip` e `Rastreador`. Fluxos autorizados devem usar `EquipamentoStatusWorkflow::executar()`.
-- `Adicionar chip` exige rastreador e chip `Disponivel`, sem vinculos/reservas conflitantes; `is_estoque` nao participa dessa validacao.
+- `Adicionar chip` exige rastreador e chip `Disponivel`, sem vinculos ou reservas conflitantes.
 - Em `Estoque > Chips`, `numero_chip` e telefone; `iccid` e unico quando preenchido e tem exatamente 20 digitos no formulario.
 - Em `Cadastro > Rastreadores`, o chip e somente leitura e vem do IMEI selecionado; mostrar aviso quando o rastreador nao possuir chip.
 - Busca por IMEI e CPF/CNPJ somente entra quando a parte numerica tiver ao menos seis digitos, evitando conflito com placas Mercosul.
@@ -224,19 +224,22 @@ Principio: conter, diagnosticar, preservar evidencias, corrigir de forma reversi
 - Tecnico `Outros` exige `nome_tecnico_externo`; o vinculo operacional continua no cadastro `Outros`.
 - Campos de workflow nao podem ser sobrescritos pelo salvamento comum do formulario.
 - O tecnico deve informar obrigatoriamente `local_instalacao` ao solicitar conferencia em OS de instalacao e manutencao; retiradas nao usam esse campo. A central visualiza o local durante a conferencia e depois da finalizacao.
-- A coluna `ordens_servico.local_instalacao` esta preparada localmente em `app/database/migrations/2026_08_26_000002_add_local_instalacao_to_ordens_servico_table.php`; confirmar migration e deploy antes de considerar a mudanca publicada em producao.
-- Instalacao: equipamentos novos ficam `Ativo`, sem tecnico; rastreador fora do estoque; tecnico registrado no veiculo.
-- Retirada: rastreador e chip ficam `Disponivel` com o tecnico; rastreador em estoque.
+- O tecnico informa obrigatoriamente `bloqueio` como `Sim` ou `Nao` em instalacao e manutencao; retiradas nao exibem nem exigem o campo. O valor aparece para a central durante a conferencia e permanece visivel depois da finalizacao, separado do checklist administrativo de bloqueio.
+- As migrations de `ordens_servico.local_instalacao` e `ordens_servico.bloqueio` estao aplicadas em producao; estado confirmado em 31/08/2026 no commit `8764060`.
+- Instalacao: equipamentos novos ficam `Ativo`, sem tecnico; tecnico registrado no veiculo.
+- Retirada: rastreador e chip ficam `Disponivel` com o tecnico.
 - Manutencao sem troca nao movimenta equipamentos.
 - Troca de chip: novo fica ativo; retirado fica disponivel com o tecnico.
 - Troca de rastreador/chip: novos ficam ativos; retirados ficam disponiveis com o tecnico.
 - Troca somente de rastreador reaproveita o chip atual no rastreador novo.
 - Historico preserva eventos, fotos e mensagens.
+- Na pagina mobile do tecnico, a galeria permite selecionar varias fotos cumulativamente ate o limite total de quatro; remover uma previa libera a vaga sem apagar as demais. A camera continua adicionando uma foto por vez.
+- A exportacao CSV da lista de OS deve incluir `Bloqueio` como `Sim`, `Nao` ou vazio. Em 31/08/2026 essa alteracao esta preparada localmente em `ListOrdensServico.php` e `OrdemServicoExportTest.php`, ainda sem commit ou deploy.
 - `Enviada` significa aceite da chamada pela Z-API, nao entrega/leitura.
 - Nao implementar retentativa automatica de mensagens com erro sem decisao explicita.
 - Fotos usam armazenamento privado e rota protegida. Producao usa `ORDENS_SERVICO_FOTOS_DRIVER=rclone` e `/etc/conectta/rclone.conf`; desenvolvimento usa `local`.
 - Arquivamento diario move fotos elegiveis para `gdrive:Conectta/ordens-servico`.
-- Testes principais: `tests/Feature/OrdemServicoFlowTest.php` e `tests/Unit/OrdemServicoFotoStorageTest.php`.
+- Testes principais: `tests/Feature/OrdemServicoFlowTest.php`, `tests/Feature/OrdemServicoExportTest.php` e `tests/Unit/OrdemServicoFotoStorageTest.php`.
 
 ## Identidade Visual
 
