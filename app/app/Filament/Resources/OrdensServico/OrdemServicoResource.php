@@ -187,7 +187,7 @@ class OrdemServicoResource extends Resource
                 TextColumn::make('cliente.nome')->label('Cliente')->formatStateUsing(fn ($state, OrdemServico $record): string => $record->nome_atendimento)->sortable(),
                 TextColumn::make('veiculo.placa')->label('Placa')->sortable(),
                 TextColumn::make('tipo')->label('Tipo')->formatStateUsing(fn (OrdemServicoTipo $state) => $state->label())->badge()->sortable(),
-                TextColumn::make('status')->label('Status')->formatStateUsing(fn (OrdemServicoStatus $state) => $state->label())->badge()->sortable(),
+                TextColumn::make('status')->label('Status')->formatStateUsing(fn (OrdemServicoStatus $state) => $state->label())->color(fn (OrdemServicoStatus $state): array => $state->getColor())->badge()->sortable(),
                 TextColumn::make('tecnico.nome')->label('Técnico')
                     ->formatStateUsing(fn ($state, OrdemServico $record): string => $record->nome_tecnico_exibicao ?: 'Não atribuído')
                     ->sortable(),

@@ -8,6 +8,7 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Support\HtmlString;
 
 class MensagensGeradasRelationManager extends RelationManager
 {
@@ -41,8 +42,21 @@ class MensagensGeradasRelationManager extends RelationManager
                 TextColumn::make('mensagem')
                     ->label('Mensagem')
                     ->limit(80)
+                    ->description(new HtmlString('<span style="color: #d97706; font-weight: 700;">Leia mais</span>'))
                     ->wrap()
-                    ->width('18rem'),
+                    ->width('18rem')
+                    ->action(
+                        Action::make('lerMensagem')
+                            ->label('Leia mais')
+                            ->modalHeading('Mensagem enviada')
+                            ->modalSubmitAction(false)
+                            ->modalCancelActionLabel('Fechar')
+                            ->modalWidth('lg')
+                            ->modalContent(fn (OrdemServicoNotificacao $record) => view(
+                                'filament.resources.ordens-servico.mensagem-gerada',
+                                ['mensagem' => $record->mensagem],
+                            )),
+                    ),
                 TextColumn::make('link_tecnico')
                     ->label('Acesso')
                     ->state(fn (OrdemServicoNotificacao $record): ?string => self::linkEnviadoAoTecnico($record))
@@ -73,20 +87,6 @@ class MensagensGeradasRelationManager extends RelationManager
                         : null)
                     ->tooltip(fn (OrdemServicoNotificacao $record): ?string => $record->erro)
                     ->badge(),
-            ])
-            ->recordActions([
-                Action::make('lerMensagem')
-                    ->label('Leia mais')
-                    ->icon(Heroicon::OutlinedChatBubbleLeftEllipsis)
-                    ->color('gray')
-                    ->modalHeading('Mensagem enviada')
-                    ->modalSubmitAction(false)
-                    ->modalCancelActionLabel('Fechar')
-                    ->modalWidth('lg')
-                    ->modalContent(fn (OrdemServicoNotificacao $record) => view(
-                        'filament.resources.ordens-servico.mensagem-gerada',
-                        ['mensagem' => $record->mensagem],
-                    )),
             ])
             ->defaultSort('created_at', 'desc');
     }
