@@ -252,6 +252,9 @@ Regras de edicao:
 - Tecnicos sem telefone valido nao aparecem como aptos para atribuicao.
 - Ao clicar no card de disponibilidade, a central escolhe em um modal uma OS `Aberta`, ainda sem tecnico, e um dos tecnicos aptos a receber outro atendimento no horario.
 - Ao clicar em um card de OS, um modal oferece `Cancelar agendamento`, quando o status permitir, e `Ver ordem de servico`.
+- Na edicao do veiculo em `Cadastro > Rastreadores`, a central consulta um historico compacto e somente leitura das OS vinculadas a placa, ordenado da mais recente para a mais antiga.
+- O historico da placa mostra numero, tipo de servico, status, tecnico responsavel e data do atendimento, alem da acao `Ver O.S.` para abrir a ordem completa.
+- O historico da placa e exibido somente para usuarios com `OS_Leitura` e usa nas tags o mesmo padrao visual da lista principal de OS. As tags de tipo e status sao centralizadas em `OrdemServicoResource`; toda cor de status vem de `OrdemServicoStatus::getColor()`, sem mapas locais divergentes.
 - Nesta primeira versao, nao havera geracao de PDF nem layout especifico para impressao da OS.
 
 ## Historico e auditoria

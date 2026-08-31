@@ -234,6 +234,12 @@ Principio: conter, diagnosticar, preservar evidencias, corrigir de forma reversi
 - Troca somente de rastreador reaproveita o chip atual no rastreador novo.
 - Historico preserva eventos, fotos e mensagens.
 - Na pagina mobile do tecnico, a galeria permite selecionar varias fotos cumulativamente ate o limite total de quatro; remover uma previa libera a vaga sem apagar as demais. A camera continua adicionando uma foto por vez.
+- Na pagina mobile do tecnico, fotos selecionadas e fotos ja enviadas devem permanecer em cards responsivos. Nomes longos usam truncamento com reticencias e nunca podem provocar rolagem horizontal nem deslocar o botao `Remover` para fora do card.
+- Em `Historico de mensagens`, preservar a tabela compacta: datas de geracao/envio, destinatario/telefone e situacao/erro ficam agrupados; a mensagem aparece resumida e o `Leia mais` fica dentro da propria celula, abrindo modal com o texto completo. Nao criar uma coluna exclusiva para `Leia mais`.
+- Quando uma mensagem historica ao tecnico contiver a URL publica da OS, exibir `Copiar link` e copiar exatamente a URL armazenada naquela mensagem; nao reconstruir o link a partir do token atual. Mensagens sem URL nao oferecem copia.
+- Na edicao da OS, mostrar a tag da situacao logo abaixo do titulo. A lista de OS tambem usa tags distintas por situacao, com o mapa central em `OrdemServicoStatus::getColor()`: aberta/cancelada cinza, enviada amarela, aceita azul-ciano, em atendimento roxa, aguardando correcao laranja, em conferencia indigo, pendente vermelha e finalizada verde.
+- Tags de tipo e status de OS devem reutilizar o padrao central de `OrdemServicoResource::tipoTagColumn()` e `OrdemServicoResource::statusTagColumn()`. Nao criar cores locais diferentes; toda tag de status de OS usa obrigatoriamente `OrdemServicoStatus::getColor()`.
+- Na edicao do veiculo em `Cadastro > Rastreadores`, exibir abaixo do formulario o historico de OS vinculadas a placa, da mais recente para a mais antiga. A tabela e somente leitura, exige `OS_Leitura` e mostra numero, tipo, status, tecnico, data do atendimento e link `Ver O.S.` para a ordem completa.
 - A exportacao CSV da lista de OS deve incluir `Bloqueio` como `Sim`, `Nao` ou vazio. Em 31/08/2026 essa alteracao esta preparada localmente em `ListOrdensServico.php` e `OrdemServicoExportTest.php`, ainda sem commit ou deploy.
 - `Enviada` significa aceite da chamada pela Z-API, nao entrega/leitura.
 - Nao implementar retentativa automatica de mensagens com erro sem decisao explicita.

@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Rastreadores;
 use App\Filament\Resources\Rastreadores\Pages\CreateRastreador;
 use App\Filament\Resources\Rastreadores\Pages\EditRastreador;
 use App\Filament\Resources\Rastreadores\Pages\ListRastreadores;
+use App\Filament\Resources\Rastreadores\RelationManagers\OrdensServicoRelationManager;
 use App\Filament\Resources\Rastreadores\Schemas\RastreadorForm;
 use App\Filament\Resources\Rastreadores\Tables\RastreadoresTable;
 use App\Models\Permission;
@@ -77,6 +78,13 @@ class RastreadorResource extends Resource
     public static function canDeleteAny(): bool
     {
         return auth()->user()?->hasPermission(Permission::CADASTRO_EXCLUSAO) ?? false;
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            OrdensServicoRelationManager::class,
+        ];
     }
 
     public static function getPages(): array

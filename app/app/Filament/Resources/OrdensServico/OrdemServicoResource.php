@@ -186,8 +186,8 @@ class OrdemServicoResource extends Resource
                 TextColumn::make('numero')->label('OS')->formatStateUsing(fn ($state) => 'OS '.str_pad((string) $state, 6, '0', STR_PAD_LEFT))->sortable(),
                 TextColumn::make('cliente.nome')->label('Cliente')->formatStateUsing(fn ($state, OrdemServico $record): string => $record->nome_atendimento)->sortable(),
                 TextColumn::make('veiculo.placa')->label('Placa')->sortable(),
-                TextColumn::make('tipo')->label('Tipo')->formatStateUsing(fn (OrdemServicoTipo $state) => $state->label())->badge()->sortable(),
-                TextColumn::make('status')->label('Status')->formatStateUsing(fn (OrdemServicoStatus $state) => $state->label())->color(fn (OrdemServicoStatus $state): array => $state->getColor())->badge()->sortable(),
+                self::tipoTagColumn(),
+                self::statusTagColumn(),
                 TextColumn::make('tecnico.nome')->label('Técnico')
                     ->formatStateUsing(fn ($state, OrdemServico $record): string => $record->nome_tecnico_exibicao ?: 'Não atribuído')
                     ->sortable(),
@@ -195,6 +195,25 @@ class OrdemServicoResource extends Resource
             ])
             ->modifyQueryUsing(fn ($query, ListOrdensServico $livewire) => $livewire->aplicarFiltrosOrdensServico($query))
             ->defaultSort('created_at', 'desc');
+    }
+
+    public static function tipoTagColumn(string $label = 'Tipo'): TextColumn
+    {
+        return TextColumn::make('tipo')
+            ->label($label)
+            ->formatStateUsing(fn (OrdemServicoTipo $state): string => $state->label())
+            ->badge()
+            ->sortable();
+    }
+
+    public static function statusTagColumn(string $label = 'Status'): TextColumn
+    {
+        return TextColumn::make('status')
+            ->label($label)
+            ->formatStateUsing(fn (OrdemServicoStatus $state): string => $state->label())
+            ->color(fn (OrdemServicoStatus $state): array => $state->getColor())
+            ->badge()
+            ->sortable();
     }
 
     public static function canViewAny(): bool
