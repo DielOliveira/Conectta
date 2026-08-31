@@ -191,7 +191,7 @@ Principio: conter, diagnosticar, preservar evidencias, corrigir de forma reversi
 - A protecao central de status esta em `App\Services\Estoque\EquipamentoStatusWorkflow` e nos eventos de `Chip` e `Rastreador`. Fluxos autorizados devem usar `EquipamentoStatusWorkflow::executar()`.
 - `Adicionar chip` exige rastreador e chip `Disponivel`, sem vinculos ou reservas conflitantes.
 - Em `Estoque > Chips`, `numero_chip` e telefone; `iccid` e unico quando preenchido e tem exatamente 20 digitos no formulario.
-- Em `Cadastro > Rastreadores`, o chip e somente leitura e vem do IMEI selecionado; mostrar aviso quando o rastreador nao possuir chip.
+- Em `Cadastro > Rastreadores`, IMEI, chip, instalador, tecnico de remocao, data de retirada e status do rastreador sao somente leitura e nao podem produzir movimentacao de estoque ao salvar o formulario. Esses vinculos e dados operacionais sao preenchidos exclusivamente pela finalizacao da OS; o chip exibido vem do rastreador vinculado e deve haver aviso quando ele nao possuir chip.
 - Busca por IMEI e CPF/CNPJ somente entra quando a parte numerica tiver ao menos seis digitos, evitando conflito com placas Mercosul.
 - Busca compartilhada: Financeiro, Clientes e Rastreadores. Status compartilhado: somente Financeiro e Clientes.
 - Listas de Clientes e Rastreadores nao abrem pela linha inteira. Leitura usa `Ver`; escrita usa `Editar`. Preservar selecao de texto via `ct-selectable-table`.
@@ -229,6 +229,7 @@ Principio: conter, diagnosticar, preservar evidencias, corrigir de forma reversi
 - Instalacao: equipamentos novos ficam `Ativo`, sem tecnico; tecnico registrado no veiculo.
 - Retirada: rastreador e chip ficam `Disponivel` com o tecnico.
 - Manutencao sem troca nao movimenta equipamentos.
+- A finalizacao da OS e a unica origem operacional para preencher ou alterar no veiculo o IMEI, o chip associado ao rastreador, o instalador, o tecnico de remocao, a data de retirada e o status do rastreador. O formulario de `Cadastro > Rastreadores` apenas consulta esses campos.
 - Troca de chip: novo fica ativo; retirado fica disponivel com o tecnico.
 - Troca de rastreador/chip: novos ficam ativos; retirados ficam disponiveis com o tecnico.
 - Troca somente de rastreador reaproveita o chip atual no rastreador novo.

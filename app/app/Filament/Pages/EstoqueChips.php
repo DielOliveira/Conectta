@@ -646,7 +646,7 @@ class EstoqueChips extends Page
             .($identificacaoVeiculo !== '' ? ' esta vinculado ao veiculo '.$identificacaoVeiculo.'.' : '.')
             .' Ao confirmar, o tecnico sera alterado de '
             .($chip->tecnico?->nome ?? 'Sem tecnico').' para '.($tecnicoNovo ?? 'Sem tecnico')
-            .' no chip, no rastreador e no tecnico de instalacao do veiculo. Deseja continuar?';
+            .' no chip e no rastreador. O instalador historico do veiculo nao sera alterado. Deseja continuar?';
     }
 
     private function sincronizarTecnicoDoChipAtivo(Chip $chip): void
@@ -674,30 +674,5 @@ class EstoqueChips extends Page
             );
         }
 
-        Veiculo::query()
-            ->ativos()
-            ->where('rastreador_id', $rastreador->id)
-            ->lockForUpdate()
-            ->get()
-            ->each(function (Veiculo $veiculo) use ($chip, $rastreador): void {
-                if ($veiculo->tecnico_instala_id === $chip->tecnico_id) {
-                    return;
-                }
-
-                $antes = AuditLogger::snapshot($veiculo);
-                $veiculo->update(['tecnico_instala_id' => $chip->tecnico_id]);
-
-                AuditLogger::registrar(
-                    'veiculo.tecnico_instalacao_sincronizado',
-                    'Tecnico de instalacao sincronizado com o chip ativo.',
-                    $veiculo,
-                    antes: $antes,
-                    depois: AuditLogger::snapshot($veiculo->refresh()),
-                    contexto: [
-                        'chip_id' => $chip->id,
-                        'rastreador_id' => $rastreador->id,
-                    ],
-                );
-            });
     }
 }

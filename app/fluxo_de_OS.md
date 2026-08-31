@@ -522,6 +522,8 @@ Enquanto a OS estiver `Em conferencia`:
 
 Na finalizacao de uma instalacao, o IMEI do rastreador e o chip informados no atendimento sao vinculados automaticamente ao veiculo do cliente dono da OS.
 
+IMEI, chip, instalador, tecnico de remocao, data de retirada e status do rastreador no veiculo possuem a OS como origem operacional exclusiva. Em `Cadastro > Rastreadores`, esses campos permanecem visiveis somente para consulta, nao sao enviados no salvamento comum e nao podem movimentar estoque. A protecao tambem descarta esses atributos no servidor caso o estado do formulario seja manipulado.
+
 Na finalizacao de uma retirada, o veiculo passa para `Cancelado` e preserva o vinculo com o rastreador como historico. O rastreador e o chip passam para `Disponivel` e ficam atribuidos ao tecnico que executou a OS.
 
 Observacao tecnica ja conhecida no sistema: o chip e vinculado ao rastreador por `rastreadores.chip_id`; novas regras nao devem usar o campo legado `veiculos.chip_id`.

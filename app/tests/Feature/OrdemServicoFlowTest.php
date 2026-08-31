@@ -1080,7 +1080,16 @@ class OrdemServicoFlowTest extends TestCase
             ->assertRedirect();
 
         $this->assertSame(OrdemServicoStatus::FINALIZADA, $ordem->fresh()->status);
-        $this->assertSame($rastreador->id, $veiculo->fresh()->rastreador_id);
+        $veiculo = $veiculo->fresh();
+        $this->assertSame($rastreador->id, $veiculo->rastreador_id);
+        $this->assertSame($tecnico->id, $veiculo->tecnico_instala_id);
+        $this->assertNotNull($veiculo->data_instalacao);
+        $this->assertNull($veiculo->tecnico_remocao_id);
+        $this->assertNull($veiculo->data_retirada);
+        $this->assertSame(
+            StatusRastreador::query()->where('label', 'Ativo')->value('id'),
+            $veiculo->status_rastreador_id,
+        );
         $this->assertNull($rastreador->fresh()->tecnico_id);
         $this->assertSame(
             StatusRastreador::query()->where('label', 'Ativo')->value('id'),

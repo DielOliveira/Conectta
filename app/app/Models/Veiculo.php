@@ -242,6 +242,10 @@ class Veiculo extends Model
 
     private function syncInstaladorFromRastreador(): void
     {
+        if ($this->exists && ! $this->isDirty('rastreador_id')) {
+            return;
+        }
+
         if ($this->rastreador_id === null) {
             $this->tecnico_instala_id = null;
             $this->instalador = null;
@@ -261,6 +265,10 @@ class Veiculo extends Model
 
     private function syncRastreadorStatus(): void
     {
+        if (! $this->wasChanged(['rastreador_id', 'status_rastreador_id', 'tecnico_remocao_id'])) {
+            return;
+        }
+
         if ($this->rastreador_id === null) {
             return;
         }

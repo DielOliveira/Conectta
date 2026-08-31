@@ -119,7 +119,7 @@ class EstoqueChipsTest extends TestCase
         $this->assertSame('CLARO', $chip->operadora);
     }
 
-    public function test_changing_active_chip_technician_requires_confirmation_and_syncs_vehicle(): void
+    public function test_changing_active_chip_technician_preserves_vehicle_installer(): void
     {
         $this->actingAs($this->admin());
 
@@ -173,7 +173,7 @@ class EstoqueChipsTest extends TestCase
             ->call('salvar')
             ->assertSet('sincronizacaoTecnicoDescricao', fn (?string $descricao): bool => str_contains(
                 (string) $descricao,
-                'no chip, no rastreador e no tecnico de instalacao do veiculo',
+                'O instalador historico do veiculo nao sera alterado',
             ));
 
         $this->assertSame($tecnicoAtual->id, $chip->refresh()->tecnico_id);
@@ -186,8 +186,8 @@ class EstoqueChipsTest extends TestCase
 
         $this->assertSame($novoTecnico->id, $chip->refresh()->tecnico_id);
         $this->assertSame($novoTecnico->id, $rastreador->refresh()->tecnico_id);
-        $this->assertSame($novoTecnico->id, $veiculo->refresh()->tecnico_instala_id);
-        $this->assertSame('Tecnico Novo', $veiculo->instalador);
+        $this->assertSame($tecnicoAtual->id, $veiculo->refresh()->tecnico_instala_id);
+        $this->assertSame('Tecnico Atual', $veiculo->instalador);
     }
 
     private function admin(): User

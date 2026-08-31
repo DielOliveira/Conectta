@@ -7,7 +7,6 @@ use App\Models\Pais;
 use App\Models\Rastreador;
 use App\Models\StatusRastreador;
 use App\Models\Veiculo;
-use App\Services\OrdemServico\OrdemServicoEquipamentoReserva;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -15,18 +14,32 @@ use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
-use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\HtmlString;
 
 class RastreadorForm
 {
+    /**
+     * Campos de vínculo e movimentação cuja origem exclusiva é a ordem de serviço.
+     *
+     * @var array<int, string>
+     */
+    public const CAMPOS_GERENCIADOS_PELA_OS = [
+        'rastreador_id',
+        'chip_id_form',
+        'tecnico_instala_id',
+        'instalador',
+        'tecnico_remocao_id',
+        'data_retirada',
+        'status_rastreador_id',
+    ];
+
     public static function configure(Schema $schema): Schema
     {
         return $schema
             ->components([
                 Section::make('Dados do Rastreador')
+                    ->description('IMEI, chip, instalador, técnico e data de remoção e status do rastreador são atualizados exclusivamente por ordem de serviço.')
                     ->schema([
                         Grid::make(12)->schema([
                             Select::make('cliente_id')
@@ -84,33 +97,17 @@ class RastreadorForm
                             Select::make('rastreador_id')
                                 ->label('IMEI')
                                 ->options(fn (?Veiculo $record): array => self::rastreadorOptions($record))
-                                ->searchable()
-                                ->preload()
-                                ->live()
-                                ->afterStateUpdated(function (Set $set, ?int $state): void {
-                                    $rastreador = Rastreador::query()
-                                        ->with('tecnico')
-                                        ->find($state);
-
-                                    $set('tecnico_instala_id', $rastreador?->tecnico_id);
-                                    $set('instalador', $rastreador?->tecnico?->nome);
-                                    $set('chip_id_form', $rastreador?->chip_id);
-                                })
+                                ->disabled()
+                                ->dehydrated(false)
                                 ->columnSpan(6),
                             Select::make('chip_id_form')
                                 ->label('Numero Chip')
                                 ->default(fn (?Veiculo $record): ?int => self::chipId($record?->rastreador_id))
                                 ->formatStateUsing(fn (mixed $state, ?Veiculo $record): ?int => filled($state) ? (int) $state : self::chipId($record?->rastreador_id))
-                                ->searchable()
                                 ->native(false)
-                                ->searchDebounce(500)
-                                ->optionsLimit(20)
-                                ->rules(['nullable', 'exists:chips,id'])
-                                ->getSearchResultsUsing(fn (string $search): array => self::chipSearchResults($search))
                                 ->getOptionLabelUsing(fn (mixed $value): ?string => self::chipOptionLabel($value))
-                                ->placeholder('Pesquisar numero do chip')
-                                ->searchPrompt('Digite o numero do chip para pesquisar')
-                                ->noSearchResultsMessage('Nenhum chip encontrado.')
+                                ->disabled()
+                                ->dehydrated(false)
                                 ->helperText(fn (Get $get): ?HtmlString => filled($get('rastreador_id')) && blank($get('chip_id_form'))
                                     ? new HtmlString('<span class="font-medium text-warning-600 dark:text-warning-400">O rastreador selecionado nao possui chip vinculado.</span>')
                                     : null)
@@ -135,24 +132,25 @@ class RastreadorForm
                                 ->label('Instalador')
                                 ->relationship('tecnicoInstala', 'nome')
                                 ->disabled()
-                                ->dehydrated(true)
+                                ->dehydrated(false)
                                 ->columnSpan(4),
                             TextInput::make('instalador')
                                 ->label('Instalador Nome')
                                 ->hidden()
-                                ->dehydrated(true),
+                                ->disabled()
+                                ->dehydrated(false),
                             DatePicker::make('data_retirada')
                                 ->label('Data Retirada')
                                 ->displayFormat('d/m/Y')
                                 ->native(false)
-                                ->required(fn (Get $get): bool => self::isStatusCancelado($get('status_rastreador_id')))
+                                ->disabled()
+                                ->dehydrated(false)
                                 ->columnSpan(4),
                             Select::make('tecnico_remocao_id')
                                 ->label('Tecnico Remocao')
                                 ->relationship('tecnicoRemocao', 'nome')
-                                ->searchable()
-                                ->preload()
-                                ->required(fn (Get $get): bool => self::isStatusCancelado($get('status_rastreador_id')))
+                                ->disabled()
+                                ->dehydrated(false)
                                 ->columnSpan(4),
                             Select::make('status_rastreador_id')
                                 ->label('Status Rastreador')
@@ -160,8 +158,8 @@ class RastreadorForm
                                     ->whereIn('label', ['Ativo', 'Cancelado', 'Disponivel'])
                                     ->orderBy('order')
                                     ->pluck('label', 'id'))
-                                ->required(fn (Get $get): bool => filled($get('rastreador_id')))
-                                ->live()
+                                ->disabled()
+                                ->dehydrated(false)
                                 ->columnSpan(4),
                             TextInput::make('associado')
                                 ->label('Associado / Cliente')
@@ -192,6 +190,21 @@ class RastreadorForm
             ]);
     }
 
+    /**
+     * Defesa no servidor contra estados Livewire manipulados fora do formulário.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public static function removerCamposGerenciadosPelaOs(array $data): array
+    {
+        foreach (self::CAMPOS_GERENCIADOS_PELA_OS as $campo) {
+            unset($data[$campo]);
+        }
+
+        return $data;
+    }
+
     private static function formatTelefone(mixed $value): ?string
     {
         $digits = preg_replace('/\D+/', '', (string) $value);
@@ -206,34 +219,14 @@ class RastreadorForm
      */
     private static function rastreadorOptions(?Veiculo $record): array
     {
-        $disponivelId = Veiculo::statusId('Disponivel');
+        if ($record?->rastreador_id === null) {
+            return [];
+        }
 
         return Rastreador::query()
-            ->where(function (Builder $query) use ($disponivelId, $record): void {
-                $query->where(function (Builder $disponiveis) use ($disponivelId): void {
-                    if ($disponivelId !== null) {
-                        $disponiveis->where('status_rastreador_id', $disponivelId);
-                        OrdemServicoEquipamentoReserva::excluirRastreadoresReservados($disponiveis);
-                    } else {
-                        $disponiveis->whereRaw('1 = 0');
-                    }
-                });
-
-                if ($record?->rastreador_id !== null) {
-                    $query->orWhere('id', $record->rastreador_id);
-                }
-            })
-            ->orderBy('imei')
-            ->get()
-            ->mapWithKeys(fn (Rastreador $rastreador): array => [
-                $rastreador->id => $rastreador->imei,
-            ])
+            ->whereKey($record->rastreador_id)
+            ->pluck('imei', 'id')
             ->all();
-    }
-
-    private static function isStatusCancelado(mixed $statusId): bool
-    {
-        return (int) $statusId === (int) Veiculo::statusId('Cancelado');
     }
 
     private static function chipId(mixed $rastreadorId): ?int
@@ -247,34 +240,6 @@ class RastreadorForm
             ?->chip_id;
 
         return $chipId === null ? null : (int) $chipId;
-    }
-
-    /**
-     * @return array<int, string>
-     */
-    private static function chipSearchResults(string $search): array
-    {
-        $search = trim($search);
-
-        if ($search === '') {
-            return [];
-        }
-
-        return Chip::query()
-            ->with('rastreador:id,imei,chip_id')
-            ->tap(fn (Builder $query) => OrdemServicoEquipamentoReserva::excluirChipsReservados($query))
-            ->where(function (Builder $query) use ($search): void {
-                $query->where('numero_chip', 'like', '%'.$search.'%')
-                    ->orWhere('iccid', 'like', '%'.$search.'%')
-                    ->orWhereHas('rastreador', fn (Builder $query): Builder => $query->where('imei', 'like', '%'.$search.'%'));
-            })
-            ->orderBy('numero_chip')
-            ->limit(20)
-            ->get(['id', 'numero_chip', 'iccid'])
-            ->mapWithKeys(fn (Chip $chip): array => [
-                $chip->id => self::chipLabel($chip),
-            ])
-            ->all();
     }
 
     private static function chipOptionLabel(mixed $value): ?string

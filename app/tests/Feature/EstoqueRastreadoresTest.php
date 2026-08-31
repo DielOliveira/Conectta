@@ -203,7 +203,7 @@ class EstoqueRastreadoresTest extends TestCase
         $this->assertSame($manutencao->id, $rastreador->refresh()->status_rastreador_id);
     }
 
-    public function test_changing_active_tracker_technician_requires_confirmation_and_syncs_vehicle(): void
+    public function test_changing_active_tracker_technician_preserves_vehicle_installer(): void
     {
         $this->actingAs($this->admin());
 
@@ -254,7 +254,7 @@ class EstoqueRastreadoresTest extends TestCase
             ->call('salvar')
             ->assertSet('sincronizacaoTecnicoDescricao', fn (?string $descricao): bool => str_contains(
                 (string) $descricao,
-                'no rastreador, no chip vinculado e no tecnico de instalacao do veiculo',
+                'O instalador historico do veiculo nao sera alterado',
             ));
 
         $this->assertSame($tecnicoAtual->id, $rastreador->refresh()->tecnico_id);
@@ -268,8 +268,8 @@ class EstoqueRastreadoresTest extends TestCase
         $this->assertSame($novoTecnico->id, $rastreador->refresh()->tecnico_id);
         $this->assertSame($novoTecnico->id, $chip->refresh()->tecnico_id);
         $this->assertSame($statusAtivo->id, $rastreador->status_rastreador_id);
-        $this->assertSame($novoTecnico->id, $veiculo->refresh()->tecnico_instala_id);
-        $this->assertSame('Tecnico Novo', $veiculo->instalador);
+        $this->assertSame($tecnicoAtual->id, $veiculo->refresh()->tecnico_instala_id);
+        $this->assertSame('Tecnico Atual', $veiculo->instalador);
     }
 
     public function test_chip_can_be_unlinked_without_being_deleted(): void

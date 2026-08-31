@@ -28,7 +28,7 @@ class EditRastreadorResourceTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_imei_dropdown_displays_only_the_imei(): void
+    public function test_os_managed_fields_are_read_only_and_not_dehydrated(): void
     {
         $this->seed(ClienteSupportSeeder::class);
         $this->seed(PaisSeeder::class);
@@ -48,15 +48,22 @@ class EditRastreadorResourceTest extends TestCase
             'placa' => 'IME-1A23',
             'cor' => 'Prata',
             'ano' => '2026',
+            'rastreador_id' => $rastreador->id,
         ]);
 
-        Livewire::test(EditRastreador::class, ['record' => $veiculo->getRouteKey()])
+        $component = Livewire::test(EditRastreador::class, ['record' => $veiculo->getRouteKey()])
             ->assertFormFieldExists('rastreador_id', function (Select $field) use ($rastreador): bool {
-                return ($field->getOptions()[$rastreador->id] ?? null) === $rastreador->imei;
+                return $field->isDisabled()
+                    && ! $field->isDehydrated()
+                    && ($field->getOptions()[$rastreador->id] ?? null) === $rastreador->imei;
             });
+
+        foreach (['chip_id_form', 'tecnico_instala_id', 'tecnico_remocao_id', 'data_retirada', 'status_rastreador_id'] as $campo) {
+            $component->assertFormFieldExists($campo, fn ($field): bool => $field->isDisabled() && ! $field->isDehydrated());
+        }
     }
 
-    public function test_creating_active_vehicle_moves_tracker_and_chip_out_of_technician_stock(): void
+    public function test_create_form_cannot_assign_os_managed_fields_even_when_state_is_manipulated(): void
     {
         $this->seed(ClienteSupportSeeder::class);
         $this->seed(PaisSeeder::class);
@@ -95,21 +102,22 @@ class EditRastreadorResourceTest extends TestCase
                 'tipo_veiculo_id' => TipoVeiculo::query()->where('label', 'Carro')->value('id'),
                 'rastreador_id' => $rastreador->id,
                 'chip_id_form' => $chip->id,
+                'tecnico_instala_id' => $tecnico->id,
+                'instalador' => $tecnico->nome,
+                'tecnico_remocao_id' => $tecnico->id,
+                'data_retirada' => '2026-08-20',
                 'status_rastreador_id' => $ativoId,
                 'contato_pais' => 'BR',
             ])
             ->call('create')
-            ->assertHasNoFormErrors();
+            ->assertHasFormErrors(['rastreador_id']);
 
-        $veiculo = Veiculo::query()->where('placa', 'INS-1A23')->firstOrFail();
-        $this->assertSame($tecnico->id, $veiculo->tecnico_instala_id);
-        $this->assertSame($tecnico->nome, $veiculo->instalador);
-        $this->assertSame($rastreador->id, $veiculo->rastreador_id);
-        $this->assertNull($rastreador->fresh()->tecnico_id);
-        $this->assertSame($ativoId, $rastreador->fresh()->status_rastreador_id);
+        $this->assertDatabaseMissing('veiculos', ['placa' => 'INS-1A23']);
+        $this->assertSame($tecnico->id, $rastreador->fresh()->tecnico_id);
+        $this->assertSame($disponivelId, $rastreador->fresh()->status_rastreador_id);
         $this->assertSame($chip->id, $rastreador->fresh()->chip_id);
-        $this->assertNull($chip->fresh()->tecnico_id);
-        $this->assertSame($ativoId, $chip->fresh()->status_rastreador_id);
+        $this->assertSame($tecnico->id, $chip->fresh()->tecnico_id);
+        $this->assertSame($disponivelId, $chip->fresh()->status_rastreador_id);
     }
 
     public function test_editing_active_vehicle_preserves_installation_technician_after_stock_assignment_is_cleared(): void
@@ -141,7 +149,7 @@ class EditRastreadorResourceTest extends TestCase
         $this->assertSame($tecnico->nome, $veiculo->fresh()->instalador);
     }
 
-    public function test_cancelling_vehicle_does_not_reactivate_tracker_and_chip_after_save(): void
+    public function test_edit_form_cannot_change_os_managed_fields_even_when_state_is_manipulated(): void
     {
         $this->seed(ClienteSupportSeeder::class);
         $this->seed(PaisSeeder::class);
@@ -156,6 +164,7 @@ class EditRastreadorResourceTest extends TestCase
         $ativoId = StatusRastreador::query()->where('label', 'Ativo')->value('id');
         $canceladoId = StatusRastreador::query()->where('label', 'Cancelado')->value('id');
         $disponivelId = StatusRastreador::query()->where('label', 'Disponivel')->value('id');
+        $tecnicoInstalacao = Tecnico::query()->firstOrFail();
         $tecnicoRemocao = Tecnico::query()->firstOrFail();
         $chip = Chip::query()->firstOrFail();
         $rastreador = Rastreador::query()->firstOrFail();
@@ -175,6 +184,8 @@ class EditRastreadorResourceTest extends TestCase
             TipoVeiculo::query()->where('label', 'Carro')->value('id'),
             [
                 'rastreador_id' => $rastreador->id,
+                'tecnico_instala_id' => $tecnicoInstalacao->id,
+                'instalador' => $tecnicoInstalacao->nome,
                 'veiculo' => 'Veículo cancelado pela tela',
                 'placa' => 'CAN-9Z99',
             ],
@@ -184,21 +195,33 @@ class EditRastreadorResourceTest extends TestCase
             ->set('data.status_rastreador_id', $canceladoId)
             ->set('data.data_retirada', '2026-08-20')
             ->set('data.tecnico_remocao_id', $tecnicoRemocao->id)
+            ->set('data.rastreador_id', null)
+            ->set('data.chip_id_form', null)
+            ->set('data.tecnico_instala_id', null)
+            ->set('data.instalador', null)
+            ->set('data.cor', 'Azul')
             ->call('save')
             ->assertHasNoFormErrors();
 
         $rastreador->refresh();
         $chip->refresh();
 
-        $this->assertSame($canceladoId, $veiculo->fresh()->status_rastreador_id);
-        $this->assertSame($disponivelId, $rastreador->status_rastreador_id);
-        $this->assertSame($tecnicoRemocao->id, $rastreador->tecnico_id);
+        $veiculo->refresh();
+        $this->assertSame('Azul', $veiculo->cor);
+        $this->assertSame($ativoId, $veiculo->status_rastreador_id);
+        $this->assertSame($rastreador->id, $veiculo->rastreador_id);
+        $this->assertSame($tecnicoInstalacao->id, $veiculo->tecnico_instala_id);
+        $this->assertSame($tecnicoInstalacao->nome, $veiculo->instalador);
+        $this->assertNull($veiculo->tecnico_remocao_id);
+        $this->assertNull($veiculo->data_retirada);
+        $this->assertSame($ativoId, $rastreador->status_rastreador_id);
+        $this->assertNull($rastreador->tecnico_id);
         $this->assertSame($chip->id, $rastreador->chip_id);
-        $this->assertSame($disponivelId, $chip->status_rastreador_id);
-        $this->assertSame($tecnicoRemocao->id, $chip->tecnico_id);
+        $this->assertSame($ativoId, $chip->status_rastreador_id);
+        $this->assertNull($chip->tecnico_id);
     }
 
-    public function test_tracker_status_is_required_only_when_an_imei_is_selected(): void
+    public function test_vehicle_can_be_created_without_os_managed_fields(): void
     {
         $this->seed(ClienteSupportSeeder::class);
         $this->seed(PaisSeeder::class);
@@ -233,15 +256,6 @@ class EditRastreadorResourceTest extends TestCase
             'status_rastreador_id' => null,
         ]);
 
-        Livewire::test(CreateRastreador::class)
-            ->fillForm([
-                ...$dados,
-                'veiculo' => 'Veiculo com rastreador',
-                'placa' => 'COM-4B56',
-                'rastreador_id' => Rastreador::query()->firstOrFail()->id,
-            ])
-            ->call('create')
-            ->assertHasFormErrors(['status_rastreador_id' => 'required']);
     }
 
     public function test_create_form_blocks_a_plate_already_registered(): void
@@ -278,9 +292,10 @@ class EditRastreadorResourceTest extends TestCase
         $this->assertSame(1, Veiculo::query()->count());
     }
 
-    public function test_imei_linked_to_another_active_vehicle_is_blocked(): void
+    public function test_manipulated_imei_of_another_active_vehicle_is_ignored(): void
     {
         $this->seed(ClienteSupportSeeder::class);
+        $this->seed(PaisSeeder::class);
         $this->seed(RastreadorSupportSeeder::class);
         $this->actingAs(User::query()->create([
             'name' => 'Admin',

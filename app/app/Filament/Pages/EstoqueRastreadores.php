@@ -526,10 +526,6 @@ class EstoqueRastreadores extends Page
                     }
                 }
 
-                if ($tecnicoAlterado) {
-                    $this->sincronizarTecnicoInstalacao($rastreador);
-                }
-
                 AuditLogger::registrar(
                     'rastreador.editado',
                     'Rastreador editado no estoque.',
@@ -802,33 +798,7 @@ class EstoqueRastreadores extends Page
             .($identificacaoVeiculo !== '' ? ' esta vinculado ao veiculo '.$identificacaoVeiculo.'.' : '.')
             .' Ao confirmar, o tecnico sera alterado de '
             .($rastreador->tecnico?->nome ?? 'Sem tecnico').' para '.($tecnicoNovo ?? 'Sem tecnico')
-            .' no rastreador, no chip vinculado e no tecnico de instalacao do veiculo. Deseja continuar?';
-    }
-
-    private function sincronizarTecnicoInstalacao(Rastreador $rastreador): void
-    {
-        Veiculo::query()
-            ->ativos()
-            ->where('rastreador_id', $rastreador->id)
-            ->lockForUpdate()
-            ->get()
-            ->each(function (Veiculo $veiculo) use ($rastreador): void {
-                if ($veiculo->tecnico_instala_id === $rastreador->tecnico_id) {
-                    return;
-                }
-
-                $antes = AuditLogger::snapshot($veiculo);
-                $veiculo->update(['tecnico_instala_id' => $rastreador->tecnico_id]);
-
-                AuditLogger::registrar(
-                    'veiculo.tecnico_instalacao_sincronizado',
-                    'Tecnico de instalacao sincronizado com o rastreador ativo.',
-                    $veiculo,
-                    antes: $antes,
-                    depois: AuditLogger::snapshot($veiculo->refresh()),
-                    contexto: ['rastreador_id' => $rastreador->id],
-                );
-            });
+            .' no rastreador e no chip vinculado. O instalador historico do veiculo nao sera alterado. Deseja continuar?';
     }
 
     private function rastreadoresQuery(): Builder

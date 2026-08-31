@@ -3,21 +3,16 @@
 namespace App\Filament\Resources\Rastreadores\Pages;
 
 use App\Filament\Resources\Rastreadores\RastreadorResource;
-use App\Models\Chip;
+use App\Filament\Resources\Rastreadores\Schemas\RastreadorForm;
 use App\Models\Permission;
-use App\Models\Rastreador;
-use App\Models\StatusRastreador;
 use App\Models\Veiculo;
 use App\Services\Audit\AuditLogger;
-use App\Services\Estoque\EquipamentoStatusWorkflow;
-use App\Services\OrdemServico\OrdemServicoEquipamentoReserva;
 use App\Services\Veiculo\VeiculoExclusaoService;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Schemas\Schema;
-use Illuminate\Validation\ValidationException;
 
 class EditRastreador extends EditRecord
 {
@@ -26,14 +21,6 @@ class EditRastreador extends EditRecord
     protected ?bool $hasDatabaseTransactions = true;
 
     protected array $rastreadorAntes = [];
-
-    protected ?int $chipIdSelecionado = null;
-
-    public bool $transferenciaChipConfirmada = false;
-
-    public ?string $transferenciaChipDescricao = null;
-
-    public ?string $rastreadorIndisponivelDescricao = null;
 
     protected function getRedirectUrl(): string
     {
@@ -90,77 +77,11 @@ class EditRastreador extends EditRecord
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
-        $this->chipIdSelecionado = filled($data['chip_id_form'] ?? null) ? (int) $data['chip_id_form'] : null;
-        unset($data['chip_id_form']);
-
-        if ($this->chipIdSelecionado !== null && blank($data['rastreador_id'] ?? null)) {
-            throw ValidationException::withMessages([
-                'data.rastreador_id' => 'Selecione um IMEI para vincular o chip.',
-            ]);
-        }
-
-        $rastreadorId = filled($data['rastreador_id'] ?? null) ? (int) $data['rastreador_id'] : null;
-
-        if ($rastreadorId !== null) {
-            Rastreador::query()->whereKey($rastreadorId)->lockForUpdate()->firstOrFail();
-        }
-        if ($this->chipIdSelecionado !== null) {
-            Chip::query()->whereKey($this->chipIdSelecionado)->lockForUpdate()->firstOrFail();
-        }
-
-        $rastreadorAlterado = $rastreadorId !== (int) $this->record->rastreador_id;
-        $chipAtualId = $this->record->rastreador?->chip_id;
-        $chipAlterado = $this->chipIdSelecionado !== ($chipAtualId === null ? null : (int) $chipAtualId);
-        if ($rastreadorAlterado && $rastreadorId !== null && $mensagem = OrdemServicoEquipamentoReserva::mensagemRastreador($rastreadorId)) {
-            throw ValidationException::withMessages(['data.rastreador_id' => $mensagem]);
-        }
-        if ($chipAlterado && $this->chipIdSelecionado !== null && $mensagem = OrdemServicoEquipamentoReserva::mensagemChip($this->chipIdSelecionado)) {
-            throw ValidationException::withMessages(['data.chip_id_form' => $mensagem]);
-        }
-
-        if ($this->rastreadorSelecionadoEstaEmOutroVeiculoAtivo($rastreadorId)) {
-            $this->rastreadorIndisponivelDescricao = $this->descricaoRastreadorIndisponivel($rastreadorId);
-            $this->mountAction('rastreadorIndisponivel');
-            $this->halt();
-        }
-
-        if (! $this->transferenciaChipConfirmada && $this->chipSelecionadoEstaEmOutroRastreador($this->chipIdSelecionado, filled($data['rastreador_id'] ?? null) ? (int) $data['rastreador_id'] : null)) {
-            $this->transferenciaChipDescricao = $this->descricaoConfirmacaoChip($this->chipIdSelecionado, (int) $data['rastreador_id']);
-            $this->mountAction('confirmarTransferenciaChip');
-            $this->halt();
-        }
-
-        return $data;
-    }
-
-    public function rastreadorIndisponivelAction(): Action
-    {
-        return Action::make('rastreadorIndisponivel')
-            ->modalHeading('IMEI indisponivel')
-            ->modalDescription(fn (): string => $this->rastreadorIndisponivelDescricao ?? 'Este IMEI esta ativo em outro veiculo e nao pode ser utilizado neste cadastro.')
-            ->modalSubmitAction(false)
-            ->modalCancelActionLabel('Entendi');
-    }
-
-    public function confirmarTransferenciaChipAction(): Action
-    {
-        return Action::make('confirmarTransferenciaChip')
-            ->requiresConfirmation()
-            ->modalHeading('Chip ja vinculado')
-            ->modalDescription(fn (): string => $this->transferenciaChipDescricao ?? 'Este chip ja esta vinculado a outro IMEI. Deseja transferir o chip para o IMEI deste cadastro?')
-            ->modalSubmitActionLabel('Sim, transferir chip')
-            ->action(function (): void {
-                $this->transferenciaChipConfirmada = true;
-                $this->save();
-                $this->transferenciaChipConfirmada = false;
-            });
+        return RastreadorForm::removerCamposGerenciadosPelaOs($data);
     }
 
     protected function afterSave(): void
     {
-        EquipamentoStatusWorkflow::executar(fn () => $this->sincronizarChipRastreador());
-        $this->record->refresh();
-
         AuditLogger::registrar(
             'rastreador.editado',
             'Rastreador editado.',
@@ -168,7 +89,8 @@ class EditRastreador extends EditRecord
             antes: $this->rastreadorAntes,
             depois: AuditLogger::snapshot($this->record),
             contexto: [
-                'tecnico_id' => $this->record->tecnico_id,
+                'tecnico_instala_id' => $this->record->tecnico_instala_id,
+                'tecnico_remocao_id' => $this->record->tecnico_remocao_id,
                 'status_rastreador_id' => $this->record->status_rastreador_id,
             ],
         );
@@ -177,123 +99,5 @@ class EditRastreador extends EditRecord
     private function podeEditar(): bool
     {
         return auth()->user()?->hasPermission(Permission::CADASTRO_ESCRITA) ?? false;
-    }
-
-    private function sincronizarChipRastreador(): void
-    {
-        if ($this->record->rastreador_id === null || ! $this->record->isAtivo()) {
-            return;
-        }
-
-        if ($this->chipIdSelecionado !== null) {
-            Rastreador::query()
-                ->where('chip_id', $this->chipIdSelecionado)
-                ->where('id', '!=', $this->record->rastreador_id)
-                ->update(['chip_id' => null]);
-        }
-
-        $ativoId = StatusRastreador::query()
-            ->where('label', 'Ativo')
-            ->value('id');
-
-        if ($ativoId === null) {
-            return;
-        }
-
-        Rastreador::query()
-            ->whereKey($this->record->rastreador_id)
-            ->update([
-                'chip_id' => $this->chipIdSelecionado,
-                'tecnico_id' => null,
-                'status_rastreador_id' => $ativoId,
-            ]);
-
-        if ($this->chipIdSelecionado === null) {
-            return;
-        }
-
-        Chip::query()
-            ->whereKey($this->chipIdSelecionado)
-            ->update([
-                'tecnico_id' => null,
-                'status_rastreador_id' => $ativoId,
-            ]);
-    }
-
-    private function chipSelecionadoEstaEmOutroRastreador(?int $chipId = null, ?int $rastreadorId = null): bool
-    {
-        $chipId ??= $this->chipIdAtualDoFormulario();
-        $rastreadorId ??= $this->rastreadorIdAtualDoFormulario();
-
-        if ($chipId === null || $rastreadorId === null) {
-            return false;
-        }
-
-        return Rastreador::query()
-            ->where('chip_id', $chipId)
-            ->where('id', '!=', $rastreadorId)
-            ->exists();
-    }
-
-    private function rastreadorSelecionadoEstaEmOutroVeiculoAtivo(?int $rastreadorId): bool
-    {
-        if ($rastreadorId === null) {
-            return false;
-        }
-
-        return $this->outrosVeiculosAtivosComRastreador($rastreadorId)->exists();
-    }
-
-    private function descricaoRastreadorIndisponivel(?int $rastreadorId): string
-    {
-        $veiculo = $rastreadorId === null
-            ? null
-            : $this->outrosVeiculosAtivosComRastreador($rastreadorId)
-                ->with('cliente:id,nome')
-                ->first();
-
-        if ($veiculo === null) {
-            return 'Este IMEI esta ativo em outro veiculo e nao pode ser utilizado neste cadastro. Cancele primeiro o vinculo anterior para tornar o rastreador disponivel.';
-        }
-
-        $identificacao = trim($veiculo->veiculo.' / '.$veiculo->placa, ' /');
-        $cliente = $veiculo->cliente?->nome ?? 'cliente nao informado';
-
-        return "O IMEI esta ativo no veiculo {$identificacao} (cadastro #{$veiculo->id}), do cliente {$cliente}, e nao pode ser utilizado neste cadastro. Cancele primeiro o vinculo anterior para tornar o rastreador disponivel.";
-    }
-
-    private function outrosVeiculosAtivosComRastreador(int $rastreadorId)
-    {
-        return Veiculo::query()
-            ->whereKeyNot($this->record->getKey())
-            ->where('rastreador_id', $rastreadorId)
-            ->whereNull('data_exclusao')
-            ->where('status_rastreador_id', Veiculo::statusId('Ativo'));
-    }
-
-    private function descricaoConfirmacaoChip(?int $chipId = null, ?int $rastreadorId = null): string
-    {
-        $imei = Rastreador::query()
-            ->where('chip_id', $chipId ?? $this->chipIdAtualDoFormulario())
-            ->where('id', '!=', $rastreadorId ?? $this->rastreadorIdAtualDoFormulario())
-            ->value('imei');
-
-        return $imei
-            ? 'Este chip ja esta vinculado ao IMEI '.$imei.'. Deseja transferir o chip para o IMEI deste cadastro?'
-            : 'Este chip ja esta vinculado a outro IMEI. Deseja transferir o chip para o IMEI deste cadastro?';
-    }
-
-    private function chipIdAtualDoFormulario(): ?int
-    {
-        $chipId = data_get($this->form->getRawState(), 'chip_id_form');
-
-        return filled($chipId) ? (int) $chipId : null;
-    }
-
-    private function rastreadorIdAtualDoFormulario(): ?int
-    {
-        $rastreadorId = data_get($this->form->getRawState(), 'rastreador_id');
-
-        return filled($rastreadorId) ? (int) $rastreadorId : null;
     }
 }
