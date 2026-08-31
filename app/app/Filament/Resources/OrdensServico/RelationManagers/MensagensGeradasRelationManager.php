@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\OrdensServico\RelationManagers;
 
 use App\Models\OrdemServicoNotificacao;
+use Filament\Actions\Action;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
@@ -40,7 +41,6 @@ class MensagensGeradasRelationManager extends RelationManager
                 TextColumn::make('mensagem')
                     ->label('Mensagem')
                     ->limit(80)
-                    ->tooltip(fn (OrdemServicoNotificacao $record): string => $record->mensagem)
                     ->wrap()
                     ->width('18rem'),
                 TextColumn::make('link_tecnico')
@@ -73,6 +73,20 @@ class MensagensGeradasRelationManager extends RelationManager
                         : null)
                     ->tooltip(fn (OrdemServicoNotificacao $record): ?string => $record->erro)
                     ->badge(),
+            ])
+            ->recordActions([
+                Action::make('lerMensagem')
+                    ->label('Leia mais')
+                    ->icon(Heroicon::OutlinedChatBubbleLeftEllipsis)
+                    ->color('gray')
+                    ->modalHeading('Mensagem enviada')
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Fechar')
+                    ->modalWidth('lg')
+                    ->modalContent(fn (OrdemServicoNotificacao $record) => view(
+                        'filament.resources.ordens-servico.mensagem-gerada',
+                        ['mensagem' => $record->mensagem],
+                    )),
             ])
             ->defaultSort('created_at', 'desc');
     }

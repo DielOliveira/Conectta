@@ -1,0 +1,1 @@
+<div style="white-space: pre-wrap; overflow-wrap: anywhere; border: 1px solid #e5e7eb; border-radius: 12px; background: #f8fafc; padding: 16px; color: #172033; font-size: 14px; line-height: 1.6;">{{ $mensagem }}</div>

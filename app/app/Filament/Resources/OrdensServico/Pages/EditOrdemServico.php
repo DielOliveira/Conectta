@@ -14,11 +14,19 @@ use Filament\Resources\Pages\EditRecord;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Validation\ValidationException;
 
 class EditOrdemServico extends EditRecord
 {
     protected static string $resource = OrdemServicoResource::class;
+
+    public function getSubheading(): string | Htmlable | null
+    {
+        return view('filament.resources.ordens-servico.status-badge', [
+            'status' => $this->record->status,
+        ]);
+    }
 
     protected function getHeaderActions(): array
     {

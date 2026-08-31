@@ -250,7 +250,9 @@ class OrdemServicoFlowTest extends TestCase
         $this->assertStringContainsString('Olá, Outros', $ordem->notificacoes()->where('destinatario_tipo', 'tecnico')->firstOrFail()->mensagem);
 
         Livewire::test(EditOrdemServico::class, ['record' => $ordem->getRouteKey()])
-            ->assertSee('Outros — José da Silva');
+            ->assertSee('Outros — José da Silva')
+            ->assertSee('ct-os-status-badge', false)
+            ->assertSee('Enviada');
         Livewire::test(AgendaOrdensServico::class)
             ->set('data', '2026-08-04')
             ->assertSee('Outros — José da Silva');
