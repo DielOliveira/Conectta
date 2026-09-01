@@ -6,14 +6,11 @@ use App\Filament\Resources\Rastreadores\Pages\ListRastreadores;
 use App\Filament\Resources\Rastreadores\RastreadorResource;
 use App\Models\Permission;
 use App\Models\Veiculo;
-use App\Services\Veiculo\VeiculoCancelamentoService;
 use App\Services\Veiculo\VeiculoExclusaoService;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
-use Filament\Forms\Components\Textarea;
-use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -65,26 +62,6 @@ class RastreadoresTable
                     ->label(fn (): string => auth()->user()?->hasPermission(Permission::CADASTRO_ESCRITA) ? 'Editar' : 'Ver')
                     ->icon(fn (): Heroicon => auth()->user()?->hasPermission(Permission::CADASTRO_ESCRITA) ? Heroicon::PencilSquare : Heroicon::OutlinedEye)
                     ->url(fn (Veiculo $record): string => RastreadorResource::getUrl('edit', ['record' => $record])),
-                Action::make('cancelar')
-                    ->label('Cancelar')
-                    ->icon(Heroicon::OutlinedXCircle)
-                    ->color('danger')
-                    ->visible(fn (Veiculo $record): bool => $record->isAtivo()
-                        && (auth()->user()?->hasPermission(Permission::CADASTRO_EXCLUSAO) ?? false))
-                    ->modalHeading('Cancelar veículo sem retirada')
-                    ->modalDescription('O veículo será cancelado e o rastreador e o chip serão enviados ao técnico Lixo. Nenhuma retirada será registrada.')
-                    ->modalSubmitActionLabel('Cancelar veículo')
-                    ->schema([
-                        Textarea::make('motivo')
-                            ->label('Motivo do cancelamento')
-                            ->required()
-                            ->maxLength(5000)
-                            ->rows(4),
-                    ])
-                    ->action(function (Veiculo $record, array $data): void {
-                        app(VeiculoCancelamentoService::class)->cancelarSemRetirada($record, $data['motivo'], auth()->user());
-                        Notification::make()->title('Veículo cancelado sem retirada.')->success()->send();
-                    }),
                 DeleteAction::make()
                     ->label('Excluir')
                     ->visible(fn (): bool => auth()->user()?->hasPermission(Permission::CADASTRO_EXCLUSAO) ?? false)

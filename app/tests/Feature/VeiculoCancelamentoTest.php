@@ -4,7 +4,6 @@ namespace Tests\Feature;
 
 use App\Enums\OrdemServicoStatus;
 use App\Filament\Resources\Rastreadores\Pages\EditRastreador;
-use App\Filament\Resources\Rastreadores\Pages\ListRastreadores;
 use App\Models\AuditLog;
 use App\Models\Chip;
 use App\Models\Cliente;
@@ -100,14 +99,14 @@ class VeiculoCancelamentoTest extends TestCase
         ]);
     }
 
-    public function test_botao_da_lista_exige_motivo_e_executa_cancelamento_sem_retirada(): void
+    public function test_botao_do_formulario_exige_motivo_e_executa_cancelamento_sem_retirada(): void
     {
         [$operador, , $veiculo] = $this->cenarioAtivo();
         $this->actingAs($operador);
 
-        Livewire::test(ListRastreadores::class)
-            ->callTableAction('cancelar', $veiculo, ['motivo' => 'Cliente encerrou o vínculo.'])
-            ->assertHasNoTableActionErrors();
+        Livewire::test(EditRastreador::class, ['record' => $veiculo->getRouteKey()])
+            ->callAction('cancelar', ['motivo' => 'Cliente encerrou o vínculo.'])
+            ->assertHasNoActionErrors();
 
         $this->assertSame('Cancelado', $veiculo->refresh()->statusRastreador->label);
         $this->assertSame('Cliente encerrou o vínculo.', $veiculo->motivo_cancelamento);
