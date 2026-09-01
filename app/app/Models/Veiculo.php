@@ -27,6 +27,9 @@ use Illuminate\Validation\ValidationException;
     'imei',
     'data_instalacao',
     'data_retirada',
+    'motivo_cancelamento',
+    'cancelado_em',
+    'cancelado_por',
     'login',
     'senha',
     'tecnico_remocao',
@@ -49,6 +52,7 @@ class Veiculo extends Model
         return [
             'data_instalacao' => 'date',
             'data_retirada' => 'date',
+            'cancelado_em' => 'datetime',
             'data_exclusao' => 'datetime',
             'valor_instalacao' => 'decimal:2',
         ];
@@ -112,6 +116,11 @@ class Veiculo extends Model
     public function tecnicoRemocao(): BelongsTo
     {
         return $this->belongsTo(Tecnico::class, 'tecnico_remocao_id');
+    }
+
+    public function canceladoPor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'cancelado_por');
     }
 
     public function contratos(): HasMany

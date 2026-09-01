@@ -8,6 +8,7 @@ use App\Models\Rastreador;
 use App\Models\StatusRastreador;
 use App\Models\Veiculo;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -20,7 +21,7 @@ use Illuminate\Support\HtmlString;
 class RastreadorForm
 {
     /**
-     * Campos de vínculo e movimentação cuja origem exclusiva é a ordem de serviço.
+     * Campos de vínculo, movimentação e cancelamento controlados pelos fluxos do sistema.
      *
      * @var array<int, string>
      */
@@ -32,6 +33,9 @@ class RastreadorForm
         'tecnico_remocao_id',
         'data_retirada',
         'status_rastreador_id',
+        'motivo_cancelamento',
+        'cancelado_em',
+        'cancelado_por',
     ];
 
     public static function configure(Schema $schema): Schema
@@ -184,6 +188,32 @@ class RastreadorForm
                                 ->formatStateUsing(fn ($state): ?string => self::formatTelefone($state))
                                 ->maxLength(50)
                                 ->columnSpan(5),
+                        ]),
+                    ])
+                    ->columnSpanFull(),
+                Section::make('Cancelamento sem retirada')
+                    ->visible(fn (?Veiculo $record): bool => filled($record?->cancelado_em))
+                    ->schema([
+                        Grid::make(12)->schema([
+                            Textarea::make('motivo_cancelamento')
+                                ->label('Motivo do cancelamento')
+                                ->disabled()
+                                ->dehydrated(false)
+                                ->rows(3)
+                                ->columnSpan(12),
+                            DateTimePicker::make('cancelado_em')
+                                ->label('Cancelado em')
+                                ->displayFormat('d/m/Y H:i')
+                                ->native(false)
+                                ->disabled()
+                                ->dehydrated(false)
+                                ->columnSpan(6),
+                            Select::make('cancelado_por')
+                                ->label('Cancelado por')
+                                ->relationship('canceladoPor', 'name')
+                                ->disabled()
+                                ->dehydrated(false)
+                                ->columnSpan(6),
                         ]),
                     ])
                     ->columnSpanFull(),

@@ -7,12 +7,15 @@ use App\Filament\Resources\Rastreadores\Schemas\RastreadorForm;
 use App\Models\Permission;
 use App\Models\Veiculo;
 use App\Services\Audit\AuditLogger;
+use App\Services\Veiculo\VeiculoCancelamentoService;
 use App\Services\Veiculo\VeiculoExclusaoService;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
+use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 
 class EditRastreador extends EditRecord
 {
@@ -30,6 +33,27 @@ class EditRastreador extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('cancelar')
+                ->label('Cancelar')
+                ->icon(Heroicon::OutlinedXCircle)
+                ->color('danger')
+                ->visible(fn (): bool => $this->record->isAtivo()
+                    && (auth()->user()?->hasPermission(Permission::CADASTRO_EXCLUSAO) ?? false))
+                ->modalHeading('Cancelar veículo sem retirada')
+                ->modalDescription('O veículo será cancelado e o rastreador e o chip serão enviados ao técnico Lixo. Nenhuma retirada será registrada.')
+                ->modalSubmitActionLabel('Cancelar veículo')
+                ->schema([
+                    Textarea::make('motivo')
+                        ->label('Motivo do cancelamento')
+                        ->required()
+                        ->maxLength(5000)
+                        ->rows(4),
+                ])
+                ->action(function (array $data): void {
+                    app(VeiculoCancelamentoService::class)->cancelarSemRetirada($this->record, $data['motivo'], auth()->user());
+                    Notification::make()->title('Veículo cancelado sem retirada.')->success()->send();
+                    $this->redirect(static::getResource()::getUrl('index'));
+                }),
             DeleteAction::make()
                 ->label('Excluir')
                 ->using(function (Veiculo $record): bool {
