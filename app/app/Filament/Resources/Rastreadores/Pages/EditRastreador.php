@@ -37,7 +37,7 @@ class EditRastreador extends EditRecord
                 ->visible(fn (): bool => $this->record->isAtivo()
                     && (auth()->user()?->hasPermission(Permission::CADASTRO_EXCLUSAO) ?? false))
                 ->modalHeading('Cancelar veículo sem retirada')
-                ->modalDescription('O veículo será cancelado e o rastreador e o chip serão enviados ao técnico Lixo. Nenhuma retirada será registrada.')
+                ->modalDescription("O veículo será cancelado e o rastreador e o chip serão enviados ao técnico 'Lixo'.")
                 ->modalSubmitActionLabel('Cancelar veículo')
                 ->schema([
                     Textarea::make('motivo')
