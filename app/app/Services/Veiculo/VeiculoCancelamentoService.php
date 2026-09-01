@@ -12,13 +12,14 @@ use App\Services\Audit\AuditLogger;
 use App\Services\Estoque\EquipamentoStatusWorkflow;
 use App\Services\OrdemServico\OrdemServicoService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
 class VeiculoCancelamentoService
 {
     public function __construct(private readonly OrdemServicoService $ordensServico) {}
 
-    public function cancelarSemRetirada(Veiculo $registro, string $motivo, User $operador): void
+    public function cancelarSemRetirada(Veiculo $registro, string $motivo, string $dataRetirada, User $operador): void
     {
         $motivo = trim($motivo);
 
@@ -28,7 +29,17 @@ class VeiculoCancelamentoService
             ]);
         }
 
-        DB::transaction(function () use ($registro, $motivo, $operador): void {
+        $dataRetirada = Validator::make(
+            ['data_retirada' => $dataRetirada],
+            ['data_retirada' => ['required', 'date_format:Y-m-d', 'before_or_equal:today']],
+            [
+                'data_retirada.required' => 'Informe a data de retirada.',
+                'data_retirada.date_format' => 'Informe uma data de retirada válida.',
+                'data_retirada.before_or_equal' => 'A data de retirada não pode estar no futuro.',
+            ],
+        )->validate()['data_retirada'];
+
+        DB::transaction(function () use ($registro, $motivo, $dataRetirada, $operador): void {
             $veiculo = Veiculo::query()
                 ->withTrashed()
                 ->lockForUpdate()
@@ -83,6 +94,7 @@ class VeiculoCancelamentoService
                 ->whereKey($veiculo->id)
                 ->update([
                     'status_rastreador_id' => $canceladoId,
+                    'data_retirada' => $dataRetirada,
                     'motivo_cancelamento' => $motivo,
                     'cancelado_em' => now(),
                     'cancelado_por' => $operador->id,
@@ -110,6 +122,7 @@ class VeiculoCancelamentoService
                 depois: AuditLogger::snapshot($veiculo),
                 contexto: [
                     'motivo' => $motivo,
+                    'data_retirada' => $dataRetirada,
                     'equipamento_destino' => $equipamentoCompartilhado ? 'preservado_em_veiculo_ativo' : 'tecnico_lixo',
                     'ordens_canceladas' => $ordensAtivas->pluck('id')->all(),
                 ],

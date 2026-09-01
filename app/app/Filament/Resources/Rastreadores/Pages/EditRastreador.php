@@ -8,6 +8,7 @@ use App\Models\Permission;
 use App\Services\Audit\AuditLogger;
 use App\Services\Veiculo\VeiculoCancelamentoService;
 use Filament\Actions\Action;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
@@ -40,6 +41,13 @@ class EditRastreador extends EditRecord
                 ->modalDescription("O veículo será cancelado e o rastreador e o chip serão enviados ao técnico 'Lixo'.")
                 ->modalSubmitActionLabel('Cancelar veículo')
                 ->schema([
+                    DatePicker::make('data_retirada')
+                        ->label('Data de retirada')
+                        ->default(today())
+                        ->maxDate(today())
+                        ->displayFormat('d/m/Y')
+                        ->native(false)
+                        ->required(),
                     Textarea::make('motivo')
                         ->label('Motivo do cancelamento')
                         ->required()
@@ -47,7 +55,12 @@ class EditRastreador extends EditRecord
                         ->rows(4),
                 ])
                 ->action(function (array $data): void {
-                    app(VeiculoCancelamentoService::class)->cancelarSemRetirada($this->record, $data['motivo'], auth()->user());
+                    app(VeiculoCancelamentoService::class)->cancelarSemRetirada(
+                        $this->record,
+                        $data['motivo'],
+                        $data['data_retirada'],
+                        auth()->user(),
+                    );
                     Notification::make()->title('Veículo cancelado sem retirada.')->success()->send();
                     $this->redirect(static::getResource()::getUrl('index'));
                 }),

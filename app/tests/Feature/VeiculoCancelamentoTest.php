@@ -54,6 +54,7 @@ class VeiculoCancelamentoTest extends TestCase
         app(VeiculoCancelamentoService::class)->cancelarSemRetirada(
             $veiculo,
             'Rompimento comercial solicitado pelo cliente.',
+            '2026-08-31',
             $operador,
         );
 
@@ -65,7 +66,7 @@ class VeiculoCancelamentoTest extends TestCase
         $this->assertSame('Rompimento comercial solicitado pelo cliente.', $veiculo->motivo_cancelamento);
         $this->assertNotNull($veiculo->cancelado_em);
         $this->assertSame($operador->id, $veiculo->cancelado_por);
-        $this->assertNull($veiculo->data_retirada);
+        $this->assertSame('2026-08-31', $veiculo->data_retirada?->format('Y-m-d'));
         $this->assertNull($veiculo->tecnico_remocao_id);
         $this->assertSame($rastreador->id, $veiculo->rastreador_id);
         $this->assertSame($chip->id, $rastreador->chip_id);
@@ -105,7 +106,10 @@ class VeiculoCancelamentoTest extends TestCase
         $this->actingAs($operador);
 
         Livewire::test(EditRastreador::class, ['record' => $veiculo->getRouteKey()])
-            ->callAction('cancelar', ['motivo' => 'Cliente encerrou o vínculo.'])
+            ->callAction('cancelar', [
+                'data_retirada' => '2026-08-31',
+                'motivo' => 'Cliente encerrou o vínculo.',
+            ])
             ->assertHasNoActionErrors();
 
         $this->assertSame('Cancelado', $veiculo->refresh()->statusRastreador->label);
@@ -132,7 +136,12 @@ class VeiculoCancelamentoTest extends TestCase
         ]);
 
         $this->actingAs($operador);
-        app(VeiculoCancelamentoService::class)->cancelarSemRetirada($veiculo, 'Encerramento do vínculo.', $operador);
+        app(VeiculoCancelamentoService::class)->cancelarSemRetirada(
+            $veiculo,
+            'Encerramento do vínculo.',
+            '2026-08-31',
+            $operador,
+        );
 
         $this->assertSame('Ativo', $rastreador->refresh()->statusRastreador->label);
         $this->assertNull($rastreador->tecnico_id);

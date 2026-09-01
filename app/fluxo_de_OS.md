@@ -524,6 +524,20 @@ Na finalizacao de uma instalacao, o IMEI do rastreador e o chip informados no at
 
 IMEI, chip, instalador, tecnico de remocao, data de retirada e status do rastreador no veiculo possuem a OS como origem operacional exclusiva. Em `Cadastro > Rastreadores`, esses campos permanecem visiveis somente para consulta, nao sao enviados no salvamento comum e nao podem movimentar estoque. A protecao tambem descarta esses atributos no servidor caso o estado do formulario seja manipulado.
 
+Excecao para rompimento sem retirada fisica:
+
+- No formulario de edicao do veiculo, a acao `Cancelar Rastreador` permite encerrar o vinculo comercial sem criar ou finalizar uma OS de retirada.
+- A acao exige o motivo e a data de retirada; a data pode ser anterior ao dia do registro, mas nao pode estar no futuro.
+- A data informada e gravada em `veiculos.data_retirada` como a data operacional do cancelamento, mesmo sem retirada fisica por tecnico.
+- `veiculos.tecnico_remocao_id` permanece vazio, pois nenhum tecnico realizou a retirada.
+- O veiculo passa para `Cancelado`, preservando os vinculos historicos com rastreador e chip.
+- O rastreador e o chip passam para `Cancelado` e ficam atribuidos ao tecnico cadastrado como `Lixo`; eles nao retornam ao estoque `Disponivel`.
+- O motivo, a data/hora do registro e o usuario responsavel ficam gravados no veiculo e na auditoria.
+- As OS ativas do veiculo sao canceladas com o motivo informado; OS finalizadas permanecem inalteradas.
+- Se outro veiculo ativo compartilhar o mesmo rastreador por anomalia legada, o equipamento nao e movimentado.
+- O cliente passa para `Inativo` somente quando nao possuir outro veiculo ativo.
+- O botao existe apenas no formulario de edicao e exige `Cadastro_Exclusao`; a exclusao do veiculo permanece disponivel somente na lista.
+
 Na finalizacao de uma retirada, o veiculo passa para `Cancelado` e preserva o vinculo com o rastreador como historico. O rastreador e o chip passam para `Disponivel` e ficam atribuidos ao tecnico que executou a OS.
 
 Observacao tecnica ja conhecida no sistema: o chip e vinculado ao rastreador por `rastreadores.chip_id`; novas regras nao devem usar o campo legado `veiculos.chip_id`.
