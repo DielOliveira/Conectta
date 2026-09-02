@@ -8,6 +8,7 @@ use App\Models\AuditLog;
 use App\Models\Chip;
 use App\Models\Cliente;
 use App\Models\OrdemServico;
+use App\Models\Permission;
 use App\Models\Rastreador;
 use App\Models\StatusCliente;
 use App\Models\StatusRastreador;
@@ -17,6 +18,7 @@ use App\Models\Veiculo;
 use App\Services\Estoque\EquipamentoStatusWorkflow;
 use App\Services\Veiculo\VeiculoCancelamentoService;
 use Database\Seeders\ClienteSupportSeeder;
+use Database\Seeders\PermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
@@ -103,6 +105,13 @@ class VeiculoCancelamentoTest extends TestCase
     public function test_botao_do_formulario_exige_motivo_e_executa_cancelamento_sem_retirada(): void
     {
         [$operador, , $veiculo] = $this->cenarioAtivo();
+        $operador->update(['is_admin' => false]);
+        $this->seed(PermissionSeeder::class);
+        $operador->permissions()->attach(
+            Permission::query()
+                ->whereIn('nome', [Permission::CADASTRO_LEITURA, Permission::CADASTRO_ESCRITA])
+                ->pluck('id'),
+        );
         $this->actingAs($operador);
 
         Livewire::test(EditRastreador::class, ['record' => $veiculo->getRouteKey()])

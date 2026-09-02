@@ -36,7 +36,7 @@ class EditRastreador extends EditRecord
                 ->icon(Heroicon::OutlinedXCircle)
                 ->color('danger')
                 ->visible(fn (): bool => $this->record->isAtivo()
-                    && (auth()->user()?->hasPermission(Permission::CADASTRO_EXCLUSAO) ?? false))
+                    && $this->podeEditar())
                 ->modalHeading('Cancelar veículo sem retirada')
                 ->modalDescription("O veículo será cancelado e o rastreador e o chip serão enviados ao técnico 'Lixo'.")
                 ->modalSubmitActionLabel('Cancelar veículo')
@@ -55,6 +55,8 @@ class EditRastreador extends EditRecord
                         ->rows(4),
                 ])
                 ->action(function (array $data): void {
+                    abort_unless($this->podeEditar(), 403);
+
                     app(VeiculoCancelamentoService::class)->cancelarSemRetirada(
                         $this->record,
                         $data['motivo'],
