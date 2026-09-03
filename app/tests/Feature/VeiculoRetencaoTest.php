@@ -170,6 +170,31 @@ class VeiculoRetencaoTest extends TestCase
         ]);
     }
 
+    public function test_botao_retencao_exibe_o_motivo_quando_a_operacao_e_bloqueada(): void
+    {
+        [$operador, $clienteAnterior, $novoCliente, $veiculo] = $this->cenarioAtivo();
+        OrdemServico::query()->create([
+            'numero' => 1,
+            'tipo' => 'manutencao',
+            'status' => OrdemServicoStatus::ABERTA,
+            'cliente_id' => $clienteAnterior->id,
+            'veiculo_id' => $veiculo->id,
+            'endereco' => 'Rua de teste, 1',
+            'descricao' => 'O.S. ativa',
+        ]);
+        $this->actingAs($operador);
+
+        Livewire::test(EditRastreador::class, ['record' => $veiculo->getRouteKey()])
+            ->callAction('retencao', [
+                'novo_cliente_id' => $novoCliente->id,
+                'data_retencao' => '2026-09-03',
+            ])
+            ->assertNotified('Não foi possível realizar a retenção.');
+
+        $this->assertSame('Ativo', $veiculo->fresh()->statusRastreador->label);
+        $this->assertSame(1, Veiculo::query()->count());
+    }
+
     private function cenarioAtivo(): array
     {
         $this->seed(ClienteSupportSeeder::class);

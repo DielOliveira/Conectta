@@ -17,6 +17,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Validation\ValidationException;
 
 class EditRastreador extends EditRecord
 {
@@ -63,15 +64,28 @@ class EditRastreador extends EditRecord
                         ->native(false)
                         ->required(),
                 ])
-                ->action(function (array $data): void {
+                ->action(function (array $data, Action $action): void {
                     abort_unless($this->podeEditar(), 403);
 
-                    $novoVeiculo = app(VeiculoRetencaoService::class)->reter(
-                        $this->record,
-                        (int) $data['novo_cliente_id'],
-                        $data['data_retencao'],
-                        auth()->user(),
-                    );
+                    try {
+                        $novoVeiculo = app(VeiculoRetencaoService::class)->reter(
+                            $this->record,
+                            (int) $data['novo_cliente_id'],
+                            $data['data_retencao'],
+                            auth()->user(),
+                        );
+                    } catch (ValidationException $exception) {
+                        Notification::make()
+                            ->title('Não foi possível realizar a retenção.')
+                            ->body((string) collect($exception->errors())->flatten()->first())
+                            ->danger()
+                            ->persistent()
+                            ->send();
+                        $action->halt();
+
+                        return;
+                    }
+
                     Notification::make()->title('Retenção realizada com sucesso.')->success()->send();
                     $this->redirect(static::getResource()::getUrl('edit', ['record' => $novoVeiculo]));
                 }),
