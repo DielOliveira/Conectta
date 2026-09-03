@@ -29,6 +29,7 @@
 - Em producao, comecar por diagnostico. Antes de qualquer saneamento, confirmar alvos, impacto, backup e autorizacao.
 - Mudancas de dados em producao devem ser protegidas por pre-condicoes, preferencialmente transacionais, auditadas e validadas depois.
 - Nao confiar em commits, migrations ou estados descritos em historicos como se fossem atuais; verificar Git, banco e VPS no momento da tarefa.
+- Toda alteracao de regra funcional deve atualizar o `AGENTS.md` na mesma tarefa, sem pedir confirmacao adicional. Ao concluir, informar explicitamente ao usuario que a regra alterada foi anotada no arquivo.
 
 ## Comandos Essenciais
 
@@ -180,6 +181,8 @@ Principio: conter, diagnosticar, preservar evidencias, corrigir de forma reversi
 - Chips pertencem ao rastreador por `rastreadores.chip_id`; nao usar o legado `veiculos.chip_id` em novas regras.
 - Um rastreador pode estar em no maximo um veiculo ativo. Um chip pode estar em no maximo um rastreador.
 - Clientes com frota podem ter varios rastreadores; nao bloquear por cliente.
+- Em `Cadastro > Rastreadores`, a acao `Cancelar Rastreador` para veiculo ativo exige `Cadastro_Escrita`; nao exige `Cadastro_Exclusao`. Admin continua com acesso total.
+- Em `Cadastro > Rastreadores`, a acao `Retencao` transfere um veiculo ativo para outro cliente criando um novo vinculo ativo e preservando o anterior como cancelado. Exige rastreador e chip ativos, data de hoje ou anterior e ausencia de OS ativa; o tecnico de remocao do vinculo anterior e `Retencao`, a data de instalacao do novo vinculo e a data da retencao, todos os demais dados sao copiados e os equipamentos nao sao movimentados.
 - A exclusao de veiculo e logica (`veiculos.data_exclusao`), libera placa e preserva historicos. Cancela transacionalmente OS ativas; OS finalizadas/canceladas nao mudam.
 - Ao excluir ou cancelar veiculo, liberar rastreador/chip somente se nenhum outro veiculo ativo usar o rastreador.
 - Ao cancelar diretamente, rastreador e chip ficam `Disponivel` com o tecnico da remocao.

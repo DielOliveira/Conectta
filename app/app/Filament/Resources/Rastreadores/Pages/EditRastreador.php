@@ -4,11 +4,14 @@ namespace App\Filament\Resources\Rastreadores\Pages;
 
 use App\Filament\Resources\Rastreadores\RastreadorResource;
 use App\Filament\Resources\Rastreadores\Schemas\RastreadorForm;
+use App\Models\Cliente;
 use App\Models\Permission;
 use App\Services\Audit\AuditLogger;
 use App\Services\Veiculo\VeiculoCancelamentoService;
+use App\Services\Veiculo\VeiculoRetencaoService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
@@ -31,6 +34,47 @@ class EditRastreador extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('retencao')
+                ->label('Retenção')
+                ->icon(Heroicon::OutlinedArrowRightCircle)
+                ->color('warning')
+                ->visible(fn (): bool => $this->record->isAtivo()
+                    && $this->podeEditar())
+                ->modalHeading('Transferir veículo por retenção')
+                ->modalDescription('O vínculo atual será cancelado e um novo vínculo será criado para o cliente selecionado. Rastreador e chip permanecerão ativos.')
+                ->modalSubmitActionLabel('Realizar retenção')
+                ->schema([
+                    Select::make('novo_cliente_id')
+                        ->label('Novo cliente')
+                        ->options(fn (): array => Cliente::query()
+                            ->whereNull('data_exclusao')
+                            ->whereKeyNot($this->record->cliente_id)
+                            ->orderBy('nome')
+                            ->pluck('nome', 'id')
+                            ->all())
+                        ->searchable()
+                        ->preload()
+                        ->required(),
+                    DatePicker::make('data_retencao')
+                        ->label('Data da retenção')
+                        ->default(today())
+                        ->maxDate(today())
+                        ->displayFormat('d/m/Y')
+                        ->native(false)
+                        ->required(),
+                ])
+                ->action(function (array $data): void {
+                    abort_unless($this->podeEditar(), 403);
+
+                    $novoVeiculo = app(VeiculoRetencaoService::class)->reter(
+                        $this->record,
+                        (int) $data['novo_cliente_id'],
+                        $data['data_retencao'],
+                        auth()->user(),
+                    );
+                    Notification::make()->title('Retenção realizada com sucesso.')->success()->send();
+                    $this->redirect(static::getResource()::getUrl('edit', ['record' => $novoVeiculo]));
+                }),
             Action::make('cancelar')
                 ->label('Cancelar Rastreador')
                 ->icon(Heroicon::OutlinedXCircle)
