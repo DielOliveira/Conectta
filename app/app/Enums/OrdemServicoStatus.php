@@ -15,6 +15,7 @@ enum OrdemServicoStatus: string implements HasColor
     case EM_CONFERENCIA = 'em_conferencia';
     case PENDENTE = 'pendente';
     case FINALIZADA = 'finalizada';
+    case IMPRODUTIVA = 'improdutiva';
     case CANCELADA = 'cancelada';
 
     public function label(): string
@@ -23,7 +24,7 @@ enum OrdemServicoStatus: string implements HasColor
             self::ABERTA => 'Aberta', self::ENVIADA => 'Enviada', self::ACEITA => 'Aceita',
             self::EM_ATENDIMENTO => 'Em atendimento', self::AGUARDANDO_CORRECAO_CADASTRAL => 'Aguardando correção cadastral',
             self::EM_CONFERENCIA => 'Em conferência', self::PENDENTE => 'Pendente',
-            self::FINALIZADA => 'Finalizada', self::CANCELADA => 'Cancelada',
+            self::FINALIZADA => 'Finalizada', self::IMPRODUTIVA => 'Improdutiva', self::CANCELADA => 'Cancelada',
         };
     }
 
@@ -38,11 +39,12 @@ enum OrdemServicoStatus: string implements HasColor
             self::EM_CONFERENCIA => Color::Indigo,
             self::PENDENTE => Color::Red,
             self::FINALIZADA => Color::Green,
+            self::IMPRODUTIVA => Color::Amber,
         };
     }
 
     public function isFinal(): bool
     {
-        return in_array($this, [self::FINALIZADA, self::CANCELADA], true);
+        return in_array($this, [self::FINALIZADA, self::IMPRODUTIVA, self::CANCELADA], true);
     }
 }

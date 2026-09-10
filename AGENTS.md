@@ -180,6 +180,7 @@ Principio: conter, diagnosticar, preservar evidencias, corrigir de forma reversi
 - `Cadastro > Rastreadores` lista `veiculos`; `Estoque > Rastreadores` lista a tabela `rastreadores`.
 - Chips pertencem ao rastreador por `rastreadores.chip_id`; nao usar o legado `veiculos.chip_id` em novas regras.
 - Um rastreador pode estar em no maximo um veiculo ativo. Um chip pode estar em no maximo um rastreador.
+- Para identificar veiculos ativos, usar o status `Ativo`, preferencialmente pelo escopo `Veiculo::ativos()`. Nunca tratar apenas `data_exclusao` vazia como indicacao de atividade, pois veiculos cancelados podem permanecer sem exclusao logica para preservar o historico.
 - Clientes com frota podem ter varios rastreadores; nao bloquear por cliente.
 - Em `Cadastro > Rastreadores`, a acao `Cancelar Rastreador` para veiculo ativo exige `Cadastro_Escrita`; nao exige `Cadastro_Exclusao`. Admin continua com acesso total.
 - Em `Cadastro > Rastreadores`, a acao `Retencao` transfere um veiculo ativo para outro cliente criando um novo vinculo ativo e preservando o anterior como cancelado. Exige rastreador e chip ativos, data de hoje ou anterior e ausencia de OS ativa; o tecnico de remocao do vinculo anterior e `Retencao`, a data de instalacao do novo vinculo e a data da retencao, todos os demais dados sao copiados e os equipamentos nao sao movimentados. Todo bloqueio da retencao deve ser exibido ao operador em notificacao persistente, nunca falhar silenciosamente.
@@ -223,6 +224,7 @@ Principio: conter, diagnosticar, preservar evidencias, corrigir de forma reversi
 - Menu `Ordens de Servico`: Ordens de servico, Disponibilidades e Agenda de OS.
 - Permissoes: `OS_Leitura` e `OS_Escrita`.
 - Uma OS ativa por veiculo; OS nao e excluida definitivamente. Tipo, cliente e veiculo ficam bloqueados apos criacao.
+- Quando o tecnico comparecer mas o atendimento nao puder ser realizado, ele pode solicitar visita `Improdutiva` a partir de `Em atendimento`, informando motivo e ao menos uma foto. A central confere e aprova; `Improdutiva` e status final e pagavel por definicao, libera nova OS para o veiculo e nao movimenta nem altera rastreador, chip ou dados operacionais do veiculo. Nao ha campo de valor ou pagamento nesta fase.
 - Disponibilidades usam blocos de uma hora; atribuicao ocorre exclusivamente pelo calendario e gera link publico protegido por token.
 - Tecnico `Outros` exige `nome_tecnico_externo`; o vinculo operacional continua no cadastro `Outros`.
 - Campos de workflow nao podem ser sobrescritos pelo salvamento comum do formulario.

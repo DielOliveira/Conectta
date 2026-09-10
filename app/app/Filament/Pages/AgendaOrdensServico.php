@@ -204,6 +204,7 @@ class AgendaOrdensServico extends Page
             OrdemServicoStatus::EM_CONFERENCIA => 'status-em-conferencia',
             OrdemServicoStatus::PENDENTE => 'status-pendente',
             OrdemServicoStatus::FINALIZADA => 'status-finalizada',
+            OrdemServicoStatus::IMPRODUTIVA => 'status-improdutiva',
             OrdemServicoStatus::CANCELADA => 'status-cancelada',
         };
     }

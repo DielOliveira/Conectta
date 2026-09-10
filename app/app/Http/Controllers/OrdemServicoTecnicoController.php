@@ -72,6 +72,26 @@ class OrdemServicoTecnicoController extends Controller
             $this->armazenarFotos($ordem, $request->file('fotos', []), $fotoStorage);
             $ordem->update(['status' => OrdemServicoStatus::AGUARDANDO_CORRECAO_CADASTRAL]);
             $ordem->historicos()->create(['evento' => 'divergencia_cadastral', 'status_anterior' => $anterior->value, 'status_novo' => OrdemServicoStatus::AGUARDANDO_CORRECAO_CADASTRAL->value, 'tecnico_id' => $ordem->tecnico_id, 'observacao' => $request->string('observacao')]);
+        } elseif ($acao === 'improdutiva') {
+            $request->validate(
+                [
+                    'motivo_improdutividade' => ['required', Rule::in(['cliente_ausente', 'cliente_nao_respondeu', 'endereco_nao_localizado', 'cliente_recusou', 'veiculo_indisponivel', 'outro'])],
+                    'descricao_improdutividade' => ['nullable', 'string', 'max:3000', Rule::requiredIf($request->input('motivo_improdutividade') === 'outro')],
+                    'fotos' => ['required', 'array', 'min:1', 'max:4'],
+                    'fotos.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+                ],
+                $this->mensagensValidacaoFotos(),
+            );
+            abort_unless(in_array($ordem->status, [OrdemServicoStatus::EM_ATENDIMENTO, OrdemServicoStatus::PENDENTE], true), 409);
+            if ($ordem->fotos()->count() + count($request->file('fotos', [])) > 4) {
+                return back()->withErrors(['fotos' => 'A OS aceita no máximo quatro fotos.']);
+            }
+            $this->armazenarFotos($ordem, $request->file('fotos', []), $fotoStorage);
+            $service->solicitarImprodutividade(
+                $ordem->fresh(),
+                $request->string('motivo_improdutividade')->toString(),
+                $request->string('descricao_improdutividade')->toString(),
+            );
         } elseif ($acao === 'conferencia') {
             if (is_string($request->input('local_instalacao'))) {
                 $request->merge(['local_instalacao' => trim($request->input('local_instalacao'))]);

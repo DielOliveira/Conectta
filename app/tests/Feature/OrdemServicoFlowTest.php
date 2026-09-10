@@ -998,6 +998,53 @@ class OrdemServicoFlowTest extends TestCase
         $this->assertSame($statusDisponivel->id, $chip->fresh()->status_rastreador_id);
     }
 
+    public function test_visita_improdutiva_e_aprovada_sem_movimentar_equipamentos(): void
+    {
+        [$operador, $cliente, $veiculo, $tecnico] = $this->cenarioBase();
+        $statusAtivo = StatusRastreador::query()->where('label', 'Ativo')->firstOrFail();
+        $chip = Chip::query()->create([
+            'numero_chip' => '5562999990019',
+            'iccid' => '89550000000000000019',
+            'status_rastreador_id' => $statusAtivo->id,
+        ]);
+        $rastreador = Rastreador::query()->create([
+            'imei' => '860000000000019',
+            'chip_id' => $chip->id,
+            'status_rastreador_id' => $statusAtivo->id,
+        ]);
+        EquipamentoStatusWorkflow::executar(function () use ($rastreador, $chip, $statusAtivo): void {
+            $rastreador->update(['status_rastreador_id' => $statusAtivo->id]);
+            $chip->update(['status_rastreador_id' => $statusAtivo->id]);
+        });
+        $veiculo->update(['rastreador_id' => $rastreador->id, 'status_rastreador_id' => $statusAtivo->id]);
+
+        $dados = $this->dadosOrdem($cliente, $veiculo);
+        $dados['tipo'] = 'manutencao';
+        $ordem = app(OrdemServicoService::class)->criar($dados, $operador)['ordem'];
+        $ordem->update(['tecnico_id' => $tecnico->id, 'status' => OrdemServicoStatus::EM_ATENDIMENTO]);
+        $ordem->fotos()->create([
+            'caminho' => 'ordens-servico/teste/improdutiva.jpg',
+            'nome_original' => 'improdutiva.jpg',
+            'mime_type' => 'image/jpeg',
+            'tamanho' => 100,
+        ]);
+
+        app(OrdemServicoService::class)->solicitarImprodutividade($ordem->fresh(), 'cliente_nao_respondeu', 'Três tentativas de contato.');
+        $this->assertSame(OrdemServicoStatus::EM_CONFERENCIA, $ordem->fresh()->status);
+
+        app(OrdemServicoService::class)->finalizar($ordem->fresh(), $operador);
+
+        $ordem->refresh();
+        $this->assertSame(OrdemServicoStatus::IMPRODUTIVA, $ordem->status);
+        $this->assertSame('cliente_nao_respondeu', $ordem->motivo_improdutividade);
+        $this->assertNotNull($ordem->improdutiva_em);
+        $this->assertSame($operador->id, $ordem->improdutiva_por);
+        $this->assertSame($rastreador->id, $veiculo->fresh()->rastreador_id);
+        $this->assertSame($statusAtivo->id, $veiculo->status_rastreador_id);
+        $this->assertSame($statusAtivo->id, $rastreador->fresh()->status_rastreador_id);
+        $this->assertSame($statusAtivo->id, $chip->fresh()->status_rastreador_id);
+    }
+
     public function test_migration_restaura_vinculo_historico_de_retirada_antiga(): void
     {
         CarbonImmutable::setTestNow('2026-08-20 16:00:00');

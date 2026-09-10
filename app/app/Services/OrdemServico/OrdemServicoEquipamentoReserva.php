@@ -115,6 +115,6 @@ class OrdemServicoEquipamentoReserva
 
     private static function statusFinais(): array
     {
-        return [OrdemServicoStatus::FINALIZADA->value, OrdemServicoStatus::CANCELADA->value];
+        return [OrdemServicoStatus::FINALIZADA->value, OrdemServicoStatus::IMPRODUTIVA->value, OrdemServicoStatus::CANCELADA->value];
     }
 }

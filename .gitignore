@@ -1,6 +1,7 @@
 *.log
 *.pid
 .DS_Store
+*:Zone.Identifier
 
 app/.env
 app/.env.*
@@ -20,3 +21,7 @@ app/vendor/
 
 payloads-whatsapp/
 tmp/
+
+# Materiais financeiros locais; não são necessários na aplicação/VPS.
+docs/*.xlsx
+docs/fluxo-financeiro.md

@@ -185,6 +185,29 @@ class OrdemServicoService
         $this->notificacoes->registrarPendenciaTecnico($ordem->refresh(), $motivo);
     }
 
+    public function solicitarImprodutividade(OrdemServico $ordem, string $motivo, ?string $descricao = null): void
+    {
+        if (! in_array($ordem->status, [OrdemServicoStatus::EM_ATENDIMENTO, OrdemServicoStatus::PENDENTE], true)) {
+            throw ValidationException::withMessages(['status' => 'A ordem não está disponível para informar visita improdutiva.']);
+        }
+        $motivos = ['cliente_ausente', 'cliente_nao_respondeu', 'endereco_nao_localizado', 'cliente_recusou', 'veiculo_indisponivel', 'outro'];
+        if (! in_array($motivo, $motivos, true)) {
+            throw ValidationException::withMessages(['motivo_improdutividade' => 'Selecione um motivo válido.']);
+        }
+        if ($motivo === 'outro' && blank(trim((string) $descricao))) {
+            throw ValidationException::withMessages(['descricao_improdutividade' => 'Descreva o motivo da visita improdutiva.']);
+        }
+        if ($ordem->fotos()->count() < 1) {
+            throw ValidationException::withMessages(['fotos' => 'Envie pelo menos uma foto que comprove a visita.']);
+        }
+
+        $this->transicionarTecnico($ordem, $ordem->status, OrdemServicoStatus::EM_CONFERENCIA, 'solicitacao_improdutividade', [
+            'motivo_improdutividade' => $motivo,
+            'descricao_improdutividade' => trim((string) $descricao) ?: null,
+            'termino_tecnico_em' => now(),
+        ], trim((string) $descricao) ?: $motivo);
+    }
+
     public function cancelarAgendamento(OrdemServico $ordem, User $operador): void
     {
         DB::transaction(function () use ($ordem, $operador): void {
@@ -218,6 +241,17 @@ class OrdemServicoService
             $ordem = OrdemServico::query()->with(['veiculo', 'rastreadorNovo'])->lockForUpdate()->findOrFail($ordem->id);
             if ($ordem->status !== OrdemServicoStatus::EM_CONFERENCIA) {
                 throw ValidationException::withMessages(['status' => 'A ordem não está em conferência.']);
+            }
+            if (filled($ordem->motivo_improdutividade)) {
+                $ordem->update([
+                    'status' => OrdemServicoStatus::IMPRODUTIVA,
+                    'improdutiva_em' => now(),
+                    'improdutiva_por' => $operador->id,
+                    'token_invalidado_em' => now(),
+                ]);
+                $this->historico($ordem, 'improdutividade_aprovada', OrdemServicoStatus::EM_CONFERENCIA, OrdemServicoStatus::IMPRODUTIVA, $operador);
+
+                return;
             }
             if ($ordem->tipo !== OrdemServicoTipo::RETIRADA) {
                 $ordem->update([

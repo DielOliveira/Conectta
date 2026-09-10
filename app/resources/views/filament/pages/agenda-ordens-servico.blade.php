@@ -10,6 +10,7 @@
 .os-appointment.status-em-conferencia,.os-slot.status-em-conferencia{border-color:#c7d2fe;border-left-color:#4f46e5;background:#eef2ff;color:#3730a3}
 .os-appointment.status-pendente,.os-slot.status-pendente{border-color:#fecaca;border-left-color:#dc2626;background:#fef2f2;color:#991b1b}
 .os-appointment.status-finalizada,.os-slot.status-finalizada{border-color:#bbf7d0;border-left-color:#16a34a;background:#f0fdf4;color:#166534}
+.os-appointment.status-improdutiva,.os-slot.status-improdutiva{border-color:#fde68a;border-left-color:#d97706;background:#fffbeb;color:#92400e}
 .os-appointment.status-cancelada,.os-slot.status-cancelada{border-color:#d1d5db;border-left-color:#4b5563;background:#f3f4f6;color:#4b5563}
 .os-slot.busy .os-week-appointment{color:inherit}
 </style>

@@ -17,7 +17,7 @@
         'aberta' => 'status-gray', 'enviada' => 'status-blue', 'aceita' => 'status-green',
         'em_atendimento' => 'status-amber', 'aguardando_correcao_cadastral' => 'status-red',
         'em_conferencia' => 'status-purple', 'pendente' => 'status-red',
-        'finalizada' => 'status-green', 'cancelada' => 'status-gray',
+        'finalizada' => 'status-green', 'improdutiva' => 'status-amber', 'cancelada' => 'status-gray',
     ];
     $modoCriacao = old('modo', $modoAgenda);
     $tipoCriacao = old('tipo', 'disponibilidade');

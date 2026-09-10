@@ -18,9 +18,13 @@ class OrdemServicoFotoArquivoService
 
         OrdemServicoFoto::query()
             ->whereHas('ordemServico', fn ($query) => $query
-                ->where('status', 'finalizada')
-                ->whereNotNull('finalizada_em')
-                ->where('finalizada_em', '<=', $limite))
+                ->where(function ($query) use ($limite): void {
+                    $query->where(function ($query) use ($limite): void {
+                        $query->where('status', 'finalizada')->whereNotNull('finalizada_em')->where('finalizada_em', '<=', $limite);
+                    })->orWhere(function ($query) use ($limite): void {
+                        $query->where('status', 'improdutiva')->whereNotNull('improdutiva_em')->where('improdutiva_em', '<=', $limite);
+                    });
+                }))
             ->where('caminho', 'not like', $this->prefixoRemoto().'%')
             ->orderBy('id')
             ->limit(max(1, $quantidade))

@@ -8,6 +8,7 @@
         \App\Enums\OrdemServicoStatus::EM_CONFERENCIA => ['#eef2ff', '#c7d2fe', '#3730a3', '#4f46e5'],
         \App\Enums\OrdemServicoStatus::PENDENTE => ['#fef2f2', '#fecaca', '#991b1b', '#dc2626'],
         \App\Enums\OrdemServicoStatus::FINALIZADA => ['#f0fdf4', '#bbf7d0', '#166534', '#16a34a'],
+        \App\Enums\OrdemServicoStatus::IMPRODUTIVA => ['#fffbeb', '#fde68a', '#92400e', '#d97706'],
         \App\Enums\OrdemServicoStatus::CANCELADA => ['#f3f4f6', '#d1d5db', '#4b5563', '#4b5563'],
     };
 @endphp

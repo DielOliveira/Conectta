@@ -145,6 +145,10 @@ class OrdemServicoResource extends Resource
                 OrdemServicoTipo::INSTALACAO,
                 OrdemServicoTipo::MANUTENCAO,
             ], true))->columnSpanFull(),
+            Section::make('Visita improdutiva')->schema([
+                Placeholder::make('motivo_improdutividade_consulta')->label('Motivo')->content(fn (?OrdemServico $record): string => str((string) $record?->motivo_improdutividade)->replace('_', ' ')->title()->toString()),
+                Placeholder::make('descricao_improdutividade_consulta')->label('Descrição')->content(fn (?OrdemServico $record): string => $record?->descricao_improdutividade ?: 'Não informada'),
+            ])->visible(fn (?OrdemServico $record): bool => filled($record?->motivo_improdutividade))->columnSpanFull(),
             Section::make('Equipamentos vinculados ao veículo')
                 ->description(fn (?OrdemServico $record): string => $record?->status === OrdemServicoStatus::EM_CONFERENCIA
                     ? 'Confira os equipamentos que ficarão vinculados ao veículo após a aprovação da OS.'
@@ -165,7 +169,7 @@ class OrdemServicoResource extends Resource
                 ->visible(fn (?OrdemServico $record): bool => $record !== null && in_array($record->status, [
                     OrdemServicoStatus::EM_CONFERENCIA,
                     OrdemServicoStatus::FINALIZADA,
-                ], true))
+                ], true) && blank($record->motivo_improdutividade))
                 ->columnSpanFull(),
             Section::make('Conferência da central')->schema([
                 Grid::make(3)->schema([

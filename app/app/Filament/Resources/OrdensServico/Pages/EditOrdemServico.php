@@ -21,7 +21,7 @@ class EditOrdemServico extends EditRecord
 {
     protected static string $resource = OrdemServicoResource::class;
 
-    public function getSubheading(): string | Htmlable | null
+    public function getSubheading(): string|Htmlable|null
     {
         return view('filament.resources.ordens-servico.status-badge', [
             'status' => $this->record->status,
@@ -53,16 +53,16 @@ class EditOrdemServico extends EditRecord
                     app(OrdemServicoService::class)->marcarPendente($this->record, $data['motivo'], auth()->user());
                     $this->refreshFormData(['status', 'motivo_pendencia']);
                 }),
-            Action::make('finalizar')->label('Aprovar e finalizar')->icon(Heroicon::OutlinedCheckCircle)->color('success')
+            Action::make('finalizar')->label(fn (): string => filled($this->record->motivo_improdutividade) ? 'Aprovar improdutiva' : 'Aprovar e finalizar')->icon(Heroicon::OutlinedCheckCircle)->color('success')
                 ->visible($podeEscrever && $this->record->status === OrdemServicoStatus::EM_CONFERENCIA)
-                ->schema(fn (): array => $this->record->tipo->value === 'retirada' ? [] : [
+                ->schema(fn (): array => $this->record->tipo->value === 'retirada' || filled($this->record->motivo_improdutividade) ? [] : [
                     ToggleButtons::make('check_funcionamento')->label('Funcionamento do equipamento')->options([1 => 'Conferido', 0 => 'Não conferido'])->inline()->grouped()->required()->rules(['accepted'])
                         ->validationMessages(['accepted' => 'Confirme o funcionamento do equipamento para finalizar.']),
                     ToggleButtons::make('check_pos_chave')->label('Pós-chave')->options([1 => 'Conferido', 0 => 'Não conferido'])->inline()->grouped()->required()->rules(['accepted'])
                         ->validationMessages(['accepted' => 'Confirme o pós-chave para finalizar.']),
                     ToggleButtons::make('check_bloqueio')->label('Bloqueio do veículo')->options(['conferido' => 'Conferido', 'nao_se_aplica' => 'Não se aplica'])->inline()->grouped()->required(),
                 ])->modalWidth(Width::Medium)
-                ->modalSubmitActionLabel('Aprovar e finalizar')
+                ->modalSubmitActionLabel(fn (): string => filled($this->record->motivo_improdutividade) ? 'Aprovar improdutiva' : 'Aprovar e finalizar')
                 ->action(function (array $data): void {
                     try {
                         app(OrdemServicoService::class)->finalizar($this->record, auth()->user(), $data);
@@ -77,7 +77,7 @@ class EditOrdemServico extends EditRecord
                         throw $exception;
                     }
 
-                    Notification::make()->title('Ordem finalizada.')->success()->send();
+                    Notification::make()->title(filled($this->record->motivo_improdutividade) ? 'Visita improdutiva aprovada.' : 'Ordem finalizada.')->success()->send();
                     $this->redirect(OrdemServicoResource::getUrl());
                 }),
             Action::make('cancelar')->label('Cancelar OS')->icon(Heroicon::OutlinedXCircle)->color('danger')
