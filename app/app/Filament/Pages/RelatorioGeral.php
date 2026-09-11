@@ -6,6 +6,7 @@ use App\Models\Invoice;
 use App\Models\Lancamento;
 use App\Models\Permission;
 use App\Models\StatusCliente;
+use App\Support\BoletoStatus;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
@@ -157,42 +158,16 @@ class RelatorioGeral extends Page
 
     public function statusBoletos(): array
     {
-        return Invoice::query()
+        return BoletoStatus::opcoes(Invoice::query()
             ->whereNotNull('status')
             ->where('status', '<>', '')
             ->distinct()
-            ->pluck('status')
-            ->map(fn (string $status): array => [
-                'value' => $status,
-                'label' => $this->statusBoletoLabel($status),
-            ])
-            ->sortBy('label')
-            ->values()
-            ->all();
+            ->pluck('status'));
     }
 
     public function statusBoletoLabel(?string $status): string
     {
-        $status = trim((string) $status);
-
-        if ($status === '') {
-            return '';
-        }
-
-        $key = str($status)
-            ->lower()
-            ->ascii()
-            ->replace(['-', ' '], '_')
-            ->toString();
-
-        return match ($key) {
-            'paid', 'pago' => 'Pago',
-            'canceled', 'cancelled', 'cancelado' => 'Cancelado',
-            'overdue', 'late', 'atrasado' => 'Atrasado',
-            'processing', 'processando' => 'Processando',
-            'waiting_payment', 'waitingpayment', 'waiting', 'pending', 'aguardando_pagamento' => 'Aguardando Pagamento',
-            default => str($status)->headline()->toString(),
-        };
+        return BoletoStatus::label($status);
     }
 
     public function moeda(mixed $valor): string
@@ -239,7 +214,7 @@ class RelatorioGeral extends Page
                 $query->whereHas('cliente.statusCliente', fn (Builder $query): Builder => $query->where('label', $label));
             })
             ->when($this->numeroBoleto !== '', fn (Builder $query): Builder => $query->where('lancamentos.numero_boleto', $this->numeroBoleto))
-            ->when($this->statusBoleto !== '', fn (Builder $query): Builder => $query->where('invoices.status', $this->statusBoleto))
+            ->when($this->statusBoleto !== '', fn (Builder $query): Builder => $query->whereIn('invoices.status', BoletoStatus::valoresDoFiltro($this->statusBoleto)))
             ->orderBy('clientes.dia_pagamento');
     }
 

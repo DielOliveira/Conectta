@@ -153,6 +153,7 @@ ssh -F /dev/null -i ~/.ssh/conectta_vps -o IdentitiesOnly=yes root@191.252.200.1
 - `Historico` fica dentro do Financeiro e nao no menu. Export CSV respeita filtros e os dois meses exibidos.
 - Modal de lancamento salva com Enter, preserva/preenche data e mostra loading ao gerar boleto.
 - Boleto Lytex grava `numero_boleto = Lytex`; vencimentos 30/31 respeitam o ultimo dia do mes.
+- Os filtros de status de boleto em `Boletos` e `Relatorio Geral` exibem uma unica opcao por situacao e incluem na consulta todas as variantes historicas em portugues e ingles.
 - Historico financeiro usa `audit_logs` e mostra somente alteracoes de `valor_efetivado` ou `data_lancamento` nas acoes financeiras suportadas.
 - Logs antigos podem nao possuir `Total Antes` e `Total Depois` no contexto.
 
